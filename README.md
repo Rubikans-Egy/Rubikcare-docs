@@ -137,7 +137,7 @@
 | 15 | 13-clean-architecture-enforcement.md | https://raw.githubusercontent.com/Rubikans-Egy/Rubikcare-docs/main/docs/13-clean-architecture-enforcement.md |
 | 16 | **14-caching-system.md** ⭐ | https://raw.githubusercontent.com/Rubikans-Egy/Rubikcare-docs/main/docs/14-caching-system.md |
 | 17 | appendix-a-glossary.md | https://raw.githubusercontent.com/Rubikans-Egy/Rubikcare-docs/main/docs/appendix-a-glossary.md |
-
+| 18 |15-mobile-translation-system.md | https://github.com/Rubikans-Egy/Rubikcare-docs/blob/main/docs/15-mobile-translation-system.md |
 ---
 
 © 2026 RubikCare - للاستخدام الداخلي
