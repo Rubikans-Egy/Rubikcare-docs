@@ -1,6 +1,8 @@
+## 📝 ملف `04-dynamic-menus.md` بعد التحديث:
+
 # 04 - نظام القوائم الديناميكية (Dynamic Menu System)
 
-**آخر تحديث: 17 مايو 2026**
+**آخر تحديث: 24 مايو 2026**
 
 ---
 
@@ -163,210 +165,51 @@ public class MenuAssignment
 
 ---
 
-## DynamicMenuService - قلب النظام
+## DynamicMenuService - قلب النظام (⭐ محدث - 24 مايو 2026)
 
-### لماذا هذه الخدمة؟
+### ⚠️ تغيير مهم: إزالة الكاش المحلي
 
-بدون `DynamicMenuService`، كنا سنضطر لكتابة استعلامات معقدة في كل صفحة لجلب القوائم المناسبة لكل مستخدم. هذه الخدمة:
-- **توحد** منطق جلب القوائم في مكان واحد
-- **تحسن الأداء** باستخدام الـ Caching
-- **تضمن الأمان** بعدم كشف قوائم لا تخص المستخدم
+**اعتباراً من 24 مايو 2026:** تمت إزالة `IMemoryCache` من `DynamicMenuService`. إدارة الكاش أصبحت مركزية بالكامل في `UserSessionService` (راجع [14 - نظام الكاش الموحد](14-caching-system.md)).
 
-### الكود الكامل
+**الموقع:** `Rubikcare.Web/Data/Services/Navigation/DynamicMenuService.cs`
 
-```csharp
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Memory;
-using Rubikcare.Web.Data.Models;
+**الوظائف الرئيسية:**
+- `GetUserMenuAsync(ClaimsPrincipal user)` - جلب قوائم المستخدم (بدون كاش)
+- `GetMenuDataAsync(ClaimsPrincipal user)` - جلب بيانات القوائم المنفصلة (شخصية، Admin، مؤسسات)
+- `GetOrganizationMenuFromDatabaseAsync(int organizationId)` - جلب قوائم مؤسسة محددة
+- `ClearCacheAsync(string userId)` - **دالة فارغة (no-op)** - تم نقل مسؤولية الكاش لـ `UserSessionService`
 
-namespace Rubikcare.Web.Data.Services
-{
-    public class DynamicMenuService
-    {
-        private readonly IDbContextFactory<BusinessDbContext> _dbContextFactory;
-        private readonly UserContextService _userContext;
-        private readonly IMemoryCache _cache;
-        private readonly ILogger<DynamicMenuService> _logger;
+**الاعتماديات:**
+- `IDbContextFactoryService` - للوصول لقاعدة البيانات
+- `UserContextService` - لجلب بيانات المستخدم
+- `ILogger<DynamicMenuService>` - للتسجيل
 
-        public DynamicMenuService(
-            IDbContextFactory<BusinessDbContext> dbContextFactory,
-            UserContextService userContext,
-            IMemoryCache cache,
-            ILogger<DynamicMenuService> logger)
-        {
-            _dbContextFactory = dbContextFactory;
-            _userContext = userContext;
-            _cache = cache;
-            _logger = logger;
-        }
-
-        /// <summary>
-        /// ⭐ الوظيفة الرئيسية: جلب القوائم المناسبة للمستخدم الحالي
-        /// </summary>
-        public async Task<List<MenuItem>> GetUserMenuAsync(ClaimsPrincipal user)
-        {
-            var cacheKey = $"UserMenu_{user.Identity?.Name}";
-            
-            // ⭐ محاولة الاسترجاع من الكاش أولاً (أداء أفضل)
-            if (_cache.TryGetValue(cacheKey, out List<MenuItem> cachedMenu))
-            {
-                _logger.LogDebug("Returning menu from cache for user: {User}", user.Identity?.Name);
-                return cachedMenu;
-            }
-
-            await using var context = await _dbContextFactory.CreateDbContextAsync();
-            
-            try
-            {
-                // 1. الحصول على معلومات المستخدم
-                var userProfileId = await _userContext.GetCurrentUserProfileIdAsync(user);
-                var roles = await _userContext.GetUserRolesAsync(user);
-                var organizationIds = await _userContext.GetUserOrganizationIdsAsync(user);
-
-                // 2. البحث في MenuAssignments بجميع المعايير الأربعة
-                var assignments = await context.MenuAssignments
-                    .Include(ma => ma.SystemMenu)
-                        .ThenInclude(m => m.MenuItems)
-                    .Where(ma => ma.IsActive && 
-                        (ma.ExpiryDate == null || ma.ExpiryDate > DateTime.UtcNow) &&
-                        (
-                            (ma.UserProfileID == userProfileId) ||
-                            (ma.RoleId != null && roles.Contains(ma.RoleId)) ||
-                            (ma.OrganizationID != null && organizationIds.Contains(ma.OrganizationID.Value)) ||
-                            (ma.OrganizationTypeID != null && 
-                             await _userContext.HasOrganizationTypeAsync(user, ma.OrganizationTypeID.Value))
-                        ))
-                    .ToListAsync();
-
-                // 3. تجميع عناصر القوائم (مع إزالة التكرار)
-                var menuItems = assignments
-                    .SelectMany(a => a.SystemMenu.MenuItems.Where(mi => mi.IsActive))
-                    .OrderBy(mi => mi.SortOrder)
-                    .DistinctBy(mi => mi.ItemID)
-                    .ToList();
-
-                // 4. تخزين في الكاش (لمدة 5 دقائق)
-                _cache.Set(cacheKey, menuItems, TimeSpan.FromMinutes(5));
-                
-                _logger.LogInformation("Menu loaded for user {User}: {Count} items", 
-                    user.Identity?.Name, menuItems.Count);
-                    
-                return menuItems;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error loading dynamic menu for user {User}", 
-                    user.Identity?.Name);
-                throw;
-            }
-        }
-
-        /// <summary>
-        /// ⭐ جلب قوائم مؤسسة محددة (عند التبديل بين التبويبات)
-        /// </summary>
-        public async Task<List<MenuItem>> GetOrganizationMenuAsync(int organizationId)
-        {
-            await using var context = await _dbContextFactory.CreateDbContextAsync();
-            
-            return await context.MenuItems
-                .Include(mi => mi.SystemMenu)
-                .Where(mi => mi.IsActive && 
-                       mi.SystemMenu.MenuAssignments.Any(ma => 
-                           ma.IsActive && 
-                           ma.OrganizationID == organizationId))
-                .OrderBy(mi => mi.SortOrder)
-                .ToListAsync();
-        }
-
-        /// <summary>
-        /// ⭐ جلب جميع المؤسسات التي للمستخدم فيها قوائم
-        /// </summary>
-        public async Task<List<Organization>> GetUserOrganizationsWithMenusAsync(int userProfileId)
-        {
-            await using var context = await _dbContextFactory.CreateDbContextAsync();
-            
-            var userOrgs = await context.OrgMemberships
-                .Where(om => om.UserProfileID == userProfileId && 
-                       om.IsActive && 
-                       (om.EndDate == null || om.EndDate > DateTime.UtcNow))
-                .Select(om => om.Organization)
-                .ToListAsync();
-
-            var orgsWithMenus = userOrgs
-                .Where(o => context.MenuAssignments.Any(ma => 
-                    ma.IsActive && ma.OrganizationID == o.OrganizationID))
-                .ToList();
-
-            return orgsWithMenus;
-        }
-    }
-}
-```
-
-### تسجيل الخدمة في Program.cs
-
-```csharp
-builder.Services.AddScoped<DynamicMenuService>();
-builder.Services.AddMemoryCache();  // ⭐ ضروري للـ Caching
-```
+**ملاحظة:** `DynamicMenuService` تُستخدم فقط في تطبيق Blazor Web. تطبيق الموبايل يستخدم `UserSessionService` مباشرة.
 
 ---
 
-## كيف يعمل فصل القوائم الثلاثة؟ (الابتكار الرئيسي)
+## InteractiveMenu.razor - واجهة المستخدم (الويب)
 
-### القاعدة الذهبية
-
-```sql
--- في جدول MenuAssignments، القاعدة هي:
--- OrganizationID = NULL    ← قائمة عامة (شخصية)
--- OrganizationID = 1       ← قائمة إدارة (لمؤسسة روبيك كير)
--- OrganizationID = 5       ← قائمة مؤسسة (لشركة ديفارت لاب)
-```
-
-### مثال حي: المستخدم 12 (shadyelzaher@devartlab.com)
-
-```sql
--- هذا المستخدم له:
--- الدور: Admin
--- العضويات: 
---   - مالك في "شركة ديفارت لاب" (OrganizationID: 5)
---   - عضو في "منصة روبيك كير" (OrganizationID: 1)
-```
-
-**النتيجة عند تسجيل الدخول:**
-
-```mermaid
-graph LR
-    A[تسجيل الدخول] --> B[التبويب 1: القائمة الشخصية]
-    A --> C[التبويب 2: إدارة منصة RubikCare]
-    A --> D[التبويب 3: شركة ديفارت لاب للادوية]
-```
-
----
-
-## InteractiveMenu.razor - واجهة المستخدم
-
-### تدفق المكون
+### تدفق المكون (محدث)
 
 ```mermaid
 sequenceDiagram
     actor User
     participant IM as InteractiveMenu
+    participant USS as UserSessionService
     participant DMS as DynamicMenuService
-    participant UC as UserContextService
 
     User->>IM: فتح الصفحة
-    IM->>UC: GetCurrentUserAsync
-    UC-->>IM: User + UserProfile
-    IM->>DMS: GetUserMenuAsync
-    DMS-->>IM: كل القوائم
-    IM->>IM: فصل القوائم حسب المصدر
-    IM-->>User: عرض التبويبات
-    User->>IM: تبديل التبويب
-    IM->>DMS: GetOrganizationMenuAsync
+    IM->>USS: GetUserSessionAsync(user)
+    USS-->>IM: UserSessionData (من الكاش أو جديد)
+    IM->>IM: عرض القوائم من session.MenuData
+    User->>IM: تبديل المؤسسة
+    IM->>DMS: GetOrganizationMenuAsync(orgId)
     DMS-->>IM: قائمة المؤسسة
     IM-->>User: عرض القائمة الجديدة
 ```
+
+**تغيير مهم:** `InteractiveMenu.razor` الآن يعتمد على `UserSessionService` للحصول على بيانات القوائم (عبر `session.MenuData`)، وليس على `DynamicMenuService` مباشرة.
 
 ---
 
@@ -418,9 +261,9 @@ HAVING COUNT(*) > 1;
 ### 🔴 ممنوعات مطلقة
 
 1. **لا تستخدم `DbContext` مباشرة في `DynamicMenuService`.** استخدم `DbContextFactory`.
-2. **لا تهمل الـ Caching.** بدونها، كل طلب صفحة سيؤدي لاستعلامات قاعدة بيانات متعددة.
-3. **لا تضع `OrganizationID = 0` للقوائم العامة.** استخدم `NULL` كما هو موثق.
-4. **لا تكرر نفس القائمة لنفس المستخدم بطرق متعددة.**
+2. **لا تضع `OrganizationID = 0` للقوائم العامة.** استخدم `NULL` كما هو موثق.
+3. **لا تكرر نفس القائمة لنفس المستخدم بطرق متعددة.**
+4. **لا تضف `IMemoryCache` لـ `DynamicMenuService`** - الكاش مركزي في `UserSessionService`.
 
 ### 🟡 أخطاء شائعة وحلولها
 
@@ -428,8 +271,8 @@ HAVING COUNT(*) > 1;
 |----------|-------|-------|
 | القائمة لا تظهر لبعض المستخدمين | `MenuAssignment` غير مضبوط | تحقق من `UserProfileID`, `RoleId`, `OrganizationID` |
 | القائمة تظهر لمن لا يجب أن تظهر له | عدم تحديد `OrganizationID` بشكل صحيح | تأكد من أن `OrganizationID = NULL` للقوائم العامة فقط |
-| أداء بطيء في تحميل القوائم | عدم استخدام الـ Caching | أضف `IMemoryCache` واستخدمه في `GetUserMenuAsync` |
-| زر الرجوع لا يعمل | مشكلة في `StateHasChanged()` | تأكد من استدعاء `StateHasChanged()` بعد تغيير `_activeTab` |
+| منظمات المستخدم لا تظهر في الموبايل | `AppShellViewModel` لم يُستدعَ | تأكد من استدعاء `appShell.RefreshUserDataAsync()` من `DashboardPage.OnAppearing` |
+| ظهور بيانات المستخدم السابق | الكاش لم يُمسح عند Logout | استخدم `ClearUserCacheUseCase` في `AuthController.Logout` |
 
 ---
 
@@ -465,6 +308,5 @@ HAVING COUNT(*) > 1;
 - [01 - Program.cs والتسجيلات الأساسية](01-program-cs-foundation.md)
 - [02 - نظام الهوية والمصادقة](02-identity-system.md)
 - [05 - إنشاء الصفحات والمكونات](05-page-creation-checklist.md)
+- [14 - نظام الكاش الموحد](14-caching-system.md) ⭐ جديد
 ```
-
---
