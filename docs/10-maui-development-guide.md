@@ -1,6 +1,8 @@
+## 📝 ملف `10-maui-development-guide.md` بعد التحديث:
+
 # 10 - دليل تطوير MAUI
 
-**آخر تحديث: 17 مايو 2026**
+**آخر تحديث: 24 مايو 2026**
 
 ---
 
@@ -21,9 +23,8 @@ RubikCare.Mobile/
 ├── Features/                           # الميزات مقسمة حسب المجال
 │   ├── Auth/
 │   │   ├── Views/
-│   │   │   ├── LoginPage.xaml
-│   │   │   ├── RegisterPage.xaml
-│   │   │   └── ProRolePage.xaml
+│   │   │   ├── LoginView.xaml
+│   │   │   └── RegisterPage.xaml
 │   │   └── ViewModels/
 │   │       ├── LoginViewModel.cs
 │   │       └── RegisterViewModel.cs
@@ -46,26 +47,28 @@ RubikCare.Mobile/
 │   │       │   └── VerifyTokenPage.xaml
 │   │       └── ViewModels/
 │   │
-│   └── Profile/
-│       ├── Views/
-│       │   └── ProfilePage.xaml
-│       └── ViewModels/
+│   ├── PublicUser/
+│   │   ├── Views/
+│   │   │   ├── DashboardPage.xaml
+│   │   │   └── ProfilePage.xaml
+│   │   └── ViewModels/
+│   │       ├── DashboardPageViewModel.cs
+│   │       └── AppShellViewModel.cs
+│   │
+│   └── Shared/
+│       └── Views/ (صفحات مشتركة)
 │
-├── Services/                           # خدمات التطبيق
-│   ├── ApiService.cs                   # التواصل مع Api.Web
-│   ├── AuthService.cs                  # المصادقة وإدارة التوكن
-│   ├── NavigationService.cs            # التنقل بين الصفحات
-│   └── AppStateService.cs              # حالة التطبيق المشتركة
+├── Infrastructure/
+│   └── Services/
+│       ├── ApiService.cs               # التواصل مع Api.Web
+│       ├── AuthService.cs              # المصادقة وإدارة التوكن
+│       ├── CachedUserSessionService.cs # ⭐ كاش الجلسة المحلي
+│       └── AppStateService.cs          # حالة التطبيق المشتركة
 │
-├── Models/                             # نماذج محلية
-│   ├── User.cs
-│   ├── PspProgram.cs
-│   └── ApiResponse.cs
+├── ViewModels/
+│   └── AppShellViewModel.cs            # ⭐ ViewModel القائمة الجانبية
 │
-├── Helpers/                            # دوال مساعدة
-│   ├── SecureStorageHelper.cs
-│   └── ConnectivityHelper.cs
-│
+├── Converters/                         # محولات XAML
 ├── Resources/                          # موارد التطبيق
 │   ├── Fonts/
 │   ├── Images/
@@ -74,6 +77,86 @@ RubikCare.Mobile/
 └── Platforms/                          # كود خاص بكل منصة
     ├── Android/
     └── iOS/
+```
+
+---
+
+## إدارة الجلسات والكاش في الموبايل (⭐ جديد - 24 مايو 2026)
+
+### نظرة عامة
+
+إدارة الجلسات في الموبايل تعتمد على **ثلاث طبقات**:
+
+| الطبقة | المسؤول | الموقع |
+|--------|---------|--------|
+| **الخادم** | `UserSessionService` (Application) | Api.Web |
+| **محلي** | `CachedUserSessionService` | الموبايل |
+| **تخزين آمن** | `SecureStorage` | الموبايل |
+
+### CachedUserSessionService
+
+**المسار:** `RubikCare.Mobile/Infrastructure/Services/CachedUserSessionService.cs`
+
+**الوظائف الرئيسية:**
+- `GetSessionAsync()` - جلب الجلسة من الكاش المحلي أو من API
+- `RefreshSessionAsync()` - تحديث الجلسة من `POST api/user/session-bootstrap`
+- `ClearSessionAsync()` - **⭐ مسح الكاش المحلي (يجب استدعاؤها عند Logout)**
+- `IsSessionValidAsync()` - التحقق من صلاحية الجلسة
+
+### AppShellViewModel
+
+**المسار:** `RubikCare.Mobile/ViewModels/AppShellViewModel.cs`
+
+**الوظائف الرئيسية:**
+- `LoadUserDataAsync()` - تحميل بيانات المستخدم ومنظماته
+- `LogoutAsync()` - تسجيل الخروج ومسح جميع البيانات
+- `NavigateToOrganization(org)` - التنقل لمنظمة محددة
+
+**⚠️ نقطة حرجة:** `AppShellViewModel.LoadUserDataAsync()` يجب أن تُستدعى صراحة من `DashboardPage.OnAppearing`:
+
+```csharp
+// في DashboardPage.xaml.cs
+protected override async void OnAppearing()
+{
+    base.OnAppearing();
+    
+    // ⭐ تحديث القائمة الجانبية
+    if (Shell.Current is AppShell appShell)
+    {
+        await appShell.RefreshUserDataAsync();
+    }
+    
+    // تحميل بيانات Dashboard
+    if (BindingContext is DashboardPageViewModel vm)
+    {
+        await vm.LoadUserDataAsync();
+    }
+}
+```
+
+### AuthService - المصادقة والخروج
+
+**المسار:** `RubikCare.Mobile/Infrastructure/Services/AuthService.cs`
+
+**تسلسل Logout الصحيح:**
+```csharp
+public async Task LogoutAsync()
+{
+    // 1. إعلام الخادم (يمسح كاش UserSessionService)
+    try
+    {
+        await _apiService.PostAsync<object>("api/auth/logout", null);
+    }
+    catch (Exception ex)
+    {
+        Debug.WriteLine($"❌ Logout API error: {ex.Message}");
+    }
+
+    // 2. مسح التخزين المحلي
+    SecureStorage.Remove("auth_token");
+    SecureStorage.Remove("user_profile");
+    SecureStorage.Remove("userProfileId");
+}
 ```
 
 ---
@@ -223,55 +306,6 @@ public class ApiService : IApiService
 
 ---
 
-## التنقل بين الصفحات
-
-### AppShell - التنقل الرئيسي
-
-```xml
-<!-- AppShell.xaml -->
-<Shell x:Class="RubikCare.Mobile.AppShell">
-    <!-- صفحات عامة (بدون مصادقة) -->
-    <ShellContent Route="login" ContentTemplate="{DataTemplate views:LoginPage}" />
-    <ShellContent Route="register" ContentTemplate="{DataTemplate views:RegisterPage}" />
-    
-    <!-- صفحات محمية (بعد المصادقة) -->
-    <TabBar Route="main">
-        <ShellContent Route="psp" Title="برامج الدعم" 
-                      ContentTemplate="{DataTemplate psp:PspSearchPage}" />
-        <ShellContent Route="profile" Title="الملف الشخصي" 
-                      ContentTemplate="{DataTemplate profile:ProfilePage}" />
-    </TabBar>
-</Shell>
-```
-
-### التنقل البرمجي
-
-```csharp
-// الانتقال لصفحة مع تمرير معاملات
-await Shell.Current.GoToAsync("programDetails", new Dictionary<string, object>
-{
-    { "ProgramId", selectedProgram.ProgramId }
-});
-
-// استقبال المعاملات في الصفحة المستقبلة
-[QueryProperty(nameof(ProgramId), "ProgramId")]
-public partial class ProgramDetailsPage : ContentPage
-{
-    private int _programId;
-    public int ProgramId
-    {
-        get => _programId;
-        set
-        {
-            _programId = value;
-            LoadProgramAsync();
-        }
-    }
-}
-```
-
----
-
 ## التحديات المعروفة وحلولها
 
 ### 1. مشكلة Binding في XAML
@@ -351,6 +385,18 @@ public async Task<T> SafeApiCallAsync<T>(Func<Task<T>> apiCall)
 }
 ```
 
+### 5. ⭐ مشكلة: منظمات المستخدم لا تظهر في القائمة الجانبية (تم حلها - 24 مايو 2026)
+
+**السبب:** `AppShellViewModel.LoadUserDataAsync()` لم تكن تُستدعى من `DashboardPage`.
+
+**الحل:** إضافة استدعاء `appShell.RefreshUserDataAsync()` في `DashboardPage.OnAppearing`.
+
+### 6. ⭐ مشكلة: ظهور بيانات المستخدم السابق بعد Logout (تم حلها - 24 مايو 2026)
+
+**السبب:** الكاش المحلي (`_cachedSession`) لم يكن يُمسح عند Logout.
+
+**الحل:** استدعاء `_cachedSessionService.ClearSessionAsync()` في `AppShellViewModel.LogoutAsync`.
+
 ---
 
 ## BlazorWebView في MAUI
@@ -399,7 +445,7 @@ RubikCare.Mobile/
 public static class AppConfig
 {
 #if DEBUG
-    public static string ApiBaseUrl = "https://localhost:5001";
+    public static string ApiBaseUrl = "http://localhost:5235";
 #else
     public static string ApiBaseUrl = "https://api.rubikcare.com";
 #endif
@@ -442,6 +488,11 @@ dotnet publish -f net10.0-ios -c Release
 - [ ] هل اختبرت على Android و iOS؟
 - [ ] هل تعاملت مع UI Thread بشكل صحيح؟
 
+### عند التعامل مع الجلسات والكاش (جديد)
+- [ ] هل `AppShellViewModel.LoadUserDataAsync()` تُستدعى من `DashboardPage.OnAppearing`؟
+- [ ] هل `LogoutAsync` يمسح `_cachedSession` + `SecureStorage` + يستدعي `api/auth/logout`؟
+- [ ] هل `HasClinic`/`HasPharmacy` تستخدمان `Memberships` وليس `Clinics`/`Pharmacies`؟
+
 ---
 
 ## 🔗 روابط ذات صلة
@@ -450,4 +501,9 @@ dotnet publish -f net10.0-ios -c Release
 - [07 - نظام PSP](07-psp-system.md)
 - [09 - دليل API](09-api-guide.md)
 - [11 - دليل BlazorWebView](11-blazor-webview-guide.md)
+- [14 - نظام الكاش الموحد](14-caching-system.md) ⭐ جديد
 ```
+
+---حد
+
+**أرسل الملف التالي:** `13-clean-architecture-enforcement.md` 🎯
