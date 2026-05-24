@@ -1,6 +1,8 @@
+## 📝 ملف `README.md` بعد التحديث:
+
 # RubikCare - التوثيق التقني الشامل
 
-**الإصدار: 1.0** | **آخر تحديث: 17 مايو 2026**
+**الإصدار: 1.1** | **آخر تحديث: 24 مايو 2026**
 
 ---
 
@@ -25,14 +27,14 @@
 |-------|---------|
 | [00-architecture-overview.md](docs/00-architecture-overview.md) | Clean Architecture، هيكل المشاريع الثمانية، علاقاتها |
 | [01-program-cs-foundation.md](docs/01-program-cs-foundation.md) | Program.cs، التسجيلات الأساسية، Middleware، App.razor |
-| [02-identity-system.md](docs/02-identity-system.md) | نظام الهوية، AspNetUsers، UserProfile، الأدوار |
+| [02-identity-system.md](docs/02-identity-system.md) | نظام الهوية، AspNetUsers، UserProfile، الأدوار، **نظام إدارة الجلسات والكاش** ⭐ |
 
 ### 🎨 التصميم والواجهة
 
 | الملف | المحتوى |
 |-------|---------|
 | [03-style-guide.md](docs/03-style-guide.md) | الألوان، الخطوط، `.rubik-dark`، هيكل CSS |
-| [04-dynamic-menus.md](docs/04-dynamic-menus.md) | SystemMenu، MenuItem، MenuAssignment |
+| [04-dynamic-menus.md](docs/04-dynamic-menus.md) | SystemMenu، MenuItem، MenuAssignment، **DynamicMenuService (بدون كاش)** ⭐ |
 | [05-page-creation-checklist.md](docs/05-page-creation-checklist.md) | إنشاء الصفحات، الترجمة، المكونات الذكية |
 
 ### 💊 أنظمة الأعمال
@@ -46,7 +48,7 @@
 | الملف | المحتوى |
 |-------|---------|
 | [09-api-guide.md](docs/09-api-guide.md) | دليل API الكامل |
-| [10-maui-development-guide.md](docs/10-maui-development-guide.md) | دليل تطوير MAUI |
+| [10-maui-development-guide.md](docs/10-maui-development-guide.md) | دليل تطوير MAUI، **إدارة الجلسات والكاش في الموبايل** ⭐ |
 | [11-blazor-webview-guide.md](docs/11-blazor-webview-guide.md) | دليل BlazorWebView والأنماط الناجحة |
 
 ### 🚀 التطوير والنشر
@@ -56,7 +58,13 @@
 | [06-troubleshooting-methodology.md](docs/06-troubleshooting-methodology.md) | منهجية حل المشاكل (الخطوات السبع) |
 | [08-roadmap.md](docs/08-roadmap.md) | خريطة التطوير والوضع الحالي |
 | [12-deployment-guide.md](docs/12-deployment-guide.md) | النشر على IIS و APK |
-| [13-clean-architecture-enforcement.md](docs/13-clean-architecture-enforcement.md) | إصلاح وتطبيق Clean Architecture بشكل صارم |
+| [13-clean-architecture-enforcement.md](docs/13-clean-architecture-enforcement.md) | إصلاح وتطبيق Clean Architecture، **حالة الإصلاحات الحالية** ⭐ |
+
+### 🆕 أنظمة جديدة (24 مايو 2026)
+
+| الملف | المحتوى |
+|-------|---------|
+| [14-caching-system.md](docs/14-caching-system.md) | **نظام الكاش الموحد** - هيكل، طبقات، قواعد الاستخدام ⭐ |
 
 ### 📚 المراجع
 
@@ -87,6 +95,7 @@
 | SQL Server | قاعدة البيانات |
 | Bootstrap 5 + Custom CSS | واجهة المستخدم |
 | JWT | المصادقة في API |
+| IMemoryCache | الكاش الموحد (في UserSessionService فقط) |
 
 ---
 
@@ -95,6 +104,7 @@
 1. ابدأ بـ [00-architecture-overview.md](docs/00-architecture-overview.md) لفهم الهيكل العام
 2. انتقل للملف الذي يهمك حسب تخصصك
 3. عند مواجهة مشكلة، راجع [06-troubleshooting-methodology.md](docs/06-troubleshooting-methodology.md)
+4. لفهم نظام الكاش، راجع [14-caching-system.md](docs/14-caching-system.md) ⭐
 
 ---
 
@@ -125,7 +135,8 @@
 | 13 | 11-blazor-webview-guide.md | https://raw.githubusercontent.com/Rubikans-Egy/Rubikcare-docs/main/docs/11-blazor-webview-guide.md |
 | 14 | 12-deployment-guide.md | https://raw.githubusercontent.com/Rubikans-Egy/Rubikcare-docs/main/docs/12-deployment-guide.md |
 | 15 | 13-clean-architecture-enforcement.md | https://raw.githubusercontent.com/Rubikans-Egy/Rubikcare-docs/main/docs/13-clean-architecture-enforcement.md |
-| 16 | appendix-a-glossary.md | https://raw.githubusercontent.com/Rubikans-Egy/Rubikcare-docs/main/docs/appendix-a-glossary.md |
+| 16 | **14-caching-system.md** ⭐ | https://raw.githubusercontent.com/Rubikans-Egy/Rubikcare-docs/main/docs/14-caching-system.md |
+| 17 | appendix-a-glossary.md | https://raw.githubusercontent.com/Rubikans-Egy/Rubikcare-docs/main/docs/appendix-a-glossary.md |
 
 ---
 
