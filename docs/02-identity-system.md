@@ -1,6 +1,8 @@
+## 📝 ملف `02-identity-system.md` بعد التحديث:
+
 # 02 - نظام الهوية والمصادقة (Identity System)
 
-**آخر تحديث: 17 مايو 2026**
+**آخر تحديث: 24 مايو 2026**
 
 ---
 
@@ -331,6 +333,67 @@ var isValid = userRole.IsActive &&
 
 ---
 
+## نظام إدارة الجلسات والكاش (⭐ جديد - 24 مايو 2026)
+
+### لمحة عامة
+
+تم توحيد نظام الكاش في `UserSessionService` كمصدر وحيد لإدارة جلسات المستخدمين. هذا يمنع مشاكل ظهور بيانات المستخدم السابق بعد تسجيل الخروج.
+
+### ClearUserCacheUseCase
+
+Use Case مسؤول عن مسح جميع كاشات المستخدم عند Logout:
+
+**المسار:** `RubikCare.Application/UseCases/User/ClearUserCacheUseCase.cs`
+
+**الوظيفة:**
+- يستدعي `UserSessionService.RefreshUserSessionAndCacheAsync(userId)`
+- يمسح كاشات: `UserSession_`, `UserPrefs_`, `UserBasic_`
+- يستدعي `IUserMenuService.ClearCacheAsync(userId)`
+
+**الاستخدام في AuthController.Logout:**
+```csharp
+[HttpPost("logout")]
+[Authorize]
+public async Task<IActionResult> Logout([FromServices] ClearUserCacheUseCase clearCache)
+{
+    var userId = User.FindFirst("userId")?.Value;
+    if (!string.IsNullOrEmpty(userId))
+        await clearCache.ExecuteAsync(userId);
+    
+    await _signInManager.SignOutAsync();
+    return Ok(new { success = true, message = "تم تسجيل الخروج بنجاح" });
+}
+```
+
+### هيكل الكاش الموحد
+
+```
+ClearUserCacheUseCase (Application)
+    ↓
+UserSessionService.RefreshUserSessionAndCacheAsync(userId)
+    ↓ يمسح
+    ├── UserSession_{userId}   ← بيانات الجلسة الكاملة
+    ├── UserPrefs_{userId}     ← تفضيلات المستخدم
+    ├── UserBasic_{userId}     ← المعلومات الأساسية
+    └── قوائم المستخدم         ← عبر IUserMenuService
+```
+
+### طبقات الكاش
+
+| الطبقة | المسؤول | المفاتيح | المدة |
+|--------|---------|----------|-------|
+| **Session** | `UserSessionService` | `UserSession_{userId}` | ساعتين |
+| **Preferences** | `UserSessionService` | `UserPrefs_{userId}` | ساعة |
+| **BasicInfo** | `UserSessionService` | `UserBasic_{userId}` | ساعة |
+
+### ملاحظات هامة
+
+- **الموبايل:** `CachedUserSessionService` تدير كاش محلي (`_cachedSession`) يجب مسحه عند Logout
+- **الويب:** `DynamicMenuService` لم تعد تستخدم `IMemoryCache` منفصل - تمت إزالة الكاش منها
+- **Logout:** يجب أن يمسح الكاش على الخادم (`AuthController.Logout`) وعلى العميل (`SecureStorage` + `_cachedSession = null`)
+
+---
+
 ## استعلامات مفيدة للتحقق
 
 ### للتشخيص والمراقبة
@@ -380,6 +443,11 @@ SELECT
 - [ ] هل أخذت نسخة احتياطية من قاعدة البيانات قبل التعديلات الكبيرة؟
 - [ ] هل تتبعت التسلسل الصحيح للحذف؟
 
+### عند التعامل مع الجلسات والكاش (جديد)
+- [ ] هل تمسح الكاش عند Logout باستخدام `ClearUserCacheUseCase`؟
+- [ ] هل تمسح `SecureStorage` و `_cachedSession` في الموبايل؟
+- [ ] هل `UserSessionService` هو المصدر الوحيد للكاش؟
+
 ---
 
 ## 🔗 روابط ذات صلة
@@ -387,5 +455,6 @@ SELECT
 - [00 - الهيكل المعماري](00-architecture-overview.md)
 - [01 - Program.cs والتسجيلات الأساسية](01-program-cs-foundation.md)
 - [04 - نظام القوائم الديناميكية](04-dynamic-menus.md)
+- [14 - نظام الكاش الموحد](14-caching-system.md) ⭐ جديد
 - [الملحق أ - مسرد المصطلحات](../appendix-a-glossary.md)
 ```
