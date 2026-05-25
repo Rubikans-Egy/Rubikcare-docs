@@ -399,6 +399,59 @@ public async Task<T> SafeApiCallAsync<T>(Func<Task<T>> apiCall)
 
 ---
 
+### 7. ⭐ مشكلة: زر الرجوع يغلق التطبيق مع JavaProxyThrowable (تم حلها - 25 مايو 2026)
+
+**الأعراض**:
+- ضغط زر الرجوع في Android يغلق التطبيق بدلاً من الرجوع للصفحة السابقة
+- عند إعادة فتح التطبيق يظهر:
+  ```
+  Android.Runtime.JavaProxyThrowable
+  Method not found: void Microsoft.Maui.LifecycleEvents.LifecycleEventService.RemoveEvent
+  ```
+
+**السبب الجذري**:
+تعارض إصدارات `Microsoft.Maui.Controls` مع `Microsoft.AspNetCore.Components.WebView.Maui`. الإصدار المختلف من `WebView.Maui` يحاول استدعاء Methods غير موجودة في `LifecycleEventService`.
+
+**الحل**:
+توحيد الإصدارات في `.csproj`:
+
+```xml
+<!-- تأكد من تطابق الإصدارين -->
+<PackageReference Include="Microsoft.Maui.Controls" Version="10.0.20" />
+<PackageReference Include="Microsoft.AspNetCore.Components.WebView.Maui" Version="10.0.20" />
+```
+
+مع إضافة `OnBackButtonPressed` في `AppShell.xaml.cs`:
+
+```csharp
+protected override bool OnBackButtonPressed()
+{
+    var currentPage = Current.CurrentPage;
+    if (currentPage == null) return false;
+
+    if (currentPage.Navigation.NavigationStack.Count > 1)
+    {
+        MainThread.BeginInvokeOnMainThread(async () =>
+        {
+            await currentPage.Navigation.PopAsync();
+        });
+        return true;
+    }
+
+    if (_viewModel.CurrentMode != AppMode.Personal)
+    {
+        _viewModel.SwitchToPersonalModeCommand.Execute(null);
+        return true;
+    }
+
+    return true;
+}
+```
+
+**القاعدة**:
+`Microsoft.AspNetCore.Components.WebView.Maui` يجب أن يكون دائماً على نفس إصدار `Microsoft.Maui.Controls`.
+```
+
 ## BlazorWebView في MAUI
 
 ### التكامل بين XAML و Blazor
