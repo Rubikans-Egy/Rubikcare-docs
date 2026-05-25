@@ -44,14 +44,14 @@
 | الملف | المحتوى |
 |-------|---------|
 | [09-api-guide.md](docs/09-api-guide.md) | دليل API الكامل |
-| [10-maui-development-guide.md](docs/10-maui-development-guide.md) | دليل تطوير MAUI، **إدارة الجلسات والكاش في الموبايل** ⭐ |
+| 10-maui-development-guide.md | دليل تطوير MAUI، إدارة الجلسات والكاش في الموبايل + ⭐ حل مشكلة JavaProxyThrowable |
 | [11-blazor-webview-guide.md](docs/11-blazor-webview-guide.md) | دليل BlazorWebView والأنماط الناجحة |
 
 ### 🚀 التطوير والنشر
 
 | الملف | المحتوى |
 |-------|---------|
-| [06-troubleshooting-methodology.md](docs/06-troubleshooting-methodology.md) | منهجية حل المشاكل (الخطوات السبع) |
+| [06-troubleshooting-methodology.md](docs/06-troubleshooting-methodology.md) | منهجية حل المشاكل (الخطوات السبع) + زر الرجوع للخلف|
 | [08-roadmap.md](docs/08-roadmap.md) | خريطة التطوير والوضع الحالي |
 | [12-deployment-guide.md](docs/12-deployment-guide.md) | النشر على IIS و APK |
 | [13-clean-architecture-enforcement.md](docs/13-clean-architecture-enforcement.md) | إصلاح وتطبيق Clean Architecture، **✅ تم: إزالة References، إصلاح 16 Controller، Architecture Tests** ⭐ |
