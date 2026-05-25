@@ -452,6 +452,8 @@ protected override bool OnBackButtonPressed()
 `Microsoft.AspNetCore.Components.WebView.Maui` يجب أن يكون دائماً على نفس إصدار `Microsoft.Maui.Controls`.
 ```
 
+```
+
 ## BlazorWebView في MAUI
 
 ### التكامل بين XAML و Blazor
