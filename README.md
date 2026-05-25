@@ -1,8 +1,4 @@
-## 📝 ملف `README.md` بعد التحديث:
-
-# RubikCare - التوثيق التقني الشامل
-
-**الإصدار: 1.1** | **آخر تحديث: 24 مايو 2026**
+**الإصدار: 1.2** | **آخر تحديث: 25 مايو 2026**
 
 ---
 
@@ -58,13 +54,14 @@
 | [06-troubleshooting-methodology.md](docs/06-troubleshooting-methodology.md) | منهجية حل المشاكل (الخطوات السبع) |
 | [08-roadmap.md](docs/08-roadmap.md) | خريطة التطوير والوضع الحالي |
 | [12-deployment-guide.md](docs/12-deployment-guide.md) | النشر على IIS و APK |
-| [13-clean-architecture-enforcement.md](docs/13-clean-architecture-enforcement.md) | إصلاح وتطبيق Clean Architecture، **حالة الإصلاحات الحالية** ⭐ |
+| [13-clean-architecture-enforcement.md](docs/13-clean-architecture-enforcement.md) | إصلاح وتطبيق Clean Architecture، **✅ تم: إزالة References، إصلاح 16 Controller، Architecture Tests** ⭐ |
 
-### 🆕 أنظمة جديدة (24 مايو 2026)
+### 🆕 أنظمة جديدة
 
 | الملف | المحتوى |
 |-------|---------|
 | [14-caching-system.md](docs/14-caching-system.md) | **نظام الكاش الموحد** - هيكل، طبقات، قواعد الاستخدام ⭐ |
+| [15-mobile-translation-system.md](docs/15-mobile-translation-system.md) | نظام الترجمة في الموبايل |
 
 ### 📚 المراجع
 
@@ -96,6 +93,8 @@
 | Bootstrap 5 + Custom CSS | واجهة المستخدم |
 | JWT | المصادقة في API |
 | IMemoryCache | الكاش الموحد (في UserSessionService فقط) |
+| NetArchTest.Rules | Architecture Tests (حماية المعمارية) ⭐ |
+| InfrastructureExtensions | تسجيل جميع الخدمات في Extension Method واحد ⭐ |
 
 ---
 
@@ -105,6 +104,7 @@
 2. انتقل للملف الذي يهمك حسب تخصصك
 3. عند مواجهة مشكلة، راجع [06-troubleshooting-methodology.md](docs/06-troubleshooting-methodology.md)
 4. لفهم نظام الكاش، راجع [14-caching-system.md](docs/14-caching-system.md) ⭐
+5. لفهم قواعد Clean Architecture، راجع [13-clean-architecture-enforcement.md](docs/13-clean-architecture-enforcement.md) ⭐
 
 ---
 
@@ -113,6 +113,7 @@
 - هذا المستودع يحتوي على **توثيق تقني** فقط - الكود المصدري في مستودع منفصل
 - المحتوى التسويقي ومنهجية العمل في مستودع `rubikcare-methodology`
 - جميع الملفات بصيغة Markdown (`.md`) لسهولة القراءة على GitHub
+- **أي مخالفة لـ Clean Architecture ستفشل Architecture Tests (33 اختبار)** 🔒
 
 ---
 
@@ -135,9 +136,12 @@
 | 13 | 11-blazor-webview-guide.md | https://raw.githubusercontent.com/Rubikans-Egy/Rubikcare-docs/main/docs/11-blazor-webview-guide.md |
 | 14 | 12-deployment-guide.md | https://raw.githubusercontent.com/Rubikans-Egy/Rubikcare-docs/main/docs/12-deployment-guide.md |
 | 15 | 13-clean-architecture-enforcement.md | https://raw.githubusercontent.com/Rubikans-Egy/Rubikcare-docs/main/docs/13-clean-architecture-enforcement.md |
-| 16 | **14-caching-system.md** ⭐ | https://raw.githubusercontent.com/Rubikans-Egy/Rubikcare-docs/main/docs/14-caching-system.md |
-| 17 | appendix-a-glossary.md | https://raw.githubusercontent.com/Rubikans-Egy/Rubikcare-docs/main/docs/appendix-a-glossary.md |
-| 18 |15-mobile-translation-system.md | https://github.com/Rubikans-Egy/Rubikcare-docs/blob/main/docs/15-mobile-translation-system.md |
+| 16 | 14-caching-system.md ⭐ | https://raw.githubusercontent.com/Rubikans-Egy/Rubikcare-docs/main/docs/14-caching-system.md |
+| 17 | 15-mobile-translation-system.md | https://github.com/Rubikans-Egy/Rubikcare-docs/blob/main/docs/15-mobile-translation-system.md |
+| 18 | appendix-a-glossary.md | https://raw.githubusercontent.com/Rubikans-Egy/Rubikcare-docs/main/docs/appendix-a-glossary.md |
+
 ---
 
 © 2026 RubikCare - للاستخدام الداخلي
+
+---
