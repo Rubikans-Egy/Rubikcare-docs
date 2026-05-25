@@ -1,7 +1,7 @@
 
 # 14 - نظام الكاش الموحد (Unified Caching System)
 
-**تاريخ الإنشاء: 24 مايو 2026** | **الأولوية: 🟢 نظام تأسيسي**
+**تاريخ الإنشاء: 24 مايو 2026** | **آخر تحديث: 25 مايو 2026** | **الأولوية: 🟢 نظام تأسيسي**
 
 ---
 
@@ -65,6 +65,7 @@ graph TD
 |-------|--------|---------|
 | `UserSessionService.cs` | `RubikCare.Application/Services/Session/` | الكاش المركزي الوحيد |
 | `ClearUserCacheUseCase.cs` | `RubikCare.Application/UseCases/User/` | Use Case لمسح الكاش |
+| `InfrastructureExtensions.cs` | `RubikCare.Infrastructure/` | ⭐ تسجيل جميع الخدمات (بما فيها الكاش) |
 | `CachedUserSessionService.cs` | `RubikCare.Mobile/Infrastructure/Services/` | كاش محلي للموبايل |
 | `AuthService.cs` | `RubikCare.Mobile/Infrastructure/Services/` | المصادقة وLogout |
 | `AuthController.cs` | `Api.Web/Controllers/` | Logout API |
@@ -190,7 +191,4 @@ Debug.WriteLine($"Cached Session: {cached?.FullNameAr ?? "null"}");
 - [04 - نظام القوائم الديناميكية](04-dynamic-menus.md)
 - [10 - دليل تطوير MAUI](10-maui-development-guide.md)
 - [13 - إصلاح Clean Architecture](13-clean-architecture-enforcement.md)
-
----
-
-**✅ تم توثيق جميع ملفات الجلسة. ماذا تريد أن تفعل بعد ذلك؟** 🎯
+```
