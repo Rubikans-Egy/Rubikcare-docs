@@ -447,9 +447,10 @@ protected override bool OnBackButtonPressed()
     return true;
 }
 ```
-
+```
 **القاعدة**:
 `Microsoft.AspNetCore.Components.WebView.Maui` يجب أن يكون دائماً على نفس إصدار `Microsoft.Maui.Controls`.
+```
 ```
 
 ```
