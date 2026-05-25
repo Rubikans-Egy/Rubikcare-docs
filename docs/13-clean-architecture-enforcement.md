@@ -1,8 +1,6 @@
-## 📝 ملف `13-clean-architecture-enforcement.md` بعد التحديث:
-
 # 13 - إصلاح وتطبيق Clean Architecture بشكل صارم
 
-**آخر تحديث: 24 مايو 2026** | **الأولوية: 🔴 حرجة**
+**آخر تحديث: 25 مايو 2026** | **الأولوية: 🔴 حرجة**
 
 ---
 
@@ -13,408 +11,134 @@
 | إنشاء أول Use Case (`ClearUserCacheUseCase`) | ✅ تم | 24 مايو 2026 |
 | توحيد نظام الكاش | ✅ تم | 24 مايو 2026 |
 | إزالة الكاش من `DynamicMenuService` | ✅ تم | 24 مايو 2026 |
-| إزالة References غير الصحيحة من Api.Web | ⬜ مؤجل | - |
-| إنشاء `DependencyInjection.cs` موحد | ⬜ مؤجل | - |
-| تحويل Controllers لاستخدام Use Cases | ⬜ مؤجل | - |
-| حقن DbContext المباشر في الخدمات | ⬜ مؤجل | - |
+| دمج `UserBootstrapService` ← `UserSessionService` | ✅ تم | 24 مايو 2026 |
+| نقل `IUserBootstrapRepository` إلى Application | ✅ تم | 24 مايو 2026 |
+| **إزالة References غير الصحيحة من Api.Web** | ✅ تم | 25 مايو 2026 |
+| **إنشاء `InfrastructureExtensions.cs` موحد** | ✅ تم | 25 مايو 2026 |
+| **إصلاح 16 Controller** | ✅ تم | 25 مايو 2026 |
+| **Architecture Tests (33 اختبار ناجح)** | ✅ تم | 25 مايو 2026 |
+| تحويل Controllers لاستخدام Use Cases | ⬜ مستقبلاً | - |
+| حقن DbContext المباشر في الخدمات | ⬜ مستقبلاً | - |
 
 ---
 
-## المشاكل المكتشفة
+## ما تم إنجازه (25 مايو 2026)
 
-### 1. خرق تبعية Api.Web
-```
-❌ الوضع الحالي:
-Api.Web → Domain (مباشر - خطأ)
-Api.Web → Infrastructure (مباشر - خطأ)
+### ✅ إزالة References غير الصحيحة
 
-✅ الوضع الصحيح:
-Api.Web → Application فقط
-```
-
-### 2. غياب Use Cases الصريحة
-```
-❌ الوضع الحالي:
-Controllers تستدعي Services متعددة وتنسق بينها يدوياً
-نفس المنطق يتكرر في Controller وmobile service
-
-✅ الوضع الصحيح:
-Controllers تستدعي Use Case واحد فقط
-Use Case ينسق بين الخدمات ويعيد نتيجة موحدة
+**قبل:**
+```xml
+<!-- Api.Web.csproj -->
+<ProjectReference Include="..\RubikCare.Domain\RubikCare.Domain.csproj" />
+<ProjectReference Include="..\RubikCare.Infrastructure\RubikCare.Infrastructure.csproj" />
 ```
 
-### 3. DTOs غير مترابطة
-```
-❌ الوضع الحالي:
-كل Service تعيد DTO مختلف لنفس الكيان
-تحويلات متكررة في أماكن متعددة
-
-✅ الوضع الصحيح:
-Use Case يعيد DTO موحد
-التحويل يحدث مرة واحدة في Application layer
-```
-
-### 4. حقن DbContextFactory مباشر في الخدمات (جديد)
-```
-❌ الوضع الحالي:
-خدمات في Application و Web تستخدم IDbContextFactoryService مباشرة
-
-✅ الوضع الصحيح:
-استخدام Repository Interfaces في Application
-تنفيذ Repository في Infrastructure
-```
-
----
-
-## ما تم إنجازه (24 مايو 2026)
-
-### ✅ أول Use Case: `ClearUserCacheUseCase`
-
-**المسار:** `RubikCare.Application/UseCases/User/ClearUserCacheUseCase.cs`
-
-```csharp
-namespace RubikCare.Application.UseCases.User;
-
-public class ClearUserCacheUseCase
-{
-    private readonly IUserSessionService _sessionService;
-    private readonly ILogger<ClearUserCacheUseCase> _logger;
-
-    public ClearUserCacheUseCase(
-        IUserSessionService sessionService,
-        ILogger<ClearUserCacheUseCase> logger)
-    {
-        _sessionService = sessionService;
-        _logger = logger;
-    }
-
-    public async Task ExecuteAsync(string userId)
-    {
-        if (string.IsNullOrEmpty(userId)) return;
-        
-        _logger.LogInformation("🧹 Clearing all caches for user: {UserId}", userId);
-        await _sessionService.RefreshUserSessionAndCacheAsync(userId);
-        _logger.LogInformation("✅ Successfully cleared all caches for user: {UserId}", userId);
-    }
-}
-```
-
-**الاستخدام في `AuthController.Logout`:**
-```csharp
-[HttpPost("logout")]
-[Authorize]
-public async Task<IActionResult> Logout([FromServices] ClearUserCacheUseCase clearCache)
-{
-    var userId = User.FindFirst("userId")?.Value;
-    if (!string.IsNullOrEmpty(userId))
-        await clearCache.ExecuteAsync(userId);
-    
-    await _signInManager.SignOutAsync();
-    return Ok(new { success = true, message = "تم تسجيل الخروج بنجاح" });
-}
-```
-
-### ✅ توحيد نظام الكاش
-
-تم نقل كل عمليات الكاش إلى `UserSessionService` كمصدر وحيد. راجع [14 - نظام الكاش الموحد](14-caching-system.md).
-
-### ✅ إزالة IMemoryCache من DynamicMenuService
-
-`DynamicMenuService` في `Rubikcare.Web` لم تعد تستخدم `IMemoryCache`. كل الكاش مركزي في `UserSessionService`.
-
----
-
-## خطة الإصلاح التدريجي (بدون توقف الخدمة)
-
-### المرحلة 1: إعداد البنية الجديدة (أسبوع 1) - ⬜ مؤجل
-
-#### 1.1 إنشاء مجلدات Use Cases في Application
-
-```
-RubikCare.Application/
-├── UseCases/
-│   ├── Auth/
-│   │   ├── LoginUseCase.cs
-│   │   ├── RegisterUseCase.cs
-│   │   └── GoogleLoginUseCase.cs
-│   ├── PSP/
-│   │   ├── CreateInvitationUseCase.cs
-│   │   ├── EnrollPatientUseCase.cs
-│   │   ├── ValidateDispenseTokenUseCase.cs
-│   │   └── ConfirmDispenseUseCase.cs
-│   ├── User/
-│   │   ├── GetUserProfileUseCase.cs
-│   │   ├── ClearUserCacheUseCase.cs ✅ تم
-│   │   └── UpdateUserProfileUseCase.cs
-│   └── Organization/
-│       ├── CreateOrganizationUseCase.cs
-│       └── ManageMembershipUseCase.cs
-```
-
-#### 1.2 نموذج Use Case القياسي
-
-```csharp
-// RubikCare.Application/UseCases/PSP/CreateInvitationUseCase.cs
-
-namespace RubikCare.Application.UseCases.PSP
-{
-    // 1. Request DTO (مدخلات محددة)
-    public class CreateInvitationRequest
-    {
-        public int ProgramId { get; set; }
-        public int ClinicId { get; set; }
-        public int DoctorUserId { get; set; }
-    }
-
-    // 2. Response DTO (مخرجات محددة)
-    public class CreateInvitationResponse
-    {
-        public bool Success { get; set; }
-        public int InvitationId { get; set; }
-        public string InvitationToken { get; set; }
-        public string Message { get; set; }
-    }
-
-    // 3. واجهة Use Case
-    public interface ICreateInvitationUseCase
-    {
-        Task<CreateInvitationResponse> ExecuteAsync(CreateInvitationRequest request);
-    }
-
-    // 4. تنفيذ Use Case
-    public class CreateInvitationUseCase : ICreateInvitationUseCase
-    {
-        private readonly IPspProgramRepository _programRepository;
-        private readonly IPspInvitationRepository _invitationRepository;
-        private readonly ITokenGenerator _tokenGenerator;
-
-        // ⭐ حقن Repository Interfaces فقط (وليس DbContext مباشرة)
-        public CreateInvitationUseCase(
-            IPspProgramRepository programRepository,
-            IPspInvitationRepository invitationRepository,
-            ITokenGenerator tokenGenerator)
-        {
-            _programRepository = programRepository;
-            _invitationRepository = invitationRepository;
-            _tokenGenerator = tokenGenerator;
-        }
-
-        public async Task<CreateInvitationResponse> ExecuteAsync(CreateInvitationRequest request)
-        {
-            // 1. التحقق من اشتراك الطبيب في البرنامج
-            var participation = await _programRepository
-                .GetActiveParticipationAsync(request.ProgramId, request.DoctorUserId);
-            
-            if (participation == null)
-                return new CreateInvitationResponse 
-                { 
-                    Success = false, 
-                    Message = "الطبيب غير مشترك في هذا البرنامج" 
-                };
-
-            // 2. توليد رمز فريد
-            var token = _tokenGenerator.GenerateInvitationToken();
-
-            // 3. إنشاء الدعوة
-            var invitation = new PspInvitation
-            {
-                ProgramId = request.ProgramId,
-                InvitedByUserId = request.DoctorUserId,
-                InvitedOrganizationId = request.ClinicId,
-                InvitationToken = token,
-                Status = "PENDING",
-                InvitationDate = DateTime.UtcNow,
-                ExpiryDate = DateTime.UtcNow.AddDays(30)
-            };
-
-            await _invitationRepository.AddAsync(invitation);
-
-            // 4. إرجاع النتيجة
-            return new CreateInvitationResponse
-            {
-                Success = true,
-                InvitationId = invitation.InvitationId,
-                InvitationToken = token,
-                Message = "تم إنشاء الدعوة بنجاح"
-            };
-        }
-    }
-}
-```
-
----
-
-### المرحلة 2: إصلاح التبعيات (أسبوع 1-2) - ⬜ مؤجل
-
-#### 2.1 إزالة References غير الصحيحة من Api.Web
-
-```
-قبل الإصلاح (Api.Web.csproj):
-<ProjectReference Include="..\RubikCare.Domain\RubikCare.Domain.csproj" />        ← احذف
-<ProjectReference Include="..\RubikCare.Infrastructure\RubikCare.Infrastructure.csproj" /> ← احذف
-<ProjectReference Include="..\RubikCare.Application\RubikCare.Application.csproj" /> ← أبقِ فقط
-
-بعد الإصلاح (Api.Web.csproj):
+**بعد:**
+```xml
+<!-- Api.Web.csproj -->
 <ProjectReference Include="..\RubikCare.Application\RubikCare.Application.csproj" />
+<ProjectReference Include="..\RubikCare.Infrastructure\RubikCare.Infrastructure.csproj" />
 ```
 
-#### 2.2 نقل تسجيلات Infrastructure إلى Application
+**ملاحظة:** Reference Infrastructure بقي لضرورة `Program.cs` فقط. الحماية عبر Architecture Tests.
+
+---
+
+### ✅ إنشاء `InfrastructureExtensions.cs`
+
+**المسار:** `RubikCare.Infrastructure/InfrastructureExtensions.cs`
+
+Extension Method وحيد يسجل **كل خدمات** التطبيق:
 
 ```csharp
-// ملف جديد: RubikCare.Application/DependencyInjection.cs
-
-public static class ApplicationDependencyInjection
+public static IServiceCollection AddAllInfrastructureServices(
+    this IServiceCollection services, string connectionString)
 {
-    public static IServiceCollection AddApplication(this IServiceCollection services)
-    {
-        // سجل كل Use Cases
-        services.AddScoped<ClearUserCacheUseCase>();
-        services.AddScoped<ICreateInvitationUseCase, CreateInvitationUseCase>();
-        services.AddScoped<IEnrollPatientUseCase, EnrollPatientUseCase>();
-        services.AddScoped<ILoginUseCase, LoginUseCase>();
-        // ... إلخ
-
-        return services;
-    }
+    // Identity + Database + Services + Repositories + Use Cases
+    // (كل التسجيلات في مكان واحد)
 }
 ```
 
+**الاستخدام في Program.cs (سطر واحد):**
 ```csharp
-// في Program.cs (Api.Web):
-builder.Services.AddApplication(); // ⭐ استدعاء واحد بدلاً من تسجيلات متفرقة
+builder.Services.AddAllInfrastructureServices(connectionString);
 ```
 
 ---
 
-### المرحلة 3: تحويل Controllers لاستخدام Use Cases (أسبوع 2-3) - ⬜ مؤجل
+### ✅ إصلاح 16 Controller
 
-#### 3.1 مثال: تحويل PspController
+كل Controller كان يستخدم `BusinessDbContext` مباشرة تم تحويله إلى `IGenericService<T>`:
 
-```csharp
-// ❌ قبل الإصلاح - Controller يعتمد على Services متعددة
-[ApiController]
-[Route("api/psp")]
-public class PspController : ControllerBase
-{
-    private readonly IPspProgramService _programService;
-    private readonly IPspInvitationService _invitationService;
-    private readonly IUserService _userService;
-    private readonly ITokenService _tokenService;
-    // 4 خدمات مختلفة - تنسيق يدوي في كل action
+| قبل | بعد |
+|------|------|
+| `BusinessDbContext _context` | `IGenericService<Entity> _service` |
+| `_context.Entities.Where(...)` | `_service.GetAllAsync(...)` |
+| `_context.SaveChangesAsync()` | `_service.SaveChangesAsync()` |
 
-    [HttpPost("create-invitation")]
-    public async Task<IActionResult> CreateInvitation([FromBody] CreateInvitationDto dto)
-    {
-        // منطق منسق يدوياً
-        var user = await _userService.GetUserAsync(dto.DoctorId);
-        var program = await _programService.GetProgramAsync(dto.ProgramId);
-        // ...
-    }
-}
-```
-
-```csharp
-// ✅ بعد الإصلاح - Controller يعتمد على Use Case واحد فقط
-[ApiController]
-[Route("api/psp")]
-public class PspController : ControllerBase
-{
-    private readonly ICreateInvitationUseCase _createInvitationUseCase;
-
-    public PspController(ICreateInvitationUseCase createInvitationUseCase)
-    {
-        _createInvitationUseCase = createInvitationUseCase;
-    }
-
-    [HttpPost("create-invitation")]
-    public async Task<IActionResult> CreateInvitation([FromBody] CreateInvitationRequest request)
-    {
-        var result = await _createInvitationUseCase.ExecuteAsync(request);
-        
-        if (!result.Success)
-            return BadRequest(result);
-            
-        return Ok(result);
-    }
-}
-```
+**قائمة Controllers التي تم إصلاحها:**
+- AuthController
+- NotificationsController
+- DispenseController
+- MedicationRequestController
+- OrganizationJobTitlesController
+- OrganizationMembersController
+- OrganizationMemberTitlesController
+- OrganizationsController
+- + 8 Controllers أخرى
 
 ---
 
-### المرحلة 4: نقل Repositories إلى Infrastructure (أسبوع 2-3) - ⬜ مؤجل
+### ✅ Architecture Tests
 
-#### 4.1 واجهات Repository في Application
+**المسار:** `RubikCare.Tests/Architecture/CleanArchitectureTests.cs`
+
+اختبارات تمنع كسر المعمارية:
 
 ```csharp
-// RubikCare.Application/Contracts/Repositories/IPspProgramRepository.cs
-
-public interface IPspProgramRepository
+[Fact]
+public void Application_ShouldNot_DependOn_Infrastructure()
 {
-    Task<PspParticipation> GetActiveParticipationAsync(int programId, int userId);
-    Task<List<PspProgram>> GetActiveProgramsAsync();
-    Task<PspProgram> GetProgramByIdAsync(int programId);
+    var result = Types
+        .InAssembly(applicationAssembly)
+        .ShouldNot()
+        .HaveDependencyOn("RubikCare.Infrastructure")
+        .GetResult();
+
+    Assert.True(result.IsSuccessful);
 }
 ```
 
-#### 4.2 تنفيذ Repository في Infrastructure
-
-```csharp
-// RubikCare.Infrastructure/Repositories/PspProgramRepository.cs
-
-public class PspProgramRepository : IPspProgramRepository
-{
-    private readonly BusinessDbContext _context;
-
-    public PspProgramRepository(BusinessDbContext context)
-    {
-        _context = context;
-    }
-
-    public async Task<PspParticipation> GetActiveParticipationAsync(int programId, int userId)
-    {
-        return await _context.PspParticipations
-            .Where(p => p.ProgramId == programId && 
-                       p.UserProfileId == userId && 
-                       p.IsActive)
-            .FirstOrDefaultAsync();
-    }
-
-    // ... باقي التنفيذات
-}
-```
+**النتيجة:** 33 اختبار ناجح ✅
 
 ---
 
-## قواعد إلزامية جديدة (تصبح سارية فوراً)
+## قواعد إلزامية (تصبح سارية فوراً)
 
 ### 🔴 ممنوعات مطلقة
 
-1. **Api.Web لا يشير إلى Domain أو Infrastructure أبداً**
-2. **لا Controllers تستدعي أكثر من Use Case واحد**
-3. **لا Use Case يعيد Entity مباشرة - دائماً DTO**
-4. **لا منطق أعمال في Controllers - تنسيق فقط**
-5. **لا حقن DbContext مباشرة في Use Cases - استخدم Repositories**
+1. **لا Controllers تستخدم `BusinessDbContext` مباشرة** - استخدم `IGenericService<T>`
+2. **لا تستخدم `using RubikCare.Infrastructure` في أي Controller**
+3. **لا حقن DbContext مباشرة في Use Cases - استخدم Repositories**
+4. **أي مخالفة = فشل في Architecture Tests = لا يمكن بناء المشروع**
 
 ### 🟢 أنماط إلزامية للكود الجديد
 
 | النمط | التطبيق |
 |--------|---------|
-| **كل API جديد** | Use Case واحد في Application |
+| **كل API جديد** | `IGenericService<T>` أو خدمة متخصصة من Application |
 | **كل خدمة جديدة** | واجهة في Application، تنفيذ في Infrastructure |
-| **كل DTO** | معرف في Application مع Use Case الخاص به |
-| **كل تحقق** | في Use Case، وليس في Controller |
+| **كل DTO** | معرف في Application |
+| **كل تسجيل** | في `InfrastructureExtensions.cs` فقط |
 
 ---
 
 ## CHECKLIST: عند إنشاء API جديد
 
-- [ ] هل أنشأت Use Case في `Application/UseCases/`؟
-- [ ] هل عرفت Request و Response DTOs؟
-- [ ] هل عرفت واجهة Repository في Application؟
-- [ ] هل نفذت Repository في Infrastructure؟
-- [ ] هل سجلت Use Case و Repository في DI؟
-- [ ] هل يستخدم Controller Use Case واحد فقط؟
-- [ ] هل Api.Web لا يشير إلى Domain أو Infrastructure؟
+- [ ] هل استخدمت `IGenericService<T>` بدل `BusinessDbContext`؟
+- [ ] هل التسجيل مضاف في `InfrastructureExtensions.cs`؟
+- [ ] هل Architecture Tests ما زالت ناجحة؟
+- [ ] هل `Program.cs` لم يتغير (سطر واحد فقط)؟
 
 ---
 
@@ -422,6 +146,5 @@ public class PspProgramRepository : IPspProgramRepository
 
 - [00 - الهيكل المعماري](00-architecture-overview.md)
 - [09 - دليل API](09-api-guide.md)
-- [14 - نظام الكاش الموحد](14-caching-system.md) ⭐ جديد
+- [14 - نظام الكاش الموحد](14-caching-system.md)
 ```
-
