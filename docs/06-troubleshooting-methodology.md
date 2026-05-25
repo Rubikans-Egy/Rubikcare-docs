@@ -468,3 +468,80 @@ document.cookie = "lang=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;"
 ```
 
 --
+#53
+
+## تحديث `06-troubleshooting-methodology.md`
+
+أضف هذا القسم الجديد في نهاية الملف:
+
+```markdown
+---
+
+## ⭐ مشكلة: JavaProxyThrowable عند زر الرجوع للخلف (Android)
+
+تاريخ الحل: 25 مايو 2026
+
+### الأعراض
+- ضغط زر الرجوع في Android يغلق التطبيق بدلاً من الرجوع للصفحة السابقة
+- عند إعادة فتح التطبيق بعد الإغلاق يظهر الخطأ:
+  ```
+  Android.Runtime.JavaProxyThrowable
+  Method not found: void Microsoft.Maui.LifecycleEvents.LifecycleEventService.RemoveEvent
+  ```
+
+### التشخيص
+الخطأ `Method not found` يشير إلى أن حزمة `Microsoft.AspNetCore.Components.WebView.Maui` تحاول استدعاء دالة `RemoveEvent` في `LifecycleEventService` غير موجودة في إصدار `Microsoft.Maui.Controls` المثبت.
+
+السبب: تعارض إصدارات حزم MAUI:
+```
+Microsoft.Maui.Controls                           10.0.20
+Microsoft.AspNetCore.Components.WebView.Maui      10.0.51  ← إصدار مختلف
+```
+
+### الحل
+
+**الخطوة 1**: توحيد إصدار `WebView.Maui` مع `Microsoft.Maui.Controls` في ملف `.csproj`:
+
+```xml
+<PackageReference Include="Microsoft.Maui.Controls" Version="10.0.20" />
+<PackageReference Include="Microsoft.AspNetCore.Components.WebView.Maui" Version="10.0.20" />
+```
+
+**الخطوة 2**: إضافة معالج لزر الرجوع في `AppShell.xaml.cs`:
+
+```csharp
+protected override bool OnBackButtonPressed()
+{
+    var currentPage = Current.CurrentPage;
+    if (currentPage == null) return false;
+
+    // إذا كان هناك صفحات في المكدس، ارجع للصفحة السابقة
+    if (currentPage.Navigation.NavigationStack.Count > 1)
+    {
+        MainThread.BeginInvokeOnMainThread(async () =>
+        {
+            await currentPage.Navigation.PopAsync();
+        });
+        return true;
+    }
+
+    // إذا كان في وضع مهني، ارجع للوضع الشخصي
+    if (_viewModel.CurrentMode != AppMode.Personal)
+    {
+        _viewModel.SwitchToPersonalModeCommand.Execute(null);
+        return true;
+    }
+
+    return true;
+}
+```
+
+### القاعدة الذهبية
+
+> `Microsoft.AspNetCore.Components.WebView.Maui` يجب أن يكون **دائماً** على نفس إصدار `Microsoft.Maui.Controls`. عند تحديث أي منهما، تأكد من تحديث الآخر لنفس الإصدار.
+
+### الوقاية
+
+- راجع ملف `.csproj` عند كل تحديث للحزم
+- تأكد من تطابق إصدارات جميع حزم MAUI في المشروع
+```
