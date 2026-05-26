@@ -544,4 +544,77 @@ protected override bool OnBackButtonPressed()
 
 - راجع ملف `.csproj` عند كل تحديث للحزم
 - تأكد من تطابق إصدارات جميع حزم MAUI في المشروع
+
+---
+
+## ⭐ مشكلة: زر الرجوع للخلف لا يعمل أو يظهر زر القائمة بدلاً منه
+
+**تاريخ الحل:** 26 مايو 2026
+
+### الأعراض
+- بعض الصفحات يظهر بها زر فتح القائمة (☰) بدلاً من زر الرجوع (⬅️)
+- زر الرجوع في الهاتف (Android Back Button) لا يعيد المستخدم للصفحة السابقة
+- بعض الصفحات تستجيب للرجوع والبعض الآخر لا
+
+### التشخيص
+بعد تجارب مكثفة، تم اكتشاف العلاقة بين خاصية `Shell.NavBarIsVisible` وطريقة التنقل `///`:
+
+| `Shell.NavBarIsVisible` | `///` مطلوب؟ | زر الرجوع يظهر؟ |
+|-------------------------|-------------|-----------------|
+| `False` (أو محذوف) | ❌ لا | ✅ نعم |
+| `True` | ✅ نعم | ❌ لا |
+
+**السبب الجذري:** 
+- `Shell.NavBarIsVisible="False"` يخفي شريط التنقل الخاص بـ Shell، مما يجعل المسارات النسبية تعمل بشكل صحيح
+- `Shell.NavBarIsVisible="True"` يتطلب `///` للمسارات المطلقة، مما يمسح Navigation Stack ويمنع الرجوع
+
+### الحل
+
+**الخطوة 1:** تأكد من أن كل صفحات XAML لا تحتوي على `Shell.NavBarIsVisible="True"`:
+```xml
+<!-- ❌ احذف هذا -->
+Shell.NavBarIsVisible="True"
+
+<!-- ✅ اتركه فارغاً أو استخدم -->
+Shell.NavBarIsVisible="False"
 ```
+
+**الخطوة 2:** احذف كل `///` من كل `GoToAsync` في المشروع:
+```csharp
+// ❌ قبل - يمسح Navigation Stack
+await Shell.Current.GoToAsync("///doctorsearch");
+
+// ✅ بعد - يحتفظ بـ Navigation Stack
+await Shell.Current.GoToAsync("doctorsearch");
+```
+
+**الخطوة 3:** أضف معالج زر الرجوع في `AppShell.xaml.cs`:
+```csharp
+protected override bool OnBackButtonPressed()
+{
+    var currentPage = Shell.Current?.CurrentPage;
+    if (currentPage == null) return false;
+
+    var stackCount = Shell.Current?.Navigation?.NavigationStack?.Count ?? 0;
+
+    if (stackCount > 1)
+    {
+        MainThread.BeginInvokeOnMainThread(async () =>
+        {
+            await Shell.Current.GoToAsync("..");
+        });
+        return true;
+    }
+
+    return true;
+}
+```
+
+### القاعدة الذهبية
+**`Shell.NavBarIsVisible="False"` على كل صفحات XAML + استخدام مسارات نسبية (بدون `///`) = زر رجوع يعمل على كل الصفحات.**
+
+`///` = مسح Navigation Stack = لا يوجد صفحة سابقة للرجوع إليها.
+```
+
+---
+
