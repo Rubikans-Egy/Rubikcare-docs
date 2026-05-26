@@ -391,13 +391,18 @@ public async Task<T> SafeApiCallAsync<T>(Func<Task<T>> apiCall)
 
 **الحل:** إضافة استدعاء `appShell.RefreshUserDataAsync()` في `DashboardPage.OnAppearing`.
 
+---
+
 ### 6. ⭐ مشكلة: ظهور بيانات المستخدم السابق بعد Logout (تم حلها - 24 مايو 2026)
 
 **السبب:** الكاش المحلي (`_cachedSession`) لم يكن يُمسح عند Logout.
 
 **الحل:** استدعاء `_cachedSessionService.ClearSessionAsync()` في `AppShellViewModel.LogoutAsync`.
 
----### 7. ⭐ مشكلة: نظام الملاحة (Navigation) - الحل النهائي (تم حلها - 26 مايو 2026)
+---
+
+
+### 7. ⭐ مشكلة: نظام الملاحة (Navigation) - الحل النهائي (تم حلها - 26 مايو 2026)
 
 **الأعراض:**
 *   ضغط زر الرجوع في Android يغلق التطبيق مع ظهور استثناء `JavaProxyThrowable`.
