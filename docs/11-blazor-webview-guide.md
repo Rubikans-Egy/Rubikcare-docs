@@ -205,7 +205,16 @@ await Shell.Current.GoToAsync("blazorHost", new Dictionary<string, object>
 ```
 
 ---
+### ⚠️ تنبيه هام: أخطاء التنقل من/إلى صفحات BlazorWebView
 
+إذا واجهت أخطاء تنقل مثل `JavaProxyThrowable` أو `Ambiguous routes matched for...` عند محاولة الانتقال من أو إلى صفحة تستخدم `BlazorWebView`، فالسبب غالبًا لا يكمن في `BlazorWebView` نفسه.
+
+المشكلة الحقيقية تكون في تضارب مسارات `MAUI Shell`. تأكد من:
+1.  أن الصفحة التي تستضيف `BlazorWebView` غير مسجلة بشكل مزدوج (مرة في `AppShell.xaml` ومرة في `AppShell.xaml.cs`).
+2.  أنك تستخدم المسارات النسبية (بدون `//`) للتنقل إلى هذه الصفحات.
+
+للتشخيص والعلاج الكامل، راجع القسم المخصص لذلك في دليل تطوير MAUI:
+[دليل تطوير MAUI - القسم 7: الحل النهائي لمشاكل الملاحة](./10-maui-development-guide.md#7--مشكلة-نظام-الملاحة-navigation---الحل-النهائي-تم-حلها---26-مايو-2026)
 ## إعدادات BlazorWebView
 
 ### في XAML
