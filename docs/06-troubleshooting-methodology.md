@@ -546,75 +546,20 @@ protected override bool OnBackButtonPressed()
 - تأكد من تطابق إصدارات جميع حزم MAUI في المشروع
 
 ---
-
-## ⭐ مشكلة: زر الرجوع للخلف لا يعمل أو يظهر زر القائمة بدلاً منه
+### ⭐ مشكلة: Ambiguous Routes (تضارب المسارات) في MAUI Shell
 
 **تاريخ الحل:** 26 مايو 2026
+**الخطأ:** `System.ArgumentException: Ambiguous routes matched for: //.../pageName matches found: ...`
+**الأعراض:** يحدث هذا الخطأ غالبًا مع `JavaProxyThrowable` عند محاولة العودة إلى صفحة سابقة. قد يؤدي إلى تعطل التطبيق.
 
-### الأعراض
-- بعض الصفحات يظهر بها زر فتح القائمة (☰) بدلاً من زر الرجوع (⬅️)
-- زر الرجوع في الهاتف (Android Back Button) لا يعيد المستخدم للصفحة السابقة
-- بعض الصفحات تستجيب للرجوع والبعض الآخر لا
+**التشخيص:**
+1.  **ابحث عن التسجيل المزدوج:** افحص `AppShell.xaml` و `AppShell.xaml.cs`. إذا وجدت نفس الصفحة مسجلة في كليهما، فهذا هو السبب.
+2.  **تتبع مسار الخطأ:** اقرأ رسالة الخطأ كاملة. المسار الذي يظهر (`//.../pageName`) يمكن أن يدلك على الصفحة التي تسبب المشكلة.
 
-### التشخيص
-بعد تجارب مكثفة، تم اكتشاف العلاقة بين خاصية `Shell.NavBarIsVisible` وطريقة التنقل `///`:
+**السبب الجذري:** تسجيل نفس الصفحة (Route) في كل من `ShellContent` داخل `AppShell.xaml` و `Routing.RegisterRoute` في `AppShell.xaml.cs`.
 
-| `Shell.NavBarIsVisible` | `///` مطلوب؟ | زر الرجوع يظهر؟ |
-|-------------------------|-------------|-----------------|
-| `False` (أو محذوف) | ❌ لا | ✅ نعم |
-| `True` | ✅ نعم | ❌ لا |
+**الحل:** اعتماد هيكلة صارمة للملاحة:
+*   **القاعدة:** الصفحات الرئيسية (Root) تسجل في `AppShell.xaml` فقط. كل ما عداها يسجل في `AppShell.xaml.cs`.
+*   **التطبيق:** راجع [دليل تطوير MAUI - القسم 7](10-maui-development-guide.md#7--مشكلة-نظام-الملاحة-navigation---الحل-النهائي-تم-حلها---26-مايو-2026) لمعرفة التطبيق الكامل لهذه القاعدة.
 
-**السبب الجذري:** 
-- `Shell.NavBarIsVisible="False"` يخفي شريط التنقل الخاص بـ Shell، مما يجعل المسارات النسبية تعمل بشكل صحيح
-- `Shell.NavBarIsVisible="True"` يتطلب `///` للمسارات المطلقة، مما يمسح Navigation Stack ويمنع الرجوع
-
-### الحل
-
-**الخطوة 1:** تأكد من أن كل صفحات XAML لا تحتوي على `Shell.NavBarIsVisible="True"`:
-```xml
-<!-- ❌ احذف هذا -->
-Shell.NavBarIsVisible="True"
-
-<!-- ✅ اتركه فارغاً أو استخدم -->
-Shell.NavBarIsVisible="False"
-```
-
-**الخطوة 2:** احذف كل `///` من كل `GoToAsync` في المشروع:
-```csharp
-// ❌ قبل - يمسح Navigation Stack
-await Shell.Current.GoToAsync("///doctorsearch");
-
-// ✅ بعد - يحتفظ بـ Navigation Stack
-await Shell.Current.GoToAsync("doctorsearch");
-```
-
-**الخطوة 3:** أضف معالج زر الرجوع في `AppShell.xaml.cs`:
-```csharp
-protected override bool OnBackButtonPressed()
-{
-    var currentPage = Shell.Current?.CurrentPage;
-    if (currentPage == null) return false;
-
-    var stackCount = Shell.Current?.Navigation?.NavigationStack?.Count ?? 0;
-
-    if (stackCount > 1)
-    {
-        MainThread.BeginInvokeOnMainThread(async () =>
-        {
-            await Shell.Current.GoToAsync("..");
-        });
-        return true;
-    }
-
-    return true;
-}
-```
-
-### القاعدة الذهبية
-**`Shell.NavBarIsVisible="False"` على كل صفحات XAML + استخدام مسارات نسبية (بدون `///`) = زر رجوع يعمل على كل الصفحات.**
-
-`///` = مسح Navigation Stack = لا يوجد صفحة سابقة للرجوع إليها.
-```
-
----
-
+**الوقاية:** عند إضافة أي صفحة جديدة، اسأل نفسك: "هل هي صفحة رئيسية (Root)؟" إذا كانت الإجابة لا، سجلها في `AppShell.xaml.cs` فقط ولا تستخدم `//` للتنقل إليها.
