@@ -451,7 +451,71 @@ protected override bool OnBackButtonPressed()
 **القاعدة**:
 `Microsoft.AspNetCore.Components.WebView.Maui` يجب أن يكون دائماً على نفس إصدار `Microsoft.Maui.Controls`.
 ```
+
+### 8. ⭐ مشكلة: زر الرجوع لا يعمل أو يظهر زر القائمة بدلاً منه (تم حلها - 26 مايو 2026)
+
+**الأعراض:**
+- بعض الصفحات يظهر بها زر فتح القائمة (☰) بدلاً من زر الرجوع (⬅️)
+- زر الرجوع في الهاتف لا يعيد المستخدم للصفحة السابقة
+- بعض الصفحات تستجيب للرجوع والبعض الآخر لا
+
+**السبب الجذري:** علاقة غير موثقة بين `Shell.NavBarIsVisible` وطريقة التنقل `///`:
+
+| `Shell.NavBarIsVisible` | `///` مطلوب؟ | زر الرجوع يظهر؟ |
+|-------------------------|-------------|-----------------|
+| `False` (أو محذوف) | ❌ لا | ✅ نعم |
+| `True` | ✅ نعم | ❌ لا |
+
+عندما يكون `Shell.NavBarIsVisible="True"`، Shell يتطلب `///` للمسارات المطلقة. `///` يمسح Navigation Stack، مما يمنع الرجوع للصفحة السابقة.
+
+**الحل:**
+
+**الخطوة 1:** تأكد من أن كل صفحات XAML لا تحتوي على `Shell.NavBarIsVisible="True"`:
+```xml
+<!-- ❌ احذف هذا -->
+Shell.NavBarIsVisible="True"
+
+<!-- ✅ اتركه فارغاً -->
 ```
+
+**الخطوة 2:** احذف كل `///` من كل `GoToAsync` في المشروع:
+```csharp
+// ❌ قبل - يمسح Navigation Stack
+await Shell.Current.GoToAsync("///doctorsearch");
+
+// ✅ بعد - يحتفظ بـ Navigation Stack
+await Shell.Current.GoToAsync("doctorsearch");
+```
+
+**الخطوة 3:** أضف معالج زر الرجوع في `AppShell.xaml.cs`:
+```csharp
+protected override bool OnBackButtonPressed()
+{
+    var currentPage = Shell.Current?.CurrentPage;
+    if (currentPage == null) return false;
+
+    var stackCount = Shell.Current?.Navigation?.NavigationStack?.Count ?? 0;
+
+    if (stackCount > 1)
+    {
+        MainThread.BeginInvokeOnMainThread(async () =>
+        {
+            await Shell.Current.GoToAsync("..");
+        });
+        return true;
+    }
+
+    return true;
+}
+```
+
+**القاعدة الذهبية:**
+`Shell.NavBarIsVisible="False"` على كل صفحات XAML + استخدام مسارات نسبية (بدون `///`) = زر رجوع يعمل على كل الصفحات.
+
+`///` = مسح Navigation Stack = لا يوجد صفحة سابقة للرجوع إليها.
+```
+
+---
 
 ```
 
