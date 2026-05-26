@@ -397,126 +397,36 @@ public async Task<T> SafeApiCallAsync<T>(Func<Task<T>> apiCall)
 
 **الحل:** استدعاء `_cachedSessionService.ClearSessionAsync()` في `AppShellViewModel.LogoutAsync`.
 
----
-
-### 7. ⭐ مشكلة: زر الرجوع يغلق التطبيق مع JavaProxyThrowable (تم حلها - 25 مايو 2026)
-
-**الأعراض**:
-- ضغط زر الرجوع في Android يغلق التطبيق بدلاً من الرجوع للصفحة السابقة
-- عند إعادة فتح التطبيق يظهر:
-  ```
-  Android.Runtime.JavaProxyThrowable
-  Method not found: void Microsoft.Maui.LifecycleEvents.LifecycleEventService.RemoveEvent
-  ```
-
-**السبب الجذري**:
-تعارض إصدارات `Microsoft.Maui.Controls` مع `Microsoft.AspNetCore.Components.WebView.Maui`. الإصدار المختلف من `WebView.Maui` يحاول استدعاء Methods غير موجودة في `LifecycleEventService`.
-
-**الحل**:
-توحيد الإصدارات في `.csproj`:
-
-```xml
-<!-- تأكد من تطابق الإصدارين -->
-<PackageReference Include="Microsoft.Maui.Controls" Version="10.0.20" />
-<PackageReference Include="Microsoft.AspNetCore.Components.WebView.Maui" Version="10.0.20" />
-```
-
-مع إضافة `OnBackButtonPressed` في `AppShell.xaml.cs`:
-
-```csharp
-protected override bool OnBackButtonPressed()
-{
-    var currentPage = Current.CurrentPage;
-    if (currentPage == null) return false;
-
-    if (currentPage.Navigation.NavigationStack.Count > 1)
-    {
-        MainThread.BeginInvokeOnMainThread(async () =>
-        {
-            await currentPage.Navigation.PopAsync();
-        });
-        return true;
-    }
-
-    if (_viewModel.CurrentMode != AppMode.Personal)
-    {
-        _viewModel.SwitchToPersonalModeCommand.Execute(null);
-        return true;
-    }
-
-    return true;
-}
-```
-```
-**القاعدة**:
-`Microsoft.AspNetCore.Components.WebView.Maui` يجب أن يكون دائماً على نفس إصدار `Microsoft.Maui.Controls`.
-```
-
-### 8. ⭐ مشكلة: زر الرجوع لا يعمل أو يظهر زر القائمة بدلاً منه (تم حلها - 26 مايو 2026)
+---### 7. ⭐ مشكلة: نظام الملاحة (Navigation) - الحل النهائي (تم حلها - 26 مايو 2026)
 
 **الأعراض:**
-- بعض الصفحات يظهر بها زر فتح القائمة (☰) بدلاً من زر الرجوع (⬅️)
-- زر الرجوع في الهاتف لا يعيد المستخدم للصفحة السابقة
-- بعض الصفحات تستجيب للرجوع والبعض الآخر لا
+*   ضغط زر الرجوع في Android يغلق التطبيق مع ظهور استثناء `JavaProxyThrowable`.
+*   عدم ظهور زر الرجوع (⬅️) في بعض الصفحات، وظهور زر القائمة (☰) بدلاً منه.
+*   ظهور خطأ `Ambiguous routes matched for...` عند محاولة التنقل بين الصفحات.
+*   ظهور خطأ `Global routes currently cannot be the only page on the stack`.
 
-**السبب الجذري:** علاقة غير موثقة بين `Shell.NavBarIsVisible` وطريقة التنقل `///`:
+**السبب الجذري:**
+1.  **تضارب المسارات (Ambiguous Routes):** تم تسجيل نفس الصفحة في كل من `AppShell.xaml` (كـ `<ShellContent>`) و `AppShell.xaml.cs` (باستخدام `Routing.RegisterRoute`)، مما أربك نظام التوجيه.
+2.  **إساءة استخدام المسارات المطلقة (`///`):** استخدام `///` يمسح مكدس التنقل (Navigation Stack) مما يمنع العودة للخلف. كان مرتبطًا بخاصية `Shell.NavBarIsVisible`.
 
-| `Shell.NavBarIsVisible` | `///` مطلوب؟ | زر الرجوع يظهر؟ |
-|-------------------------|-------------|-----------------|
-| `False` (أو محذوف) | ❌ لا | ✅ نعم |
-| `True` | ✅ نعم | ❌ لا |
+**الحل النهائي: إعادة هيكلة نظام الملاحة**
+تم اعتماد القواعد التالية بشكل صارم:
 
-عندما يكون `Shell.NavBarIsVisible="True"`، Shell يتطلب `///` للمسارات المطلقة. `///` يمسح Navigation Stack، مما يمنع الرجوع للصفحة السابقة.
+1.  **`AppShell.xaml` للصفحات الرئيسية (Root Pages) فقط:**
+    *   يحتوي على 6 صفحات رئيسية: `LoginPage`, `RegisterPage`, `MainDashboard`, `ClinicDashboardPage`, `PharmacyDashboardPage`, `PharmaCompanyDashboardPage`.
+    *   هذه الصفحات هي الوحيدة التي يتم التنقل إليها باستخدام المسار المطلق `//Route`.
 
-**الحل:**
+2.  **`AppShell.xaml.cs` لجميع الصفحات الفرعية:**
+    *   يتم تسجيل جميع الصفحات الأخرى هنا باستخدام `Routing.RegisterRoute("routeName", typeof(PageType))`.
+    *   يتم التنقل إليها باستخدام **المسار النسبي** فقط (بدون `//`).
 
-**الخطوة 1:** تأكد من أن كل صفحات XAML لا تحتوي على `Shell.NavBarIsVisible="True"`:
-```xml
-<!-- ❌ احذف هذا -->
-Shell.NavBarIsVisible="True"
-
-<!-- ✅ اتركه فارغاً -->
-```
-
-**الخطوة 2:** احذف كل `///` من كل `GoToAsync` في المشروع:
-```csharp
-// ❌ قبل - يمسح Navigation Stack
-await Shell.Current.GoToAsync("///doctorsearch");
-
-// ✅ بعد - يحتفظ بـ Navigation Stack
-await Shell.Current.GoToAsync("doctorsearch");
-```
-
-**الخطوة 3:** أضف معالج زر الرجوع في `AppShell.xaml.cs`:
-```csharp
-protected override bool OnBackButtonPressed()
-{
-    var currentPage = Shell.Current?.CurrentPage;
-    if (currentPage == null) return false;
-
-    var stackCount = Shell.Current?.Navigation?.NavigationStack?.Count ?? 0;
-
-    if (stackCount > 1)
-    {
-        MainThread.BeginInvokeOnMainThread(async () =>
-        {
-            await Shell.Current.GoToAsync("..");
-        });
-        return true;
-    }
-
-    return true;
-}
-```
+3.  **حذف `///` من كل أوامر التنقل:**
+    *   تم استبدال كل استدعاءات `GoToAsync("///route")` بـ `GoToAsync("route")` للصفحات الفرعية.
 
 **القاعدة الذهبية:**
-`Shell.NavBarIsVisible="False"` على كل صفحات XAML + استخدام مسارات نسبية (بدون `///`) = زر رجوع يعمل على كل الصفحات.
+> `AppShell.xaml` للرئيسية فقط، `AppShell.xaml.cs` للفرعية، والتنقل يكون نسبيًا بدون `//`. `///` = مسح كامل للمكدس، لا يُستخدم أبدًا للتنقل الطبيعي.
 
-`///` = مسح Navigation Stack = لا يوجد صفحة سابقة للرجوع إليها.
 ```
-
----
-
 ```
 
 ## BlazorWebView في MAUI
