@@ -432,10 +432,16 @@ public async Task<T> SafeApiCallAsync<T>(Func<Task<T>> apiCall)
 > `AppShell.xaml` للرئيسية فقط، `AppShell.xaml.cs` للفرعية، والتنقل يكون نسبيًا بدون `//`. `///` = مسح كامل للمكدس، لا يُستخدم أبدًا للتنقل الطبيعي.
 
 ```
+
+| نوع الصفحة | تسجل في | تستدعى بـ | مثال |
+|-----------|---------|-----------|------|
+| رئيسية (Root) | AppShell.xaml | //Route | //MainDashboard |
+| فرعية (Detail) | AppShell.xaml.cs | Route | doctorprofile |
+| الرجوع للخلف | - | .. | .. |
 ```
 
 ## BlazorWebView في MAUI
-
+```
 ### التكامل بين XAML و Blazor
 
 ```
