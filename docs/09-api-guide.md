@@ -343,7 +343,20 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
     }
 }
 ```
+📝 بخصوص AllowAnonymous
+متفق معك تماماً. نتركها كما هي الآن مع تدوين الملاحظة التالية:
 
+⚠️ ملاحظة مؤجلة: الـ Endpoints التالية تستخدم [AllowAnonymous] وتحتاج مراجعة أمنية لاحقاً:
+
+DispenseController.ValidateToken + ConfirmDispense
+
+MedicationRequestController.CreateMedicationRequest
+
+PharmaCompanyMedicationsController.GetAll + Search
+
+بعض Endpoints في PspController و DispensationPlansController
+
+نعود لها بعد إنجاز مهام الجلسة الحالية ✅
 ---
 
 ## 🔗 روابط ذات صلة
