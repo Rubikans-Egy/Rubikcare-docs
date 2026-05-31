@@ -141,7 +141,24 @@ public void Application_ShouldNot_DependOn_Infrastructure()
 - [ ] هل `Program.cs` لم يتغير (سطر واحد فقط)؟
 
 ---
+## ✅ الأنماط المسموح بها للوصول للبيانات
 
+### النمط 1: IGenericService<T> (المفضل)
+- للـ CRUD البسيطة
+- يستخدم في معظم الـ Controllers
+
+### النمط 2: IDbContextFactoryService (للاستعلامات المعقدة)
+- مسموح في: Controllers + Services في Infrastructure فقط
+- النمط: `_dbFactory.ExecuteReadOnlyAsync(async context => { var db = (DbContext)context; ... })`
+
+### النمط 3: Service متخصص في Infrastructure
+- للاستعلامات المعقدة التي تحتاج إعادة استخدام
+- يحقن فيه `IDbContextFactoryService`
+- مثال: `ClinicReportService`
+
+## 📦 تسجيل الخدمات
+- جميع الخدمات تسجل في `InfrastructureExtensions.cs`
+- لا يوجد ملف `DependencyInjection.cs` منفصل
 ## 🔗 روابط ذات صلة
 
 - [00 - الهيكل المعماري](00-architecture-overview.md)
