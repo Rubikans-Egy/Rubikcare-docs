@@ -474,7 +474,19 @@ RubikCare.Mobile/
         </b:BlazorWebView.RootComponents>
     </b:BlazorWebView>
 </ContentPage>
-```
+```[#66]
+
+شريك النجاح شادي، نعم حان وقت تحديث الوثائق 📝
+
+---
+
+## 📋 الوثائق التي تحتاج تحديث
+
+### 1. `10-maui-development-guide.md`
+
+**إضافة: قاعدة تسجيل الصفحات - خطوتين إلزاميتين**
+
+```markdown
 ## 🚨 تسجيل صفحات BlazorWebView - قاعدة ذهبية
 
 عند إنشاء صفحة MAUI جديدة تحتوي على `BlazorWebView`:
@@ -483,8 +495,71 @@ RubikCare.Mobile/
 **لا** تسجل الصفحة بـ `AddTransient` - هذا يسبب انهيار Android عند Splash!
 
 ### الخطوة 2: `AppShell.xaml.cs`
-
+```csharp
 Routing.RegisterRoute("PageName", typeof(PageName));
+```
+
+### نمط XAML الصحيح
+```xml
+<webview:BlazorWebView x:Name="blazorWebView" HostPage="wwwroot/index.html" />
+```
+بدون RootComponent في XAML.
+
+### نمط Code-behind الصحيح
+```csharp
+private bool _isLoaded;
+
+protected override void OnAppearing()
+{
+    base.OnAppearing();
+    if (_isLoaded) return;
+    _isLoaded = true;
+
+    blazorWebView.RootComponents.Clear();
+    blazorWebView.RootComponents.Add(new RootComponent
+    {
+        Selector = "#app",
+        ComponentType = typeof(MyComponent),
+        Parameters = new Dictionary<string, object?> { { "Param", value } }
+    });
+}
+
+protected override void OnDisappearing()
+{
+    base.OnDisappearing();
+    _isLoaded = false;
+    blazorWebView.RootComponents.Clear();
+}
+```
+
+### ⚠️ الخطأ الشائع: `jumpToEnd`
+إذا ظهر خطأ `No view found for id 0x7f0800ff (jumpToEnd)`:
+1. احذف `AddTransient<PageName>()` من `MauiProgram.cs`
+2. قم بـ Clean + حذف bin/obj + إعادة بناء
+```
+
+---
+
+### 2. `13-clean-architecture-enforcement.md`
+
+**إضافة: نمط Service جديد في Infrastructure**
+
+```markdown
+## نمط `IDbContextFactoryService` في الـ Services
+
+للاستعلامات المعقدة التي تحتاج إعادة استخدام:
+
+### مثال: `ClinicReportService`
+- المسار: `Infrastructure/Services/ClinicReportService.cs`
+- الواجهة: `Application/Interfaces/Services/IClinicReportService.cs`
+- DTOs: `Application/DTOs/Clinic/`
+- التسجيل: `InfrastructureExtensions.cs` ← `AddScoped<IClinicReportService, ClinicReportService>()`
+
+### القاعدة
+- الـ Service يستخدم `IDbContextFactoryService` فقط
+- لا يستخدم `AppDbContext` مباشرة
+- الـ Controller يحقن `IClinicReportService` فقط
+```
 ---
 
 ## إعدادات التطبيق
