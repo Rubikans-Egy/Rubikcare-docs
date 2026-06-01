@@ -475,7 +475,16 @@ RubikCare.Mobile/
     </b:BlazorWebView>
 </ContentPage>
 ```
+## 🚨 تسجيل صفحات BlazorWebView - قاعدة ذهبية
 
+عند إنشاء صفحة MAUI جديدة تحتوي على `BlazorWebView`:
+
+### الخطوة 1: `MauiProgram.cs`
+**لا** تسجل الصفحة بـ `AddTransient` - هذا يسبب انهيار Android عند Splash!
+
+### الخطوة 2: `AppShell.xaml.cs`
+
+Routing.RegisterRoute("PageName", typeof(PageName));
 ---
 
 ## إعدادات التطبيق
