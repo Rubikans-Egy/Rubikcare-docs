@@ -502,7 +502,14 @@ ps-root
     </div>
 </div>
 ```
+##3. 03-style-guide.md
+إضافة: بادئات صفحات العيادة
 
+markdown
+| البادئة | الصفحة |
+|---------|--------|
+| `cpt-` | Clinic Patients List (قائمة المرضى) |
+| `cpd-` | Clinic Patient Details (تفاصيل المريض) |
 ---
 
 ## 📚 المراجع
