@@ -467,16 +467,6 @@ document.cookie = "lang=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;"
 - [Problem Log](../problem-log.md)
 ```
 
---
-#53
-
-## تحديث `06-troubleshooting-methodology.md`
-
-أضف هذا القسم الجديد في نهاية الملف:
-
-```markdown
----
-
 ## ⭐ مشكلة: JavaProxyThrowable عند زر الرجوع للخلف (Android)
 
 تاريخ الحل: 25 مايو 2026
@@ -563,3 +553,72 @@ protected override bool OnBackButtonPressed()
 *   **التطبيق:** راجع [دليل تطوير MAUI - القسم 7](10-maui-development-guide.md#7--مشكلة-نظام-الملاحة-navigation---الحل-النهائي-تم-حلها---26-مايو-2026) لمعرفة التطبيق الكامل لهذه القاعدة.
 
 **الوقاية:** عند إضافة أي صفحة جديدة، اسأل نفسك: "هل هي صفحة رئيسية (Root)؟" إذا كانت الإجابة لا، سجلها في `AppShell.xaml.cs` فقط ولا تستخدم `//` للتنقل إليها.
+
+
+الحمد لله! 🎉
+
+### توثيق خطأ `jumpToEnd` وأخطاء `///` المرتبطة
+
+أقترح توثيق هذه المشكلة في **وثيقة `06-troubleshooting-methodology.md`** الموجودة بالفعل، لأنها منهجية تتبع وحل مشاكل. أضف قسماً جديداً بعد قسم `Ambiguous Routes` الحالي.
+
+---
+
+### 📝 المحتوى المقترح إضافته للوثيقة
+
+```markdown
+### ⭐ مشكلة: No view found for id 0x7f0800ff (jumpToEnd) - انهيار Fragment
+
+**تاريخ الحل:** 29 مايو 2026 / 6 يونيو 2026
+
+**الأعراض:**
+- يظهر الخطأ بعد Splash Screen مباشرة ويتوقف التطبيق
+- لا يتم تحميل أي صفحة
+- يحدث فجأة بعد تعديلات في ملفات XAML أو حذف كود معلق
+
+**الخطأ:**
+```
+Java.Lang.IllegalArgumentException: No view found for id 0x7f0800ff 
+(Rubikcare.com:id/jumpToEnd) for fragment 
+NavigationRootManager_ElementBasedFragment
+```
+
+**الأسباب المحتملة (مرتبة حسب الأولوية):**
+
+| # | السبب | مثال |
+|---|-------|------|
+| 1 | استخدام `///` مع صفحة رئيسية | `GoToAsync("///ClinicDashboardPage")` |
+| 2 | استخدام مسار نسبي مع صفحة رئيسية | `GoToAsync("MainDashboard")` بدل `//MainDashboard` |
+| 3 | حذف كود XAML معلق دون تنظيف عميق | ترك `xmlns` references مكسورة |
+| 4 | تسجيل صفحة رئيسية في `AppShell.xaml.cs` | `Routing.RegisterRoute("MainDashboard", ...)` |
+
+**التشخيص:**
+1. **افحص `AppShellViewModel.cs`** - ابحث عن أي `GoToAsync` يستخدم `///`
+2. **افحص `AppShell.xaml`** - تأكد أن الصفحات الرئيسية فقط هي المسجلة (6 صفحات)
+3. **افحص `AppShell.xaml.cs`** - تأكد أن لا توجد صفحة رئيسية مسجلة هنا
+
+**الحل:**
+1. **القاعدة الذهبية:** الصفحات الرئيسية تستدعى بـ `//Route` فقط، لا `///` ولا نسبي
+2. **بعد أي تعديل هيكلي:** تنظيف عميق
+   ```bash
+   rmdir /s /q bin
+   rmdir /s /q obj
+   # احذف التطبيق من الهاتف
+   dotnet restore
+   dotnet build -f net10.0-android -c Debug -t:Install
+   ```
+
+**الفرق بين `//` و `///`:**
+
+| الرمز | المعنى | يستخدم مع | التأثير |
+|-------|--------|-----------|---------|
+| `//Route` | Absolute - يستبدل الصفحة الحالية | الصفحات الرئيسية | ✅ صحيح |
+| `///Route` | Absolute - يمسح كل المكدس | لا شيء حالياً | ❌ يسبب `jumpToEnd` |
+| `Route` | Relative - يضيف للمكدس | الصفحات الفرعية | ✅ صحيح |
+| `..` | رجوع للخلف | أي صفحة | ✅ صحيح |
+
+**الوقاية:**
+- لا تستخدم `///` أبداً في المشروع
+- الصفحات الرئيسية = `//Route`
+- الصفحات الفرعية = `Route`
+- بعد حذف أي كود XAML معلق = تنظيف عميق
+```
