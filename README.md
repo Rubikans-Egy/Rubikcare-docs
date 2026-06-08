@@ -62,7 +62,7 @@
 |-------|---------|
 | [14-caching-system.md](docs/14-caching-system.md) | **نظام الكاش الموحد** - هيكل، طبقات، قواعد الاستخدام ⭐ |
 | [15-mobile-translation-system.md](docs/15-mobile-translation-system.md) | نظام الترجمة في الموبايل |
-
+| [14-google-signin-android.md](docs/14-google-signin-android.md) | Google Sign-In على Android — WebAuthenticator + PKCE + APK Signing |
 ### 📚 المراجع
 
 | الملف | المحتوى |
@@ -139,7 +139,7 @@
 | 16 | 14-caching-system.md ⭐ | https://raw.githubusercontent.com/Rubikans-Egy/Rubikcare-docs/main/docs/14-caching-system.md |
 | 17 | 15-mobile-translation-system.md | https://github.com/Rubikans-Egy/Rubikcare-docs/blob/main/docs/15-mobile-translation-system.md |
 | 18 | appendix-a-glossary.md | https://raw.githubusercontent.com/Rubikans-Egy/Rubikcare-docs/main/docs/appendix-a-glossary.md |
-
+| 19 | 16 -google-signin-android.md](docs/14-google-signin-android.md) | Google Sign-In على Android — WebAuthenticator + PKCE + APK Signing |
 ---
 
 © 2026 RubikCare - للاستخدام الداخلي
