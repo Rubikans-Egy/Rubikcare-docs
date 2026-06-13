@@ -1,3 +1,4 @@
+
 # 11 - دليل BlazorWebView والأنماط الناجحة
 
 **آخر تحديث: 13 يونيو 2026**
@@ -157,34 +158,131 @@ public MyFlowPage()
 }
 ```
 
-### ⚠️ تحذير: مشكلة `autostart="false"` مع `window.__blazorStarted`
+---
 
-إذا كان `index.html` يستخدم هذا النمط:
+## 🚨 القسم الثالث: تحديث مكون Blazor من MAUI بعد التحميل
 
-```html
-<script src="_framework/blazor.webview.js" autostart="false"></script>
-<script>
-    window.addEventListener('DOMContentLoaded', function () {
-        setTimeout(function () {
-            if (typeof Blazor !== 'undefined' && !window.__blazorStarted) {
-                window.__blazorStarted = true; // ← هذا هو المشكلة
-                Blazor.start();
-            }
-        }, 100);
+### ⚠️ المشكلة (اكتشاف: 13 يونيو 2026)
+
+بعد إضافة المكون في الكونستركتور، لا يمكن إعادة تحميله عبر `RootComponents.Clear()` ثم `RootComponents.Add()`. لكن هناك حالات تحتاج فيها الحاوية لتحديث المكون من الخارج:
+
+- **FilePicker:** المستخدم يختار ملفاً من MAUI Native UI
+- **Push Notification:** تحديث البيانات عند وصول إشعار
+- **Deep Link:** فتح الصفحة ببيانات من رابط خارجي
+
+### ❌ أنماط فاشلة
+
+```csharp
+// ❌ لن يعمل - Clear ثم Add لا يعيد تحميل المكون
+private async Task UpdateComponentAfterFilePick()
+{
+    var file = await PickFileAsync();
+    blazorWebView.RootComponents.Clear();
+    blazorWebView.RootComponents.Add(new RootComponent
+    {
+        Parameters = new Dictionary<string, object?> { { "File", file } }
     });
-</script>
+    // النتيجة: صفحة فارغة
+}
 ```
 
-فإن **أول صفحة Blazor تعمل**، لكن أي صفحة Blazor تُفتح لاحقاً في نفس الجلسة **تفشل بصمت** لأن `window.__blazorStarted = true` يمنع استدعاء `Blazor.start()` مرة ثانية.
+### ✅ نمط OnComponentReady — الحل الوحيد
 
-**الحل:** استخدم `autostart` الافتراضي بدون flag:
+**الفكرة:** يحتفظ MAUI Host بمرجع مباشر لـ Blazor Component، ويستدعي `public methods` عليه مباشرة.
 
-```html
-<!-- ✅ سطر واحد بدون flag -->
-<script src="_framework/blazor.webview.js"></script>
+#### في مكون Blazor (`ProfessionalLicensePage.razor`):
+
+```razor
+@code {
+    [Parameter] public Action<ProfessionalLicensePage>? OnComponentReady { get; set; }
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // ⭐ أرسل مرجع this للحاوية بمجرد أن يصبح المكون جاهزاً
+            OnComponentReady?.Invoke(this);
+        }
+    }
+
+    // ⭐ Public method تستدعى من الحاوية
+    public void SetFileData(string fileName, byte[] fileBytes)
+    {
+        _fileName = fileName;
+        _selectedFileBytes = fileBytes;
+        InvokeAsync(StateHasChanged);
+    }
+}
 ```
 
-> **ملاحظة:** في RubikCare تم التحقق من أن هذه المشكلة **ليست** السبب الفعلي للأعطال الحالية (السبب كان `@inject HttpClient`)، لكنها موثقة هنا لتجنبها مستقبلاً.
+#### في حاوية MAUI (`ProfessionalLicenseFlow.xaml.cs`):
+
+```csharp
+public partial class ProfessionalLicenseFlow : ContentPage
+{
+    private ProfessionalLicensePage? _licensePageRef;  // ⭐ مرجع للمكون
+
+    private void LoadLicensePage()
+    {
+        blazorWebView.RootComponents.Add(new RootComponent
+        {
+            ComponentType = typeof(ProfessionalLicensePage),
+            Parameters = new Dictionary<string, object?>
+            {
+                { "ApiService", (IApiService)_apiService },
+                { "OnComponentReady", new Action<ProfessionalLicensePage>(page =>
+                    {
+                        _licensePageRef = page;  // ⭐ احفظ المرجع
+                        System.Diagnostics.Debug.WriteLine("✅ Component ref captured");
+                    })
+                }
+            }
+        });
+    }
+
+    private async Task PickFileAndUpdateAsync()
+    {
+        var result = await FilePicker.PickAsync(...);
+        if (result == null) return;
+
+        var bytes = await ReadFileBytesAsync(result);
+        var fileName = result.FileName;
+
+        // ⭐ استدعِ public method مباشرة — لا Clear/Add!
+        await MainThread.InvokeOnMainThreadAsync(() =>
+        {
+            _licensePageRef?.SetFileData(fileName, bytes);
+        });
+    }
+
+    protected override void OnDisappearing()
+    {
+        base.OnDisappearing();
+        _licensePageRef = null;  // ⭐ تنظيف المرجع
+        try { blazorWebView.RootComponents.Clear(); } catch { }
+    }
+}
+```
+
+### 📊 مقارنة: Clear/Add vs OnComponentReady
+
+| المعيار | Clear/Add | OnComponentReady |
+|---------|-----------|------------------|
+| إعادة تحميل المكون | ❌ لا يعمل | ✅ نعم |
+| الحفاظ على State | ❌ يفقد كل شيء | ✅ يحافظ على الحالة |
+| استدعاء API | ❌ لا حاجة (المكون جديد) | ✅ عبر public methods |
+| تعقيد | بسيط لكن فاشل | بسيط وناجح |
+
+### ⚠️ متى تستخدم هذا النمط
+
+- ✅ FilePicker يحتاج لتحديث المكون بالملف المختار
+- ✅ Push Notification يحتاج لتحديث بيانات معروضة
+- ✅ أي سيناريو فيه MAUI native UI ثم العودة لـ Blazor
+
+### ❌ متى لا تستخدمه
+
+- ❌ جلب بيانات من API — دع المكون يحمّلها بنفسه في `OnInitializedAsync`
+- ❌ تغيير حالة بسيطة — استخدم `EventCallback` العادي
 
 ---
 
@@ -281,13 +379,16 @@ RubikCare.Mobile/
 │   │   ├── ProfessionalStatusFlow.xaml
 │   │   └── CreateOrganizationFlow.xaml
 │   │
-│   └── XamlPages/                       # صفحات XAML الموجودة (تبقى كما هي)
+│   └── ProfessionalOnboarding/Views/    # صفحات التوجيه المهني
+│       ├── ProfessionalLicenseFlow.xaml
+│       └── CreateOrganizationFlow.xaml
 │
 RubikCare.Shared.UI/                     # RCL للمكونات المشتركة
 └── Components/
     ├── Patient/Settings/
     │   ├── SettingsPage.razor
-    │   └── ProfessionalStatusPage.razor
+    │   ├── ProfessionalStatusPage.razor
+    │   └── ProfessionalLicensePage.razor
     └── OrganizationManagement/
         └── CreateOrganizationPage.razor
 ```
@@ -302,29 +403,15 @@ RubikCare.Shared.UI/                     # RCL للمكونات المشتركة
 public partial class MyFlowPage : ContentPage
 {
     private readonly ApiService _apiService;
-
-    // بيانات محلية مؤقتة
     private string _cachedValue = "";
 
     public MyFlowPage()
     {
         InitializeComponent();
-        _apiService = IPlatformApplication.Current!.Services
-            .GetRequiredService<ApiService>();
-
-        // الخطوة 1: تحميل البيانات المكاشة (متزامن)
+        _apiService = IPlatformApplication.Current!.Services.GetRequiredService<ApiService>();
         LoadCachedData();
-
-        // الخطوة 2: إضافة المكون مع البيانات (متزامن - إلزامي!)
         LoadBlazorComponent();
-
-        // الخطوة 3: تحديث من API في الخلفية (غير متزامن)
         _ = RefreshFromApiAsync();
-    }
-
-    private void LoadCachedData()
-    {
-        _cachedValue = Preferences.Get("my_cached_key", "");
     }
 
     private void LoadBlazorComponent()
@@ -333,8 +420,7 @@ public partial class MyFlowPage : ContentPage
 
         var parameters = new Dictionary<string, object?>
         {
-            { "Param1", _cachedValue },
-            { "ApiService", (IApiService)_apiService }, // ⭐ مرر عبر Interface
+            { "ApiService", (IApiService)_apiService },
             { "OnAction", EventCallback.Factory.Create<MyDto>(this, HandleAction) }
         };
 
@@ -344,29 +430,6 @@ public partial class MyFlowPage : ContentPage
             ComponentType = typeof(MyBlazorPage),
             Parameters = parameters
         });
-    }
-
-    private async Task RefreshFromApiAsync()
-    {
-        try
-        {
-            var data = await _apiService.GetAsync<MyDto>("api/my-endpoint");
-            if (data != null)
-            {
-                Preferences.Set("my_cached_key", data.Value);
-                // ملاحظة: لا تُعد إضافة RootComponent هنا
-                // المكون يتعامل مع تحديث البيانات داخلياً عبر ApiService Parameter
-            }
-        }
-        catch (Exception ex)
-        {
-            System.Diagnostics.Debug.WriteLine($"❌ Refresh error: {ex.Message}");
-        }
-    }
-
-    private async Task HandleAction(MyDto data)
-    {
-        // معالجة الـ callback من المكون
     }
 
     protected override void OnDisappearing()
@@ -380,210 +443,19 @@ public partial class MyFlowPage : ContentPage
 ### 2. النمط القياسي لمكون Blazor في Shared.UI
 
 ```razor
-@namespace RubikCare.Shared.UI.Components.MyFeature
-@using RubikCare.Shared.UI.Services
-@implements IDisposable
-
 @inject ISharedTranslationService TranslationService   @* ✅ مسموح *@
 @inject ISharedTranslationState TranslationState       @* ✅ مسموح *@
-@* ❌ لا تضف @inject HttpClient أو أي خدمة MAUI هنا *@
-
-<div>
-    @if (IsLoading)
-    {
-        <div class="skeleton-loader"></div>
-    }
-    else
-    {
-        @* المحتوى الفعلي *@
-    }
-</div>
 
 @code {
-    // ✅ Parameters من MAUI
-    [Parameter] public string SomeParam { get; set; } = "";
-    [Parameter] public IApiService? ApiService { get; set; }         @* ✅ عبر Interface *@
+    [Parameter] public IApiService? ApiService { get; set; }
     [Parameter] public EventCallback<MyDto> OnAction { get; set; }
-
-    // State داخلي
-    private bool IsLoading = true;
-    private List<MyItemDto> _items = new();
 
     protected override async Task OnInitializedAsync()
     {
-        System.Diagnostics.Debug.WriteLine("🔵 MyPage: OnInitializedAsync START");
-
-        await LoadTranslations();
-
-        if (ApiService != null)
-        {
-            await LoadDataAsync();
-        }
-
-        IsLoading = false;
-        System.Diagnostics.Debug.WriteLine($"🟢 MyPage: Done, Items={_items.Count}");
-    }
-
-    private async Task LoadDataAsync()
-    {
-        try
-        {
-            var result = await ApiService!.GetAsync<List<MyItemDto>>("api/my-endpoint");
-            if (result != null) _items = result;
-        }
-        catch (Exception ex)
-        {
-            System.Diagnostics.Debug.WriteLine($"❌ LoadData: {ex.Message}");
-        }
-    }
-
-    private async Task LoadTranslations()
-    {
-        var lang = TranslationState.CurrentLanguage;
-        var trans = await TranslationService.GetPageTranslationsAsync("MY_PAGE", lang);
-        // ...
-    }
-
-    public void Dispose()
-    {
-        TranslationState.OnLanguageChanged -= HandleLanguageChanged;
+        System.Diagnostics.Debug.WriteLine("🔵 OnInitializedAsync START");
+        if (ApiService != null) await LoadDataAsync();
     }
 }
-```
-
-### 3. استخدام RCL للمكونات المشتركة
-
-```razor
-@* في RubikCare.Shared.UI *@
-@* Components/RubikButton.razor *@
-
-<button class="btn @ColorClass" @onclick="OnClick">
-    @if (!string.IsNullOrEmpty(Icon))
-    {
-        <i class="@Icon me-1"></i>
-    }
-    @Text
-</button>
-
-@code {
-    [Parameter] public string Text { get; set; } = "";
-    [Parameter] public string Icon { get; set; } = "";
-    [Parameter] public string ColorClass { get; set; } = "btn-primary";
-    [Parameter] public EventCallback OnClick { get; set; }
-}
-```
-
-### 4. التعامل مع الترجمة
-
-```csharp
-// ⭐ استخدم ISharedTranslationService (مدعوم في BlazorWebView)
-@inject ISharedTranslationService TranslationService
-@inject ISharedTranslationState TranslationState
-
-private Dictionary<string, string> _translations = new();
-private string T(string key) =>
-    _translations.TryGetValue(key, out var value) ? value : key;
-
-protected override async Task OnInitializedAsync()
-{
-    var lang = TranslationState.CurrentLanguage;
-    var pageTrans = await TranslationService.GetPageTranslationsAsync(PageDomain, lang);
-    var commonTrans = await TranslationService.GetPageTranslationsAsync("COMMON", lang);
-    _translations = commonTrans.Concat(pageTrans)
-        .GroupBy(x => x.Key)
-        .ToDictionary(g => g.Key, g => g.First().Value);
-}
-```
-
----
-
-## ما يجب تجنبه (Anti-Patterns)
-
-### ❌ 1. استخدام `@inject` لخدمات غير مسجلة في Blazor
-
-```razor
-@* ❌ خطأ - سيفشل المكون بصمت في MAUI بدون أي خطأ *@
-@inject HttpClient Http
-@inject ApiService ApiService
-@inject IMobileTranslationService MobileTranslation
-
-@* ✅ صحيح - استخدم Parameters *@
-[Parameter] public IApiService? ApiService { get; set; }
-```
-
-### ❌ 2. إضافة RootComponents بشكل غير متزامن
-
-```csharp
-// ❌ خطأ - المكون لن يُحمّل
-public MyFlowPage()
-{
-    InitializeComponent();
-    _ = LoadAndShowAsync(); // async - لن يعمل!
-}
-
-// ✅ صحيح
-public MyFlowPage()
-{
-    InitializeComponent();
-    LoadBlazorComponent(); // متزامن - يعمل!
-    _ = RefreshFromApiAsync(); // غير متزامن - للتحديث فقط
-}
-```
-
-### ❌ 3. إعادة إضافة RootComponent لتحديث البيانات
-
-```csharp
-// ❌ خطأ - لن يُعاد تحميل المكون
-private async Task UpdateData()
-{
-    var newData = await _apiService.GetAsync<MyDto>("api/data");
-    blazorWebView.RootComponents.Clear();
-    blazorWebView.RootComponents.Add(...); // المكون لن يظهر
-}
-
-// ✅ صحيح - المكون يحمّل بياناته بنفسه عبر ApiService Parameter
-// لا تعيد إضافة RootComponent بعد الكونستركتور
-```
-
-### ❌ 4. استدعاء Native APIs مباشرة من Blazor
-
-```csharp
-// ❌ خطأ - سيسبب استثناء
-await SecureStorage.SetAsync("key", "value");
-var pref = Preferences.Get("key", "");
-
-// ✅ صحيح - استخدم خدمة وسيطة تُمرر كـ Parameter
-[Parameter] public IStorageService? StorageService { get; set; }
-await StorageService!.SecureSetAsync("key", "value");
-```
-
-### ❌ 5. Hardcoding المسارات
-
-```csharp
-// ❌ خطأ
-Navigation.NavigateTo("/psp/patient/5/details");
-
-// ✅ صحيح
-Navigation.NavigateTo($"{Routes.PspPatientDetails}/{patientId}");
-```
-
----
-
-## التكامل مع XAML
-
-### فتح صفحة Blazor من XAML
-
-```csharp
-await Shell.Current.GoToAsync("blazorPageRoute");
-```
-
-### فتح صفحة XAML من Blazor
-
-```razor
-@* عبر EventCallback من الـ Parameter *@
-[Parameter] public EventCallback OnNavigateToXaml { get; set; }
-
-<button @onclick="OnNavigateToXaml">انتقل</button>
 ```
 
 ---
@@ -591,19 +463,17 @@ await Shell.Current.GoToAsync("blazorPageRoute");
 ## CHECKLIST: عند إنشاء صفحة BlazorWebView جديدة
 
 ### MAUI Layer (صفحة الحاوية)
-- [ ] هل المكون موجود في `RubikCare.Shared.UI`؟
 - [ ] هل `RootComponents.Add` يُستدعى **بشكل متزامن** في الكونستركتور؟
 - [ ] هل `ApiService` يُمرر كـ `(IApiService)_apiService`؟
-- [ ] هل `OnDisappearing` تستدعي `RootComponents.Clear()`؟
+- [ ] هل تستخدم `OnComponentReady` لتحديث المكون من MAUI (بدلاً من Clear/Add)؟
+- [ ] هل `OnDisappearing` تستدعي `RootComponents.Clear()` وتنظف `_pageRef`؟
 
 ### Blazor Component (المكون)
-- [ ] هل المكون **لا يستخدم** `@inject HttpClient`؟
-- [ ] هل كل خدمة MAUI تُستخدم عبر `[Parameter]` وليس `@inject`؟
+- [ ] هل المكون **لا يستخدم** `@inject HttpClient` أو `@inject ApiService`؟
+- [ ] هل كل خدمة MAUI تُستخدم عبر `[Parameter]` وليس `@inject` (ما عدا الترجمة)؟
 - [ ] هل `OnInitializedAsync` تُستدعى؟ (تأكد من Debug Output)
-- [ ] هل المكون يتعامل مع حالة `ApiService == null`؟
 - [ ] هل المكون يعرض Skeleton/Loading أثناء جلب البيانات؟
-- [ ] هل مفاتيح الترجمة مسجلة في قاعدة البيانات؟
-- [ ] هل الصفحة متجاوبة مع أحجام الشاشات المختلفة؟
+- [ ] هل توجد `public methods` للتحديث من الحاوية عند الحاجة؟
 
 ---
 
@@ -618,3 +488,18 @@ await Shell.Current.GoToAsync("blazorPageRoute");
 ---
 
 **آخر تحديث:** 13 يونيو 2026 | **الملف:** `11-blazor-webview-guide.md`
+```
+
+---
+
+## 📋 **ملخص التحديثات الجديدة:**
+
+| القسم | الحالة |
+|--------|--------|
+| القسم الأول: مشكلة DI | ✅ موجود |
+| القسم الثاني: قيود RootComponents | ✅ موجود |
+| **القسم الثالث: OnComponentReady** | ✅ **جديد** |
+| جدول مقارنة Clear/Add vs OnComponentReady | ✅ **جديد** |
+| تشخيص الصفحة الفارغة (4 خطوات) | ✅ موجود |
+| CHECKLIST محدثة | ✅ **محدثة** |
+
