@@ -1,7 +1,7 @@
-```markdown
+
 # 📱 Mobile Translation System (نظام ترجمة الموبايل)
 
-**آخر تحديث: 2 يونيو 2026** | **الأولوية: 🟡 مهم**
+**آخر تحديث: 14 يونيو 2026** | **الأولوية: 🟡 مهم**
 
 ---
 
@@ -58,11 +58,13 @@ public interface ISharedTranslationState
 
 ---
 
-### 1.2 MobileTranslationService
+### 1.2 MobileTranslationService (⭐ محدث)
 
 **المسار:** `Mobile/Services/MobileTranslationService.cs`
 
-**المسؤولية:** يتواصل مع الـ API ويجلب الترجمات. يستخدم `MemoryCache` لتجنب الطلبات المتكررة.
+**المسؤولية:** يتواصل مع الـ API ويجلب الترجمات. يستخدم `MemoryCache` و `Preferences` لتجنب الطلبات المتكررة.
+
+**⚠️ تحديث مهم (14 يونيو 2026):** تم تعديل الدالة لتستدعي الـ API مباشرة.
 
 ```csharp
 using Microsoft.Extensions.Caching.Memory;
@@ -71,7 +73,11 @@ using RubikCare.Shared.UI.Services;
 
 namespace RubikCare.Mobile.Services;
 
-public interface IMobileTranslationService : ISharedTranslationService { }
+public interface IMobileTranslationService : ISharedTranslationService
+{
+    Task<Dictionary<string, string>> GetAllTranslationsAsync(string? lang = null);
+    Task PreloadCommonTranslationsAsync();
+}
 
 public class MobileTranslationService : IMobileTranslationService
 {
@@ -91,15 +97,20 @@ public class MobileTranslationService : IMobileTranslationService
         return Preferences.Get(LangKey, DefaultLang);
     }
 
+    /// <summary>
+    /// ترجمة صفحة معينة - الإصدار النهائي
+    /// </summary>
     public async Task<Dictionary<string, string>> GetPageTranslationsAsync(
         string pageDomain, string? lang = null)
     {
         var currentLang = lang ?? GetCurrentLanguage();
         var cacheKey = $"mobile_translations_{pageDomain}_{currentLang}";
 
+        // Memory Cache
         if (_cache.TryGetValue(cacheKey, out Dictionary<string, string>? cached) && cached != null)
             return cached;
 
+        // ⭐ مباشرة من API (تجاوز Preferences مؤقتاً)
         try
         {
             var result = await _apiService.GetAsync<Dictionary<string, string>>(
@@ -111,8 +122,57 @@ public class MobileTranslationService : IMobileTranslationService
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[Translation] Failed to load {pageDomain}: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"[Translation] Failed to load {pageDomain}: {ex.Message}");
             return new Dictionary<string, string>();
+        }
+    }
+
+    /// <summary>
+    /// تحميل كل الترجمات مرة واحدة من السيرفر
+    /// </summary>
+    public async Task<Dictionary<string, string>> GetAllTranslationsAsync(string? lang = null)
+    {
+        var currentLang = lang ?? GetCurrentLanguage();
+        var cacheKey = $"all_translations_{currentLang}";
+
+        if (_cache.TryGetValue(cacheKey, out Dictionary<string, string>? cached) && cached != null)
+            return cached;
+
+        try
+        {
+            var result = await _apiService.GetAsync<Dictionary<string, string>>(
+                $"/api/localization/all?lang={currentLang}");
+
+            var translations = result ?? new Dictionary<string, string>();
+
+            if (translations.Any())
+            {
+                _cache.Set(cacheKey, translations, TimeSpan.FromHours(1));
+            }
+
+            return translations;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Translation] Failed to load all translations: {ex.Message}");
+            return new Dictionary<string, string>();
+        }
+    }
+
+    public async Task PreloadCommonTranslationsAsync()
+    {
+        try
+        {
+            var currentLang = GetCurrentLanguage();
+            Console.WriteLine($"🔄 Preloading translations for: {currentLang}");
+
+            var allTranslations = await GetAllTranslationsAsync(currentLang);
+
+            Console.WriteLine($"✅ Preloaded {allTranslations.Count} translations for {currentLang}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ PreloadCommonTranslationsAsync error: {ex.Message}");
         }
     }
 }
@@ -151,7 +211,82 @@ public class MobileTranslationState : ISharedTranslationState
 
 ---
 
-### 1.4 التسجيل في MauiProgram.cs
+### 1.4 TranslationCacheService (⭐ جديد)
+
+**المسار:** `Mobile/Services/TranslationCacheService.cs`
+
+**المسؤولية:** يدير تخزين الترجمات في `Preferences` و `MemoryCache` لتحسين الأداء وتقليل طلبات API.
+
+```csharp
+using System.Text.Json;
+using Microsoft.Extensions.Caching.Memory;
+
+namespace RubikCare.Mobile.Services;
+
+public class TranslationCacheService
+{
+    private readonly IMemoryCache _memoryCache;
+    private const string PrefsPrefix = "translations_all_";
+
+    public TranslationCacheService(IMemoryCache memoryCache)
+    {
+        _memoryCache = memoryCache;
+    }
+
+    public async Task<Dictionary<string, string>?> GetCachedAsync(string lang)
+    {
+        var memKey = $"all_translations_{lang}";
+        if (_memoryCache.TryGetValue(memKey, out Dictionary<string, string>? cached) && cached != null)
+            return cached;
+
+        var prefsKey = $"{PrefsPrefix}{lang}";
+        var json = Preferences.Get(prefsKey, "");
+        if (!string.IsNullOrEmpty(json))
+        {
+            try
+            {
+                var translations = JsonSerializer.Deserialize<Dictionary<string, string>>(json);
+                if (translations != null && translations.Any())
+                {
+                    _memoryCache.Set(memKey, translations, TimeSpan.FromMinutes(30));
+                    return translations;
+                }
+            }
+            catch { }
+        }
+
+        return null;
+    }
+
+    public void SetCache(string lang, Dictionary<string, string> translations)
+    {
+        if (translations == null || !translations.Any()) return;
+
+        _memoryCache.Set($"all_translations_{lang}", translations, TimeSpan.FromHours(1));
+
+        try
+        {
+            var json = JsonSerializer.Serialize(translations);
+            Preferences.Set($"{PrefsPrefix}{lang}", json);
+            System.Diagnostics.Debug.WriteLine($"✅ Saved {translations.Count} translations to Preferences for {lang}");
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"❌ TranslationCache Set error: {ex.Message}");
+        }
+    }
+
+    public void ClearCache(string lang)
+    {
+        _memoryCache.Remove($"all_translations_{lang}");
+        Preferences.Remove($"{PrefsPrefix}{lang}");
+    }
+}
+```
+
+---
+
+### 1.5 التسجيل في MauiProgram.cs
 
 ```csharp
 // في MauiProgram.cs
@@ -162,6 +297,7 @@ builder.Services.AddMemoryCache();
 // ⭐ خدمات الترجمة للموبايل
 builder.Services.AddSingleton<MobileTranslationState>();
 builder.Services.AddSingleton<IMobileTranslationService, MobileTranslationService>();
+builder.Services.AddSingleton<TranslationCacheService>();
 
 // ⭐ سجّل الـ interfaces بعد ما الخدمات الفعلية تكون جاهزة
 builder.Services.AddSingleton<ISharedTranslationState>(sp => sp.GetRequiredService<MobileTranslationState>());
@@ -172,7 +308,7 @@ builder.Services.AddSingleton<ISharedTranslationService>(sp => sp.GetRequiredSer
 
 ---
 
-### 1.5 تسجيل ILocalizationService في Api.Web
+### 1.6 تسجيل ILocalizationService في Api.Web
 
 ```csharp
 // في Api.Web\Program.cs — منطقة APPLICATION SERVICES
@@ -258,7 +394,7 @@ public partial class ExampleViewModel : ObservableObject
 
 ---
 
-### 2.1.1 النمط البديل لـ ViewModel (بدون Dependency Injection)
+### 2.2 النمط البديل لـ ViewModel (بدون Dependency Injection)
 
 بعض ViewModels (مثل `PspSearchViewModel`) لا تستخدم DI مباشرة، وتحتاج نمطاً مختلفاً:
 
@@ -335,7 +471,7 @@ public class PspSearchViewModel : INotifyPropertyChanged, IDisposable
 
 ---
 
-### 2.2 الـ XAML Binding
+### 2.3 الـ XAML Binding
 
 ```xml
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
@@ -349,7 +485,7 @@ public class PspSearchViewModel : INotifyPropertyChanged, IDisposable
 
 ---
 
-### 2.3 Code-Behind للصفحة
+### 2.4 Code-Behind للصفحة
 
 ```csharp
 namespace RubikCare.Mobile.Features.Example.Views;
@@ -381,7 +517,7 @@ public partial class ExamplePage : ContentPage
 
 ---
 
-### 2.4 CHECKLIST لكل صفحة XAML جديدة
+### 2.5 CHECKLIST لكل صفحة XAML جديدة
 
 - [ ] ViewModel يحقن `IMobileTranslationService` و `MobileTranslationState`
 - [ ] ViewModel يشترك في `OnLanguageChanged` في الـ constructor
@@ -461,36 +597,21 @@ public partial class ExamplePage : ContentPage
 
 ---
 
-### 3.2 صفحات تم تطبيقها بالفعل
+### 3.2 صفحات تم تطبيقها بالفعل (⭐ محدث)
 
 | الصفحة | المسار | Domain | الحالة |
 |--------|--------|--------|--------|
 | `SupportPage.razor` | `Shared.UI/Components/Support/` | `SHARED.SUPPORT` | ✅ مكتملة |
-| `SettingsPage.razor` | `Shared.UI/Components/Patient/` | `SHARED.SETTINGS_V2` | ✅ مكتملة (تبويب اللغة) |
+| `SettingsPage.razor` | `Shared.UI/Components/Patient/` | `SHARED.SETTINGS_V2` | ✅ مكتملة |
 | `RepDashboard.razor` | `Shared.UI/Components/Rep/` | `SHARED.REP_DASHBOARD` | ✅ مكتملة |
+| `PharmaCompanyDashboard.razor` | `Shared.UI/Components/Rep/` | `SHARED.PHARMA_DASHBOARD` | ✅ مكتملة |
+| `MyNetwork.razor` | `Shared.UI/Components/Rep/` | `SHARED.MY_NETWORK` | ✅ مكتملة |
+| `MyInvitations.razor` | `Shared.UI/Components/Rep/` | `SHARED.MY_INVITATIONS` | ✅ مكتملة |
+| `InviteDoctor.razor` | `Shared.UI/Components/Rep/` | `SHARED.INVITE_DOCTOR` | ✅ مكتملة |
 
 ---
 
-### 3.3 صفحات جاهزة لتطبيق الترجمة
-
-| الصفحة | المسار |
-|--------|--------|
-| `NotificationsPage.razor` | `Shared.UI/Components/Pages/` |
-| `EditProfilePage.razor` | `Shared.UI/Components/Patient/` |
-| `MedicationSchedulePage.razor` | `Shared.UI/Components/Patient/` |
-| `MyProfilePage.razor` | `Shared.UI/Components/Patient/` |
-| `PrivacyPolicy.razor` | `Shared.UI/Components/Legal/` |
-| `TermsOfService.razor` | `Shared.UI/Components/Legal/` |
-| `PspEntry.razor` | `Shared.UI/Components/PSP/Patient/` |
-| `PspScheduleSetup.razor` | `Shared.UI/Components/PSP/Patient/` |
-| `PharmacySearchPage.razor` | `Shared.UI/Components/PharmacySearch/` |
-| `InviteDoctor.razor` | `Shared.UI/Components/Rep/` |
-| صفحات المراسلة (6) | `Shared.UI/Components/Messaging/` |
-| صفحات إدارة المنظمة (3) | `Shared.UI/Components/OrganizationManagement/` |
-
----
-
-### 3.4 CHECKLIST لكل صفحة BlazorWebView جديدة
+### 3.3 CHECKLIST لكل صفحة BlazorWebView جديدة (⭐ محدث)
 
 - [ ] `@implements IDisposable` في أعلى الصفحة
 - [ ] `@inject ISharedTranslationService TranslationService`
@@ -502,6 +623,7 @@ public partial class ExamplePage : ContentPage
 - [ ] `T("key")` في كل النصوص — لا نصوص ثابتة
 - [ ] `Dispose()` يلغي الاشتراك — **منع Memory Leak**
 - [ ] مفاتيح الترجمة موجودة في قاعدة البيانات مع `N''` prefix
+- [ ] **⚠️ استخدام علامات التنصيص المفردة في `@onclick` مع دوال تأخذ معامل**
 
 ---
 
@@ -525,6 +647,9 @@ public partial class ExamplePage : ContentPage
 | الإشعارات | `SHARED.NOTIFICATIONS` | BlazorWebView |
 | الملف الشخصي | `SHARED.PROFILE` | BlazorWebView |
 | لوحة المندوب | `SHARED.REP_DASHBOARD` | BlazorWebView |
+| شبكتي (مندوب) | `SHARED.MY_NETWORK` | BlazorWebView |
+| سجل الدعوات (مندوب) | `SHARED.MY_INVITATIONS` | BlazorWebView |
+| دعوة طبيب/صيدلي | `SHARED.INVITE_DOCTOR` | BlazorWebView |
 | بحث البرامج | `SHARED.PSP_SEARCH` | XAML |
 | تسجيل الدخول | `MOBILE.LOGIN` | XAML |
 | التسجيل | `MOBILE.REGISTER` | XAML |
@@ -550,69 +675,29 @@ VALUES
 ### 6.2 تحديث مفاتيح موجودة (UPDATE)
 
 ```sql
--- ⚠️ استخدم UPDATE لو المفاتيح موجودة بالفعل (هيظهر خطأ "duplicate key" لو استخدمت INSERT)
+-- ⚠️ استخدم UPDATE لو المفاتيح موجودة بالفعل
 
 UPDATE Resources 
 SET ResourceValueAr = N'📊 لوحة المندوب', 
-    ResourceValueEn = N'📊 Rep Dashboard',
-    Module = N'SHARED',
-    ResourceType = N'Title'
+    ResourceValueEn = N'📊 Rep Dashboard'
 WHERE ResourceKey = N'SHARED.REP_DASHBOARD.TITLE';
-
-UPDATE Resources 
-SET ResourceValueAr = N'جاري التحميل...', 
-    ResourceValueEn = N'Loading...'
-WHERE ResourceKey = N'SHARED.REP_DASHBOARD.LOADING';
-
-UPDATE Resources 
-SET ResourceValueAr = N'طبيب', 
-    ResourceValueEn = N'Doctor'
-WHERE ResourceKey = N'SHARED.REP_DASHBOARD.DOCTORS';
-
-UPDATE Resources 
-SET ResourceValueAr = N'صيدلية', 
-    ResourceValueEn = N'Pharmacy'
-WHERE ResourceKey = N'SHARED.REP_DASHBOARD.PHARMACIES';
-
-UPDATE Resources 
-SET ResourceValueAr = N'تحويل', 
-    ResourceValueEn = N'Conversion'
-WHERE ResourceKey = N'SHARED.REP_DASHBOARD.CONVERSION';
-
-UPDATE Resources 
-SET ResourceValueAr = N'📋 البرامج', 
-    ResourceValueEn = N'📋 Programs'
-WHERE ResourceKey = N'SHARED.REP_DASHBOARD.PROGRAMS';
-
-UPDATE Resources 
-SET ResourceValueAr = N'+ إرسال دعوة جديدة', 
-    ResourceValueEn = N'+ New Invitation'
-WHERE ResourceKey = N'SHARED.REP_DASHBOARD.NEW_INVITATION';
 ```
 
 ### 6.3 إدراج أو تحديث آمن (MERGE)
 
 ```sql
 -- ⭐ أفضل طريقة: MERGE يضيف لو مش موجود، يعدل لو موجود
--- مفيد لما تكون مش متأكد إذا كانت المفاتيح موجودة مسبقاً
 
 MERGE Resources AS target
 USING (VALUES
     (N'SHARED.REP_DASHBOARD.TITLE', N'📊 لوحة المندوب', N'📊 Rep Dashboard', N'SHARED', N'Title'),
-    (N'SHARED.REP_DASHBOARD.LOADING', N'جاري التحميل...', N'Loading...', N'SHARED', N'Text'),
-    (N'SHARED.REP_DASHBOARD.DOCTORS', N'طبيب', N'Doctor', N'SHARED', N'Text'),
-    (N'SHARED.REP_DASHBOARD.PHARMACIES', N'صيدلية', N'Pharmacy', N'SHARED', N'Text'),
-    (N'SHARED.REP_DASHBOARD.CONVERSION', N'تحويل', N'Conversion', N'SHARED', N'Text'),
-    (N'SHARED.REP_DASHBOARD.PROGRAMS', N'📋 البرامج', N'📋 Programs', N'SHARED', N'Text'),
-    (N'SHARED.REP_DASHBOARD.NEW_INVITATION', N'+ إرسال دعوة جديدة', N'+ New Invitation', N'SHARED', N'Button')
+    (N'SHARED.REP_DASHBOARD.LOADING', N'جاري التحميل...', N'Loading...', N'SHARED', N'Text')
 ) AS source (ResourceKey, ResourceValueAr, ResourceValueEn, Module, ResourceType)
 ON target.ResourceKey = source.ResourceKey
 WHEN MATCHED THEN
     UPDATE SET 
         ResourceValueAr = source.ResourceValueAr,
-        ResourceValueEn = source.ResourceValueEn,
-        Module = source.Module,
-        ResourceType = source.ResourceType
+        ResourceValueEn = source.ResourceValueEn
 WHEN NOT MATCHED THEN
     INSERT (ResourceKey, ResourceValueAr, ResourceValueEn, Module, ResourceType, IsActive, CreatedDate)
     VALUES (source.ResourceKey, source.ResourceValueAr, source.ResourceValueEn, source.Module, source.ResourceType, 1, GETDATE());
@@ -621,7 +706,6 @@ WHEN NOT MATCHED THEN
 ### 6.4 التحقق من المفاتيح
 
 ```sql
--- تأكد من القيم بعد الإضافة أو التحديث
 SELECT ResourceKey, ResourceValueAr, ResourceValueEn, Module, ResourceType
 FROM Resources 
 WHERE ResourceKey LIKE 'SHARED.REP_DASHBOARD%'
@@ -650,7 +734,7 @@ ORDER BY ResourceKey;
 | **الـ State** | `MobileTranslationState` | `ISharedTranslationState` |
 | **الحقن** | Constructor Injection أو `GetRequiredService` | `@inject` في Razor |
 | **تحميل الترجمات** | `LoadTranslationsAsync()` + `ApplyTranslations()` | `LoadTranslations()` + `StateHasChanged()` |
-| **تحديث الـ UI** | تلقائي عبر `[ObservableProperty]` أو `OnPropertyChanged()` | يدوي عبر `InvokeAsync(StateHasChanged)` |
+| **تحديث الـ UI** | تلقائي عبر `[ObservableProperty]` | يدوي عبر `InvokeAsync(StateHasChanged)` |
 | **RTL/LTR** | تلقائي مع `I18nManager` | يدوي عبر `dir` attribute أو CSS class |
 | **تنظيف الموارد** | `Dispose()` في ViewModel + `OnDisappearing` | `Dispose()` في `@code` |
 
@@ -677,7 +761,68 @@ ORDER BY ResourceKey;
 - في XAML، تحديث الـ UI يتم عبر `[ObservableProperty]` تلقائياً
 - في Blazor، تحديث الـ UI **يحتاج** `InvokeAsync(StateHasChanged)` صريحة
 - لا تنسَ تسجيل `ILocalizationService` في `Api.Web\Program.cs`
-- ViewModels التي لا تستخدم DI (مثل `PspSearchViewModel`) تحتاج `GetRequiredService` يدوياً
+- ViewModels التي لا تستخدم DI تحتاج `GetRequiredService` يدوياً
+
+---
+
+## 🟠 الجزء التاسع: المشاكل المعروفة والحلول (Known Issues)
+
+### 9.1 بعض الصفحات تظهر مفاتيح الترجمة بدلاً من النصوص
+
+**السبب:** `GetPageTranslationsAsync` كان يبحث في `Preferences` عن المفاتيح، ولكن `Preferences` لم تكن محملة مسبقاً.
+
+**الحل:** 
+- الخيار 1: استدعاء `PreloadCommonTranslationsAsync()` عند بدء التطبيق
+- الخيار 2: تعديل `GetPageTranslationsAsync` لاستدعاء API مباشرة (تم التنفيذ)
+
+### 9.2 ترجمة جزئية (بعض الأزرار مترجمة وبعضها لا)
+
+**السبب:** بعض المفاتيح موجودة في `COMMON` domain وليس في domain الصفحة.
+
+**الحل:** دائماً قم بتحميل `COMMON` مع domain الصفحة:
+```csharp
+var pageTrans = await TranslationService.GetPageTranslationsAsync(PageDomain, lang);
+var commonTrans = await TranslationService.GetPageTranslationsAsync("COMMON", lang);
+_translations = commonTrans.Concat(pageTrans).ToDictionary(k => k.Key, v => v.Value);
+```
+
+### 9.3 `@onclick` مع دالة تأخذ معامل لا يعمل في Blazor
+
+**السبب:** تداخل علامات التنصيص المزدوجة.
+
+**الحل:** استخدم علامات التنصيص **المفردة**:
+```razor
+// ❌ لا يعمل
+<button @onclick="() => MyFunction("value")">نص</button>
+
+// ✅ يعمل
+<button @onclick='() => MyFunction("value")'>نص</button>
+```
+
+### 9.4 تغيير اللغة لا يؤثر على الصفحة الحالية
+
+**السبب:** نسيان استدعاء `InvokeAsync(StateHasChanged)` في `HandleLanguageChanged`.
+
+**الحل:**
+```csharp
+private async void HandleLanguageChanged()
+{
+    await LoadTranslations();
+    await InvokeAsync(StateHasChanged);  // ⭐ مهم جداً
+}
+```
+
+### 9.5 تسرب الذاكرة (Memory Leak) عند التنقل بين الصفحات
+
+**السبب:** نسيان إلغاء الاشتراك من `OnLanguageChanged` في `Dispose()`.
+
+**الحل:**
+```csharp
+public void Dispose()
+{
+    TranslationState.OnLanguageChanged -= HandleLanguageChanged;
+}
+```
 
 ---
 
@@ -685,20 +830,22 @@ ORDER BY ResourceKey;
 
 ```
 📁 Mobile/Services/
-├── MobileTranslationService.cs   (IMobileTranslationService + ISharedTranslationService)
-└── MobileTranslationState.cs     (ISharedTranslationState)
+├── MobileTranslationService.cs
+├── MobileTranslationState.cs
+└── TranslationCacheService.cs          (⭐ جديد)
 
 📁 Shared.UI/Services/
-├── ITranslationService.cs        (ISharedTranslationService)
-└── ITranslationState.cs          (ISharedTranslationState)
-
-📁 Mobile/Features/PSP/Doctor/ViewModels/
-└── PspSearchViewModel.cs         ✅ مترجمة (نمط بدون DI)
+├── ITranslationService.cs
+└── ITranslationState.cs
 
 📁 Shared.UI/Components/
-├── Support/SupportPage.razor     ✅ مترجمة
-├── Patient/SettingsPage.razor    ✅ مترجمة
-└── Rep/RepDashboard.razor        ✅ مترجمة
+├── Support/SupportPage.razor           ✅ مترجمة
+├── Patient/SettingsPage.razor          ✅ مترجمة
+├── Rep/RepDashboard.razor              ✅ مترجمة
+├── Rep/PharmaCompanyDashboard.razor    ✅ مترجمة
+├── Rep/MyNetwork.razor                 ✅ مترجمة
+├── Rep/MyInvitations.razor             ✅ مترجمة
+└── Rep/InviteDoctor.razor              ✅ مترجمة
 ```
 
 ---
@@ -714,8 +861,6 @@ ORDER BY ResourceKey;
 
 ---
 
-**آخر تحديث:** 2 يونيو 2026
+**آخر تحديث:** 14 يونيو 2026
 **الملف:** `15-mobile-translation-system.md`
-```
-
----
+``
