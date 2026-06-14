@@ -164,7 +164,16 @@ public class MenuAssignment
 - **قائمة الإدارة (ADMIN_MENU):** `OrganizationID = 1` (مؤسسة روبيك كير) ← تظهر فقط لمن في هذه المؤسسة
 
 ---
+## 🟡 وضع المندوب (Rep Mode)
 
+المندوب ليس له دور نظامي منفصل، بل هو `UserProfile` مع `OrgMembership` في منظمة من نوع "شركة أدوية" (OrganizationTypeID = 2).
+
+### إضافة قائمة للمندوب
+
+1. أضف سجلاً في `SystemMenus` مع `MenuCode` جديد (مثل `REP_MENU`)
+2. أضف `MenuAssignment` مع `RoleId` = `Rep` (أو `UserProfileID` محدد)
+3. تأكد من أن `OrganizationID = NULL` للقوائم العامة
+4. 
 ## DynamicMenuService - قلب النظام (⭐ محدث - 24 مايو 2026)
 
 ### ⚠️ تغيير مهم: إزالة الكاش المحلي
@@ -213,6 +222,7 @@ sequenceDiagram
 
 ---
 
+
 ## استعلامات مفيدة للتحقق والمراقبة
 
 ```sql
@@ -255,6 +265,7 @@ HAVING COUNT(*) > 1;
 ```
 
 ---
+
 
 ## المحاذير والأخطاء الشائعة
 
