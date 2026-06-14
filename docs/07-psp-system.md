@@ -230,7 +230,35 @@ erDiagram
 4. إرجاع الرمز للطبيب
 
 ---
+## 🟡 دعوات المندوب (REP Invitations)
 
+### أنواع الدعوات
+
+| SourceType | المعنى |
+|------------|--------|
+| `REP_TO_DOCTOR` | مندوب يدعو عيادة (طبيب) |
+| `REP_TO_PHARMACY` | مندوب يدعو صيدلية |
+
+### تدفق دعوة المندوب
+
+1. المندوب يختار برنامج دعم
+2. ينشئ دعوة (PENDING) عبر `POST api/rep/invitations/create`
+3. الطبيب/الصيدلي يستقبل الكود
+4. بعد إنشاء الحساب والمؤسسة، يستخدم الكود في `POST api/psp/entry`
+5. يتم إنشاء `PSPParticipation` وربطها بالدعوة عبر `InvitationID`
+6. تحديث الدعوة إلى `ACCEPTED` أو `USED`
+
+### العلاقة بين الجداول
+
+PSPInvitations (الدعوة)
+    ├── InvitedByUserID → المندوب
+    ├── InvitedOrganizationID → العيادة/الصيدلية المدعوة
+    └── ResultingParticipation → PSPParticipations
+
+PSPParticipations (المشاركة)
+    ├── ParticipantOrganizationID → العيادة/الصيدلية المشاركة
+    └── InvitationID → رابط عكسي إلى PSPInvitations
+    
 ### entry (نقطة دخول المريض)
 
 **Endpoint:** `POST /api/psp/entry`
