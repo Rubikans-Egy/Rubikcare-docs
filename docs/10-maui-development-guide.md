@@ -303,6 +303,130 @@ public class ApiService : IApiService
     }
 }
 ```
+## 🌐 إضافة صفحة Blazor جديدة في الموبايل
+
+### الخطوات:
+
+1. **إنشاء ملف Razor** في `Shared.UI/Components/YourFolder/`
+```csharp
+@implements IDisposable
+@inject ISharedTranslationService TranslationService
+@inject ISharedTranslationState TranslationState
+// ... النمط الموحد
+إنشاء ملف XAML في Mobile/Features/YourFeature/Views/
+
+xml
+<ContentPage>
+    <BlazorWebView x:Name="blazorWebView" HostPage="wwwroot/index.html">
+        <BlazorWebView.RootComponents>
+            <RootComponent Selector="#app" ComponentType="{x:Type shared:YourComponent}" />
+        </BlazorWebView.RootComponents>
+    </BlazorWebView>
+</ContentPage>
+إنشاء ملف XAML.cs
+
+csharp
+public partial class YourPage : ContentPage
+{
+    public YourPage()
+    {
+        InitializeComponent();
+        Loaded += (s, e) =>
+        {
+            blazorWebView.RootComponents.Clear();
+            blazorWebView.RootComponents.Add(new RootComponent
+            {
+                Selector = "#app",
+                ComponentType = typeof(YourComponent)
+            });
+        };
+    }
+}
+تسجيل المسار في AppShell.xaml.cs
+
+csharp
+Routing.RegisterRoute("YourPage", typeof(YourPage));
+⚠️ ملاحظة هامة: علامات التنصيص في @onclick
+في Blazor، عند استخدام دالة تأخذ معامل، استخدم علامات التنصيص المفردة:
+
+razor
+<button @onclick='() => MyFunction("value")'>نص</button>
+// وليس
+<button @onclick="() => MyFunction("value")">نص</button>
+text
+
+---
+
+## 📄 **الوثيقة الخامسة: `docs/11-blazor-webview-guide.md`**
+
+### **التحديثات المطلوبة:**
+
+| القسم | التغيير |
+|-------|---------|
+| التنقل بين الصفحات | توثيق استخدام Bridges للتواصل بين Blazor و MAUI |
+| مشاركة المحتوى | توثيق استخدام `Share.Default` عبر Bridge |
+
+### **المحتوى المضاف:**
+
+```markdown
+## 🔗 استخدام Bridges للتواصل بين Blazor و MAUI
+
+### إنشاء Bridge
+
+في `Shared.UI/Components/Rep/RepNavigationBridge.cs`:
+```csharp
+public static class RepNavigationBridge
+{
+    public static Action<int>? OnProgramSelected { get; set; }
+    public static Func<string, string, Task>? ShareToken { get; set; }
+}
+تسجيل Bridge في XAML.cs
+csharp
+RepNavigationBridge.ShareToken = async (token, programName) =>
+{
+    var message = $"🎫 كود الدعوة: {token}";
+    await Share.Default.RequestAsync(new ShareTextRequest
+    {
+        Text = message,
+        Title = $"دعوة لبرنامج {programName}"
+    });
+};
+استخدام Bridge في Razor
+csharp
+private async Task ShareToken()
+{
+    if (RepNavigationBridge.ShareToken != null)
+        await RepNavigationBridge.ShareToken(_token, _programName);
+}
+text
+
+---
+
+## 📄 **الوثيقة السادسة: `docs/13-clean-architecture-enforcement.md`**
+
+### **التحديثات المطلوبة:**
+
+| القسم | التغيير |
+|-------|---------|
+| قواعد إضافية | إضافة قاعدة عدم تخمين أسماء الحقول |
+
+### **المحتوى المضاف:**
+
+```markdown
+## 🟡 قواعد إضافية من الدروس المستفادة
+
+### لا تخمن أسماء الحقول
+
+عند كتابة استعلامات SQL أو LINQ، اطلب ملف الكيان أولاً:
+- ❌ لا تقم أبداً بتخمين اسم عمود أو جدول
+- ✅ اطلب ملف `Entity.cs` أو قم بتنفيذ `SELECT TOP 1 * FROM Table`
+
+### التحقق من البيانات قبل التعديل
+
+قبل إجراء أي تحديث في قاعدة البيانات:
+1. نفذ استعلام `SELECT` للتحقق من البيانات الموجودة
+2. تأكد من أن الشروط صحيحة
+3. استخدم `MERGE` بدلاً من `INSERT` أو `UPDATE` لتجنب التكرار
 
 ---
 
