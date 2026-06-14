@@ -121,6 +121,35 @@ Authorization: Bearer {token}
 
 ## برامج دعم المرضى (PSP)
 
+## 👔 مندوب شركة الأدوية (Rep)
+
+### جلب برامج المندوب
+GET /api/rep/programs
+
+### جلب أطباء المندوب (المنضمين فعلاً)
+GET /api/rep/my-doctors
+
+### جلب صيدليات المندوب (المنضمين فعلاً)
+GET /api/rep/my-pharmacies
+
+### جلب سجل الدعوات
+GET /api/rep/my-invitations?status=ALL
+
+### إنشاء دعوة جديدة
+POST /api/rep/invitations/create
+Request:
+{
+    "programId": 2,
+    "invitedOrganizationId": 1247,
+    "recipientType": "DOCTOR", // أو "PHARMACY"
+    "customMessage": "رسالة اختيارية"
+}
+
+### إعادة إرسال دعوة
+POST /api/rep/invitations/{invitationId}/resend
+
+### إحصائيات لوحة المندوب
+GET /api/rep/dashboard/stats
 ### قائمة البرامج
 ```
 GET /api/psp/programs
