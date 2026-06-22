@@ -1,523 +1,266 @@
-# 🎨 دليل الأنماط - RubikCare Style Guide
+# 03 - دليل الأنماط (Style Guide)
 
-> **الإصدار:** 2.0  
-> **آخر تحديث:** 31 مايو 2026  
-> **الغرض:** توثيق نظام التنسيقات والألوان والمكونات البصرية لمشروع RubikCare
+آخر تحديث: 22 يونيو 2026
 
----
+## 📌 مقدمة
 
-## 📋 جدول المحتويات
+هذا الدليل يوثق نظام الألوان والتصميم في منصة RubikCare، مع التركيز على الأنماط المخصصة لكل دور (عيادة، صيدلية، مندوب). الهدف هو ضمان تناسق بصري مع احترام هوية كل دور.
 
-1. [نظرة عامة](#1-نظرة-عامة)
-2. [نظام المتغيرات](#2-نظام-المتغيرات)
-3. [هيكل الملفات](#3-هيكل-الملفات)
-4. [مكتبة المكونات](#4-مكتبة-المكونات)
-5. [أنماط التخطيط](#5-أنماط-التخطيط)
-6. [أنماط الصفحات](#6-أنماط-الصفحات)
-7. [أفضل الممارسات](#7-أفضل-الممارسات)
-8. [أمثلة عملية](#8-أمثلة-عملية)
+## 🎨 نظام الألوان العام (المتغيرات العالمية)
 
----
+جميع المتغيرات العالمية معرفة في `_CoreBundle.css` وتستخدم كقاعدة للمتغيرات الخاصة بكل دور.
 
-## 1. نظرة عامة
-
-### 📍 المسار الأساسي
-```
-RubikCare.Shared.UI/wwwroot/css/
-```
-
-### 🏗️ فلسفة التنظيم
-
-يعتمد نظام الأنماط على هيكل هرمي من 4 مستويات:
-
-```
-main.css                    ← نقطة الدخول الوحيدة (imports فقط)
-  ├── _CoreBundle.css       ← المتغيرات + الأساسيات + الخطوط
-  ├── _ComponentsBundle.css ← المكونات المستقلة
-  ├── _LayoutBundle.css     ← تخطيطات الصفحات
-  └── _PagesBundle.css      ← أنماط الصفحات
-       ├── _AdminBundle.css
-       ├── _Auth_Public_Bundle.css
-       └── _OrgBundle.css
-```
-
-### 🎯 مبادئ التصميم
-
-| المبدأ | الوصف |
-|--------|-------|
-| **الفصل التام** | Core لا يعتمد على شيء، Components تعتمد على Core، Layout تعتمد على Components |
-| **BEM معدل** | نستخدم بادئات مختصرة لكل صفحة/مكون (مثال: `ps-` لـ Pharmacy Search) |
-| **RTL أولاً** | كل الأنماط تدعم العربية بشكل افتراضي مع `[dir="rtl"]` |
-| **Desktop-First** | Media Queries للشاشات الأصغر فقط |
+| المتغير | القيمة | الاستخدام |
+|---------|--------|-----------|
+| `--rubik-primary` | `#1B5A7A` | اللون الأساسي |
+| `--rubik-primary-light` | `#E8F3F9` | خلفيات فاتحة |
+| `--rubik-primary-dark` | `#0D3D5A` | تدرج غامق |
+| `--rubik-secondary` | `#2E7D5E` | اللون الثانوي |
+| `--rubik-secondary-light` | `#EAF4EF` | خلفيات فاتحة ثانوية |
+| `--rubik-gold` | `#B88B4A` | لون مميز (مندوب) |
+| `--rubik-gold-light` | `#F7F0E4` | خلفيات ذهبية فاتحة |
+| `--rubik-text` | `#1A2B38` | النصوص الرئيسية |
+| `--rubik-text-muted` | `#7A9BB0` | النصوص الثانوية |
+| `--rubik-bg` | `#F4F7F9` | خلفية الصفحات |
+| `--rubik-white` | `#FFFFFF` | خلفية البطاقات |
+| `--rubik-border` | `#E1E8EE` | حدود الفواصل |
+| `--rubik-shadow` | `0 2px 12px rgba(0,0,0,0.08)` | الظلال |
+| `--rubik-radius` | `16px` | الزوايا الأساسية |
+| `--rubik-radius-sm` | `10px` | الزوايا الصغيرة |
 
 ---
 
-## 2. نظام المتغيرات
+## 🏥 **نمط العيادة (Clinic) - أزرق بحري + أزرق-أخضر**
 
-### 📁 `_core/_variables.css`
+### الألوان الأساسية
+
+| المتغير | القيمة | الاستخدام |
+|---------|--------|-----------|
+| `--clinic-hero-start` | `#0A3D5C` | بداية تدرج الـ Hero |
+| `--clinic-hero-end` | `#1A7A7A` | نهاية تدرج الـ Hero |
+| `--clinic-primary` | `#1A7A7A` | اللون الأساسي للعيادة |
+| `--clinic-primary-light` | `#D1ECF1` | خلفيات فاتحة للعيادة |
+| `--clinic-primary-dark` | `#0A3D5C` | تدرج غامق للعيادة |
+| `--clinic-secondary` | `#2D8B6E` | اللون الثانوي للعيادة |
+| `--clinic-secondary-light` | `#D4EDDA` | خلفيات ثانوية فاتحة |
+| `--clinic-gold` | `#B88B4A` | لون مميز (تنبيهات) |
+| `--clinic-gold-light` | `#F7F0E4` | خلفيات ذهبية فاتحة |
+
+### تدرج الـ Hero
 
 ```css
-:root {
-    /* ═══════════════════════════════════
-       🎨 لوحة الألوان الرئيسية
-       ═══════════════════════════════════ */
-
-    /* Primary - الأزرق الطبي */
-    --rubik-primary: #1B5A7A;
-    --rubik-primary-dark: #0F3D55;
-    --rubik-primary-light: #2C7AA0;
-
-    /* Secondary - البنفسجي */
-    --rubik-secondary: #6B4E9B;
-    --rubik-secondary-light: #8B6FBB;
-
-    /* Accent - البرتقالي الدافئ */
-    --rubik-accent: #E87722;
-    --rubik-accent-light: #F0A050;
-
-    /* Success - الأخضر */
-    --rubik-success: #2E7D5E;
-    --rubik-success-light: rgba(46,125,94,0.12);
-
-    /* Warning - الكهرماني */
-    --rubik-warning: #B88B4A;
-    --rubik-warning-light: rgba(184,139,74,0.12);
-
-    /* Danger - الأحمر */
-    --rubik-danger: #B33F40;
-    --rubik-danger-light: rgba(179,63,64,0.1);
-
-    /* Info - السماوي */
-    --rubik-info: #3A7CA5;
-    --rubik-info-light: rgba(58,124,165,0.12);
-
-    /* ═══════════════════════════════════
-       📝 ألوان النص
-       ═══════════════════════════════════ */
-    --rubik-text-primary: #1A2332;
-    --rubik-text-secondary: #4A5568;
-    --rubik-text-muted: #8A94A6;
-
-    /* ═══════════════════════════════════
-       🏠 ألوان الخلفية
-       ═══════════════════════════════════ */
-    --rubik-body-bg: #F5F7FA;
-    --rubik-card-bg: #FFFFFF;
-    --rubik-card-alt: #F8FAFC;
-
-    /* ═══════════════════════════════════
-       📏 الحدود والظلال
-       ═══════════════════════════════════ */
-    --rubik-border: #E2E8F0;
-    --rubik-border-light: #EDF2F7;
-    --rubik-radius: 12px;
-    --rubik-radius-lg: 18px;
-    --shadow-card: 0 2px 12px rgba(0,0,0,0.06);
-}
+background: linear-gradient(135deg, #0A3D5C 0%, #1A7A7A 100%);
 ```
 
----
+### أيقونات العيادة
 
-## 3. هيكل الملفات
+| الأيقونة | اللون | الاستخدام |
+|----------|-------|-----------|
+| `clinic-action-icon-clinic` | `#D1ECF1` | أيقونة "عيادتي" |
+| `clinic-action-icon-psp` | `#D4EDDA` | أيقونة "برامج الدعم" |
+| `clinic-action-icon-patients` | `#D1ECF1` | أيقونة "مرضاي" |
+| `clinic-action-icon-invite` | `#F7F0E4` | أيقونة "دعواتي" |
 
-### 📂 الشجرة الكاملة
+### تطبيق النمط
 
-```
-css/
-├── main.css                          ← نقطة الدخول
-├── webviewbundle.css                 ← خاص بـ MAUI WebView
-│
-├── _CoreBundle.css                   ← أساسيات + متغيرات + خطوط
-│   └── _core/
-│       ├── _variables.css
-│       ├── _reset.css
-│       ├── _fonts.css
-│       ├── _base.css
-│       └── _typography.css
-│   └── _themes/
-│       └── _rubik.css
-│
-├── _ComponentsBundle.css             ← مكونات UI مستقلة
-│   └── _components/
-│       ├── _cards.css
-│       ├── _tables.css
-│       ├── _buttons.css
-│       ├── _forms.css
-│       ├── _wizard.css
-│       ├── _GenericModal.css
-│       ├── _RubikDropdown.css
-│       ├── _slider.css
-│       └── _bottom-nav.css
-│
-├── _LayoutBundle.css                 ← تخطيطات + هيكل الصفحات
-│   └── _layout/
-│       ├── _containers.css
-│       ├── _grid.css
-│       ├── _header.css
-│       ├── _sidebar.css
-│       ├── _dashboard.css
-│       ├── _footer.css
-│       ├── _sidebar_orgs.css
-│       ├── gallery.css
-│       └── legal.css
-│
-├── _PagesBundle.css                  ← أنماط الصفحات
-│   └── _pages/
-│       ├── _homepage.css
-│       ├── _centerhub.css
-│       ├── _psp-about.css
-│       ├── _PSPpresentation.css
-│       ├── _doctor-presentation.css
-│       ├── _contentswitch_flow.css
-│       │
-│       ├── Auth/
-│       │   ├── Login.css
-│       │   ├── Register.css
-│       │   └── _forget_password.css
-│       │
-│       ├── PublicUser/
-│       │   ├── Userprofile.css
-│       │   ├── Settings.css
-│       │   ├── Notifications.css
-│       │   ├── CreateOrganization.css
-│       │   ├── InvitationAcceptPage.css
-│       │   └── PharmacySearch/
-│       │       ├── pharmacy-card.css
-│       │       ├── pharmacy-filter.css
-│       │       ├── pharmacy-grid.css
-│       │       ├── pharmacy-search.css
-│       │       └── pharmacy-detail.css
-│       │
-│       ├── Organization/
-│       │   ├── AllOrganizations.css
-│       │   ├── MYOrganizations.css
-│       │   ├── OrgSettings/
-│       │   │   ├── OrgSettings.css
-│       │   │   ├── MembersTab.css
-│       │   │   ├── EditOrganization.css
-│       │   │   ├── CustomJobTitles.css
-│       │   │   └── MemberTitlestab.css
-│       │   ├── Medications/
-│       │   │   ├── CompanyMedicationsSpecialities.css
-│       │   │   ├── MedicationForm.css
-│       │   │   └── _medication-detail.css
-│       │   └── PSP/
-│       │       ├── PSPProgramsList.css
-│       │       ├── PSPProgramDetails.css
-│       │       ├── PSPProgramsEdit.css
-│       │       └── PSPEditSteps/
-│       │           ├── PSPStep0_BasicInfo.css
-│       │           ├── PSPStep1_SpecsMeds.css
-│       │           ├── PSPStep2_Budget.css
-│       │           ├── PSPStep2_DispensationPlans.css
-│       │           └── PSPStep3_Review.css
-│       │
-│       ├── Admin/
-│       │   ├── MedicalSettings/
-│       │   ├── Pricing/
-│       │   ├── Services/
-│       │   ├── GeneralSettings/
-│       │   └── Users/
-│       │
-│       ├── Shared/
-│       │   └── Shared_web_Mobile.css
-│       │
-│       └── LandingPages/
-│           └── _publicuserslandingpage.css
-│
-├── _Auth_Public_Bundle.css           ← مصادقة + صفحات عامة
-├── _AdminBundle.css                  ← لوحة التحكم
-├── _OrgBundle.css                    ← المنظمات + PSP
-└── _UtilitiesBundle.css              ← أدوات مساعدة
-    └── _utilities/
-        ├── _spacing.css
-        ├── _colors.css
-        └── observability.css
-```
+**في Razor Component:**
 
-### 🔗 قاعدة تسجيل الملفات الجديدة
-
-**عند إنشاء ملف CSS جديد:**
-
-1. ضع الملف في المسار المناسب تحت `_pages/`
-2. سجله في أقرب Bundle:
-   - صفحات المنظمات ← `_OrgBundle.css`
-   - صفحات المستخدم العادي ← `_Auth_Public_Bundle.css`
-   - صفحات المشرف ← `_AdminBundle.css`
-
----
-
-## 4. مكتبة المكونات
-
-### 4.1 البطاقات (Cards)
-
-#### `.ps-card` - بطاقة قابلة للنقر (قوائم البحث)
-
-```css
-.ps-card {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    padding: 16px;
-    background: var(--rubik-card-bg);
-    border-radius: 16px;
-    border: 1.5px solid var(--rubik-border);
-    transition: all 0.18s;
-    cursor: pointer;
-}
-.ps-card:hover {
-    border-color: rgba(27,90,122,0.2);
-    box-shadow: 0 6px 20px rgba(27,90,122,0.12);
-    transform: translateY(-2px);
-}
-```
-
-**الاستخدام:** قوائم الصيدليات، قوائم المرضى، نتائج البحث
-
-**البنية الداخلية:**
-```
-.ps-card
-  ├── .ps-card-icon       ← أيقونة/صورة
-  ├── .ps-card-body       ← المحتوى الرئيسي
-  │   ├── .ps-card-name   ← الاسم
-  │   └── .ps-card-alt    ← نص ثانوي
-  └── .ps-card-arrow      ← سهم التنقل
-```
-
----
-
-### 4.2 الأزرار (Buttons)
-
-| الكلاس | الاستخدام |
-|--------|----------|
-| `.trc-btn-primary` | زر رئيسي - إجراء أساسي |
-| `.trc-btn-success` | زر نجاح - تأكيد/إكمال |
-| `.trc-btn-secondary` | زر ثانوي - إجراء بديل |
-| `.trc-btn-outline` | زر مخطط - أقل أهمية |
-
----
-
-### 4.3 شريط الفلترة (Filter Bar)
-
-#### `.ps-filter-bar` - شريط بحث وفلترة مثبت
-
-```css
-.ps-filter-bar {
-    position: sticky;
-    top: 60px;
-    z-index: 10;
-    background: var(--rubik-card-bg);
-    border-radius: 0 0 18px 18px;
-    box-shadow: 0 4px 20px rgba(27,90,122,0.1);
-}
-```
-
-**المكونات الداخلية:**
-```
-.ps-filter-inner
-  ├── .ps-search-wrap        ← حقل البحث
-  │   ├── .ps-search-ico     ← أيقونة البحث
-  │   └── .ps-search-input   ← إدخال النص
-  ├── .ps-filter-select-wrap ← قائمة منسدلة للفلترة
-  ├── .ps-search-btn         ← زر البحث
-  └── .ps-view-toggle        ← تبديل عرض (شبكة/قائمة)
-```
-
----
-
-### 4.4 عرض البيانات (Grid/List)
-
-```css
-/* عرض الشبكة */
-.ps-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-    gap: 16px;
-}
-
-/* عرض القائمة */
-.ps-grid.list-view {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-```
-
----
-
-## 5. أنماط التخطيط
-
-### 5.1 ترويسة الصفحة (Hero)
-
-```css
-.ps-hero {
-    background: linear-gradient(135deg,
-        var(--rubik-primary-dark) 0%,
-        var(--rubik-primary) 55%,
-        var(--rubik-primary-light) 100%);
-    padding: 2rem 2.5rem 0;
-    overflow: hidden;
-    position: relative;
-}
-```
-
-**العناصر الزخرفية:**
-- `.ps-hero-overlay` - تدرجات شفافة
-- `.ps-hero-dots` - نمط نقاط
-
----
-
-### 5.2 الحالات الخاصة
-
-| الكلاس | الاستخدام |
-|--------|----------|
-| `.ps-loading-bar` | شريط تحميل متحرك أعلى الصفحة |
-| `.ps-spinner` | دائرة تحميل دائرية |
-| `.ps-skeleton` | هيكل تحميل وهمي |
-| `.ps-empty` | حالة عدم وجود بيانات |
-| `.trc-error-box` | مربع خطأ مع اهتزاز |
-| `.trc-success-state` | حالة نجاح مع أنيميشن |
-
----
-
-## 6. أنماط الصفحات
-
-### 6.1 بادئات الصفحات (Namespacing)
-
-| البادئة | الصفحة |
-|---------|--------|
-| `ps-` | Pharmacy Search (البحث عن صيدلية) |
-| `pdp-` | Pharmacy Detail Page (تفاصيل الصيدلية) |
-| `trc-` | Token Redemption Card (كارت صرف التوكن) |
-| `mrc-` | Medication Request Card (كارت طلب دواء) |
-
----
-
-### 6.2 مثال: صفحة البحث عن صيدلية
-
-**الملفات:**
-- `pharmacy-search.css` ← `.ps-root`, `.ps-hero`, `.ps-body`
-- `pharmacy-filter.css` ← `.ps-filter-bar`, `.ps-search-wrap`
-- `pharmacy-card.css` ← `.ps-card` ومكوناته
-- `pharmacy-grid.css` ← `.ps-grid`, `.ps-pagination`
-- `pharmacy-detail.css` ← `.pdp-root`, `.pdp-hero`
-
-**الهيكل:**
-```
-ps-root
-  ├── ps-loading-bar
-  ├── ps-hero (ترويسة + إحصائيات)
-  │   ├── ps-hero-overlay
-  │   └── ps-hero-stats
-  ├── ps-body
-  │   ├── ps-filter-bar (بحث + فلترة)
-  │   ├── ps-grid (عرض النتائج)
-  │   │   └── ps-card × N
-  │   └── ps-pagination
-  └── ps-empty (عند عدم وجود نتائج)
-```
-
----
-
-## 7. أفضل الممارسات
-
-### ✅ افعل
-
-- استخدم متغيرات `--rubik-*` دائماً، لا تكتب ألوان ثابتة
-- استخدم بادئة فريدة لكل صفحة جديدة (3-4 حروف)
-- اختبر على الشاشات الصغيرة: `@media (max-width: 768px)`
-- ادعم RTL: `[dir="rtl"]` للهوامش والأسهم
-- سجل الملف في الـ Bundle المناسب
-
-### ❌ لا تفعل
-
-- لا تستخدم `!important` إلا للضرورة القصوى
-- لا تكرر الأنماط - استخدم المكونات الموجودة
-- لا تنشئ ملف CSS خارج نظام `_pages/`
-- لا تستخدم ألوان ثابتة (مثل `#ff0000`) - استخدم المتغيرات
-- لا تنسَ دعم RTL للعناصر التي تتأثر بالاتجاه
-
----
-
-### 📝 قالب صفحة جديدة
-
-```css
-/* ================================================================
-   [page-name].css — RubikCare
-   الوصف: [وصف مختصر للصفحة]
-   يعتمد على: _CoreBundle.css, _ComponentsBundle.css
-================================================================ */
-
-/* ── Root ── */
-.xxx-root {
-    min-height: 100vh;
-    background: var(--rubik-body-bg);
-    font-family: 'Tajawal', 'Cairo', sans-serif;
-}
-
-/* ── Hero ── */
-.xxx-hero { }
-
-/* ── Body ── */
-.xxx-body { }
-
-/* ── Responsive ── */
-@media (max-width: 768px) { }
-
-@media (max-width: 480px) { }
-```
-
----
-
-## 8. أمثلة عملية
-
-### 8.1 إضافة صفحة جديدة - مثال كامل
-
-**السيناريو:** إنشاء صفحة "قائمة المرضى" للطبيب
-
-**الخطوة 1:** إنشاء ملف CSS
-```
-المسار: Shared.UI/wwwroot/css/_pages/Clinic/clinic-patients.css
-البادئة: cpt- (Clinic PaTients)
-```
-
-**الخطوة 2:** تسجيل الملف
-```css
-/* في _Auth_Public_Bundle.css أو bundle مناسب */
-@import url('_pages/Clinic/clinic-patients.css');
-```
-
-**الخطوة 3:** استخدام المكونات الموجودة
-```html
-<div class="cpt-root">
-    <!-- استخدام ps-hero لنفس الترويسة -->
-    <div class="ps-hero">...</div>
-    
-    <!-- استخدام ps-filter-bar للفلترة -->
-    <div class="ps-filter-bar">...</div>
-    
-    <!-- استخدام ps-grid + ps-card للقائمة -->
-    <div class="ps-grid list-view">
-        <div class="ps-card cpt-patient-card">...</div>
-    </div>
+```razor
+<div class="clinic-root @LangClass">
+    <div class="clinic-hero">...</div>
+    <div class="clinic-actions-section">...</div>
+    <div class="clinic-section">...</div>
 </div>
 ```
-##3. 03-style-guide.md
-إضافة: بادئات صفحات العيادة
 
-markdown
-| البادئة | الصفحة |
-|---------|--------|
-| `cpt-` | Clinic Patients List (قائمة المرضى) |
-| `cpd-` | Clinic Patient Details (تفاصيل المريض) |
----
-
-## 📚 المراجع
-
-- [وثيقة Clean Architecture](./13-clean-architecture-enforcement.md)
-- [دليل تطوير MAUI](./10-maui-development-guide.md)
-- [نظرة عامة على المشروع](./00-architecture-overview.md)
+**ملف CSS:** `_pages/Clinic/clinic-dashboard.css`
 
 ---
 
-> **آخر تحديث:** 31 مايو 2026 
+## 💊 **نمط الصيدلية (Pharmacy) - أخضر غامق + زمردي**
+
+### الألوان الأساسية
+
+| المتغير | القيمة | الاستخدام |
+|---------|--------|-----------|
+| `--pharmacy-hero-start` | `#1A3A3A` | بداية تدرج الـ Hero |
+| `--pharmacy-hero-end` | `#2D8B6E` | نهاية تدرج الـ Hero |
+| `--pharmacy-primary` | `#2D8B6E` | اللون الأساسي للصيدلية |
+| `--pharmacy-primary-light` | `#D4EDDA` | خلفيات فاتحة للصيدلية |
+| `--pharmacy-primary-dark` | `#1A3A3A` | تدرج غامق للصيدلية |
+| `--pharmacy-secondary` | `#1A7A7A` | اللون الثانوي للصيدلية |
+| `--pharmacy-secondary-light` | `#D1ECF1` | خلفيات ثانوية فاتحة |
+| `--pharmacy-gold` | `#B88B4A` | لون مميز (تنبيهات) |
+| `--pharmacy-gold-light` | `#F7F0E4` | خلفيات ذهبية فاتحة |
+
+### تدرج الـ Hero
+
+```css
+background: linear-gradient(135deg, #1A3A3A 0%, #2D8B6E 100%);
+```
+
+### أيقونات الصيدلية
+
+| الأيقونة | اللون | الاستخدام |
+|----------|-------|-----------|
+| `pharmacy-action-icon-pharmacy` | `#D4EDDA` | أيقونة "صيدليتي" |
+| `pharmacy-action-icon-psp` | `#D4EDDA` | أيقونة "برامج الدعم" |
+| `pharmacy-action-icon-products` | `#F7F0E4` | أيقونة "المنتجات" |
+| `pharmacy-action-icon-orders` | `#D1ECF1` | أيقونة "طلبات المرضى" |
+
+### تطبيق النمط
+
+**في Razor Component:**
+
+```razor
+<div class="pharmacy-root @LangClass">
+    <div class="pharmacy-hero">...</div>
+    <div class="pharmacy-actions-section">...</div>
+    <div class="pharmacy-section">...</div>
+</div>
+```
+
+**ملف CSS:** `_pages/Pharmacy/pharmacy-dashboard.css`
+
+---
+
+## 🏢 **نمط المندوب (Rep) - ذهبي**
+
+### الألوان الأساسية
+
+| المتغير | القيمة | الاستخدام |
+|---------|--------|-----------|
+| `--rep-hero-start` | `#3D2E1A` | بداية تدرج الـ Hero |
+| `--rep-hero-end` | `#B88B4A` | نهاية تدرج الـ Hero |
+| `--rep-primary` | `#B88B4A` | اللون الأساسي للمندوب |
+| `--rep-primary-light` | `#F7F0E4` | خلفيات فاتحة للمندوب |
+| `--rep-primary-dark` | `#3D2E1A` | تدرج غامق للمندوب |
+| `--rep-secondary` | `#1A7A7A` | اللون الثانوي للمندوب |
+| `--rep-secondary-light` | `#D1ECF1` | خلفيات ثانوية فاتحة |
+
+### تدرج الـ Hero
+
+```css
+background: linear-gradient(135deg, #3D2E1A 0%, #B88B4A 100%);
+```
+
+### تطبيق النمط
+
+**في Razor Component:**
+
+```razor
+<div class="rep-root @LangClass">
+    <div class="rep-hero">...</div>
+    <div class="rep-actions-section">...</div>
+    <div class="rep-section">...</div>
+</div>
+```
+
+**ملف CSS:** `_pages/Rep/rep-dashboard.css`
+
+---
+
+## 📋 **الصفحات الداخلية (Sub-pages)**
+
+### مبدأ التطبيق
+
+**يجب أن تتبع الصفحات الداخلية نفس نظام ألوان الدور الرئيسي.**
+
+**مثال:** إذا كان المستخدم طبيباً (دور Clinic)، فإن جميع الصفحات الداخلية (مثل `PspGateway`, `MyPatientInvitations`) يجب أن تستخدم ألوان العيادة (الأزرق البحري + الأزرق-الأخضر).
+
+### كيفية التطبيق
+
+1. **استخدم نفس `--clinic-*` أو `--pharmacy-*` أو `--rep-*` المتغيرات** في ملفات CSS الخاصة بالصفحات الداخلية.
+2. **أو استخدم المتغيرات العالمية** (`--rubik-*`) مع الحفاظ على تناسق الألوان.
+
+### مثال: `psp-gateway.css`
+
+```css
+.pg-root {
+    --pg-primary: var(--clinic-primary, #1A7A7A);
+    --pg-primary-light: var(--clinic-primary-light, #D1ECF1);
+    --pg-primary-dark: var(--clinic-primary-dark, #0A3D5C);
+    --pg-secondary: var(--clinic-secondary, #2D8B6E);
+    --pg-secondary-light: var(--clinic-secondary-light, #D4EDDA);
+    --pg-gold: var(--clinic-gold, #B88B4A);
+    --pg-gold-light: var(--clinic-gold-light, #F7F0E4);
+    /* ... باقي المتغيرات ... */
+}
+```
+
+**بهذه الطريقة، الصفحات الداخلية ترث ألوان الدور الرئيسي تلقائياً.**
+
+---
+
+## 🗂️ **هيكل ملفات الأنماط**
+
+```
+Shared.UI/wwwroot/css/
+├── _CoreBundle.css          (المتغيرات العالمية)
+├── _PagesBundle.css         (استيراد جميع الصفحات)
+│
+├── _pages/
+│   ├── Clinic/
+│   │   └── clinic-dashboard.css        (نمط العيادة)
+│   │
+│   ├── Pharmacy/
+│   │   └── pharmacy-dashboard.css      (نمط الصيدلية)
+│   │
+│   ├── Rep/
+│   │   └── rep-dashboard.css           (نمط المندوب)
+│   │
+│   ├── PSP/
+│   │   └── psp-gateway.css             (بوابة برامج الدعم)
+│   │
+│   └── Shared/
+│       └── dashboard-common.css        (مشترك - للصفحات القديمة)
+```
+
+---
+
+## 🛠️ **كيفية إضافة نمط جديد**
+
+1. **إنشاء ملف CSS جديد** في المجلد المناسب (مثل `_pages/Role/page-name.css`).
+2. **تعريف المتغيرات** باستخدام `--role-*` prefix.
+3. **استخدام المتغيرات** في جميع التنسيقات.
+4. **إضافة الاستيراد** في `_PagesBundle.css`.
+5. **تطبيق الـ Class الرئيسي** (`role-root`) في Razor Component.
+
+---
+
+## ✅ **CHECKLIST: عند إنشاء صفحة جديدة**
+
+- [ ] هل الصفحة تتبع نمط الدور الرئيسي (Clinic/Pharmacy/Rep)؟
+- [ ] هل تستخدم المتغيرات الصحيحة (`--clinic-*` / `--pharmacy-*` / `--rep-*`)?
+- [ ] هل الـ Hero Section يستخدم التدرج الصحيح؟
+- [ ] هل أيقونات الأزرار تستخدم الألوان الصحيحة؟
+- [ ] هل تم إضافة ملف CSS إلى `_PagesBundle.css`؟
+- [ ] هل تم اختبار الصفحة على كل من (Web + Mobile Android + Mobile Windows)؟
+
+---
+
+## 🔗 روابط ذات صلة
+
+- [00 - الهيكل المعماري](https://github.com/Rubikans-Egy/Rubikcare-docs/blob/main/docs/00-architecture-overview.md)
+- [11 - دليل BlazorWebView](https://github.com/Rubikans-Egy/Rubikcare-docs/blob/main/docs/11-blazor-webview-guide.md)
+- [05 - إنشاء الصفحات والمكونات](https://github.com/Rubikans-Egy/Rubikcare-docs/blob/main/docs/05-page-creation-checklist.md)
+
+---
+
+**آخر تحديث:** 22 يونيو 2026 | **الملف:** `03-style-guide.md`
+```
+
+---
+
+## 📋 **ملخص التغييرات في الوثيقة**
+
+| القسم | التغيير |
+|-------|---------|
+| **نظام الألوان العام** | ✅ إضافة جدول المتغيرات العالمية |
+| **نمط العيادة** | ✅ إضافة الألوان الأساسية، التدرج، الأيقونات، التطبيق |
+| **نمط الصيدلية** | ✅ إضافة الألوان الأساسية، التدرج، الأيقونات، التطبيق |
+| **نمط المندوب** | ✅ إضافة الألوان الأساسية، التدرج، التطبيق |
+| **الصفحات الداخلية** | ✅ شرح كيفية توريث الألوان من الدور الرئيسي |
+| **هيكل الملفات** | ✅ تحديث الهيكل ليعكس الملفات الجديدة |
+| **CHECKLIST** | ✅ إضافة نقاط تحقق جديدة |
+
