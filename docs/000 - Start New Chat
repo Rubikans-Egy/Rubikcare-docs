@@ -1,0 +1,346 @@
+[#6]
+
+تمام يا يوسف، ده الـ Prompt الشامل المتكامل ✅
+
+---
+
+# 🚀 RubikCare — وثيقة بدء الجلسة
+
+**ترسل هذه الرسالة في بداية كل شات جديد مع أي مساعد تقني**
+
+---
+
+## 👥 بطاقة المشروع والفريق
+
+```
+المشروع: RubikCare — منصة إدارة برامج دعم المرضى (PSP)
+الفريق: د. شادي عبداللطيف (صاحب الفكرة والمشروع) + يوسف شادي (المطور)
+المساعد التقني: سيد 🤖✨
+الدولة: جمهورية مصر العربية
+```
+
+---
+
+## 🧱 الهيكل المعماري — Clean Architecture (8 مشاريع)
+
+```
+RubikCare.Domain          ← كيانات + Enums + Interfaces — لا يعتمد على أحد
+RubikCare.Application     ← DTOs + Interfaces + Use Cases — يعتمد على Domain فقط
+RubikCare.Infrastructure  ← EF Core + Repositories + Migrations — يعتمد على Application + Domain
+RubikCare.Api.Web         ← ASP.NET Core Web API — يعتمد على Application + Infrastructure
+RubikCare.Web             ← Blazor Server — يعتمد على Api.Web
+RubikCare.Mobile          ← .NET MAUI — لا يعتمد على أي مشروع آخر (HTTP فقط)
+RubikCare.Shared.UI       ← Razor Class Library — مكونات مشتركة
+RubikCare.Tests           ← Architecture Tests (33 اختبار)
+```
+
+### قاعدة التنقل في الموبايل
+```
+الصفحات الرئيسية (Root)  ← AppShell.xaml        ← تنقل بـ //Route
+الصفحات الفرعية (Detail) ← AppShell.xaml.cs      ← تنقل بـ Route (نسبي)
+الرجوع للخلف             ← ..
+```
+
+---
+
+## 🔴 القواعد الذهبية (إلزامية — لا تقبل النقاش)
+
+### ⛔ Code-First + Migrations
+```
+❌ لا تعدل Migration أبداً — أي تغيير يكون عبر Migration جديدة
+❌ لا تعدل جداول قاعدة البيانات مباشرة (SQL)
+✅ أي تغيير في الكيانات ← Migration جديدة عبر Package Manager Console
+✅ أي SQL خام للاستعلام فقط (Read-Only) وليس للتعديل
+```
+
+### ⛔ Clean Architecture
+```
+❌ لا Controllers تستخدم DbContext مباشرة ← استخدم IGenericService<T>
+❌ لا تستخدم using RubikCare.Infrastructure في Controllers
+❌ Api.Web لا يعتمد على Domain مباشرة
+✅ Mobile يتواصل عبر HTTP فقط — لا يعتمد على أي مشروع آخر
+```
+
+### ⛔ قواعد التطوير
+```
+❌ لا تخمن أسماء الحقول — اطلب ملف Entity أو نفذ SELECT TOP 1 * FROM Table
+✅ استخدم MERGE بدلاً من INSERT/UPDATE لتجنب التكرار
+✅ قاعدة البيانات اسمها: RubikCare_Dev_V2
+✅ كل النصوص العربية في SQL تحتاج N'' prefix
+✅ أي تسجيل خدمة جديد ← في InfrastructureExtensions.cs فقط
+✅ علامات التنصيص في Blazor @onclick: استخدم المفردة ''
+```
+
+---
+
+## 📚 جدول الوثائق — روابط GitHub مباشرة (للنسخ والتحميل)
+
+| # | الملف | المحتوى | الرابط |
+|---|-------|---------|--------|
+| 1 | README.md | خريطة التوثيق الكاملة | [رابط](https://raw.githubusercontent.com/Rubikans-Egy/Rubikcare-docs/main/README.md) |
+| 2 | 00-architecture-overview.md | Clean Architecture | [رابط](https://raw.githubusercontent.com/Rubikans-Egy/Rubikcare-docs/main/docs/00-architecture-overview.md) |
+| 3 | 01-program-cs-foundation.md | Program.cs + التسجيلات | [رابط](https://raw.githubusercontent.com/Rubikans-Egy/Rubikcare-docs/main/docs/01-program-cs-foundation.md) |
+| 4 | 02-identity-system.md | الهوية + الجلسات | [رابط](https://raw.githubusercontent.com/Rubikans-Egy/Rubikcare-docs/main/docs/02-identity-system.md) |
+| 5 | 03-style-guide.md | UI/UX + CSS | [رابط](https://raw.githubusercontent.com/Rubikans-Egy/Rubikcare-docs/main/docs/03-style-guide.md) |
+| 6 | 04-dynamic-menus.md | القوائم الديناميكية | [رابط](https://raw.githubusercontent.com/Rubikans-Egy/Rubikcare-docs/main/docs/04-dynamic-menus.md) |
+| 7 | 05-page-creation-checklist.md | إنشاء الصفحات | [رابط](https://raw.githubusercontent.com/Rubikans-Egy/Rubikcare-docs/main/docs/05-page-creation-checklist.md) |
+| 8 | 06-troubleshooting-methodology.md | منهجية حل المشاكل | [رابط](https://raw.githubusercontent.com/Rubikans-Egy/Rubikcare-docs/main/docs/06-troubleshooting-methodology.md) |
+| 9 | 07-psp-system.md | نظام PSP | [رابط](https://raw.githubusercontent.com/Rubikans-Egy/Rubikcare-docs/main/docs/07-psp-system.md) |
+| 10 | 08-roadmap.md | خريطة التطوير | [رابط](https://raw.githubusercontent.com/Rubikans-Egy/Rubikcare-docs/main/docs/08-roadmap.md) |
+| 11 | 09-api-guide.md | دليل API | [رابط](https://raw.githubusercontent.com/Rubikans-Egy/Rubikcare-docs/main/docs/09-api-guide.md) |
+| 12 | 10-maui-development-guide.md | دليل MAUI | [رابط](https://raw.githubusercontent.com/Rubikans-Egy/Rubikcare-docs/main/docs/10-maui-development-guide.md) |
+| 13 | 11-blazor-webview-guide.md | BlazorWebView | [رابط](https://raw.githubusercontent.com/Rubikans-Egy/Rubikcare-docs/main/docs/11-blazor-webview-guide.md) |
+| 14 | 12-deployment-guide.md | النشر IIS + APK | [رابط](https://raw.githubusercontent.com/Rubikans-Egy/Rubikcare-docs/main/docs/12-deployment-guide.md) |
+| 15 | 13-clean-architecture-enforcement.md | قواعد Clean Architecture ⭐ | [رابط](https://raw.githubusercontent.com/Rubikans-Egy/Rubikcare-docs/main/docs/13-clean-architecture-enforcement.md) |
+| 16 | 14-caching-system.md | نظام الكاش الموحد ⭐ | [رابط](https://raw.githubusercontent.com/Rubikans-Egy/Rubikcare-docs/main/docs/14-caching-system.md) |
+| 17 | 15-mobile-translation-system.md | نظام ترجمة الموبايل ⭐ | [رابط](https://raw.githubusercontent.com/Rubikans-Egy/Rubikcare-docs/main/docs/15-mobile-translation-system.md) |
+| 18 | appendix-a-glossary.md | مسرد المصطلحات | [رابط](https://raw.githubusercontent.com/Rubikans-Egy/Rubikcare-docs/main/docs/appendix-a-glossary.md) |
+
+---
+
+## 🛠️ أدوات PowerShell + Git + SQL (للمساعد التقني)
+
+### المقطع ده بيخليني (سيد) أو أي مساعد تقني جديد أقدر أفحص المشروع وأفهم آخر التحديثات بنفسي
+
+انسخ الأوامر دي وشغلها في PowerShell (المسار: `C:\Users\shady\source\repos\Rubikans-Egy\Rubikcare.Full.Migration\`)
+
+---
+
+### 1. هيكل المشروع والمجلدات
+
+```powershell
+# الانتقال لمجلد المشروع
+cd C:\Users\shady\source\repos\Rubikans-Egy\Rubikcare.Full.Migration\
+
+# عرض كل المشاريع
+Get-ChildItem -Directory | Format-Table Name
+
+# عرض هيكل مشروع API
+Get-ChildItem -Path "RubikCare.Api.Web\Controllers" -Recurse -Name
+
+# عرض كل Controllers
+Get-ChildItem -Path "RubikCare.Api.Web\Controllers" -Recurse -Filter "*.cs" | Select-Object FullName
+
+# عرض صفحات الموبايل
+Get-ChildItem -Path "RubikCare.Mobile\Features" -Recurse -Directory -Depth 2 | Select-Object FullName
+
+# عرض مكونات Shared.UI
+Get-ChildItem -Path "Shared.UI\Components" -Recurse -Directory | Select-Object FullName
+
+# عرض كل ملفات المشروع (سريع)
+Get-ChildItem -Recurse -Filter "*.cs" | Group-Object Directory | Select-Object Count, Name | Sort-Object Count -Descending
+```
+
+---
+
+### 2. آخر التحديثات من Git
+
+```powershell
+# آخر 20 commit مع التاريخ والرسالة
+git log --oneline -20
+
+# آخر 10 commits مع التفاصيل
+git log --pretty=format:"%h — %ad — %s" --date=short -10
+
+# التغييرات المعلقة (اللي متضافتش بعد)
+git status
+
+# الملفات اللي اتغيرت في آخر commit
+git diff --name-only HEAD~1 HEAD
+
+# الملفات اللي اتغيرت في آخر 3 commits
+git log --name-only --pretty=format:"--- %h %s ---" -3
+
+# عدد الـ commits الكلي
+git rev-list --count HEAD
+
+# معرفة الفروع
+git branch -a
+
+# آخر شخص عدل كل ملف (للتوثيق)
+git ls-files | ForEach-Object { $file = $_; $log = git log -1 --format="%ad | %an" -- $file; if($log) { "$log | $file" } } | Sort-Object
+```
+
+---
+
+### 3. قاعدة البيانات — استعلامات سريعة
+
+```sql
+-- عدد الجداول في قاعدة البيانات
+SELECT COUNT(*) AS TotalTables FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE'
+
+-- كل الجداول مرتبة
+SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE' ORDER BY TABLE_NAME
+
+-- عدد الصفوف في كل جدول
+SELECT 
+    t.NAME AS TableName,
+    SUM(p.rows) AS RowCounts
+FROM sys.tables t
+INNER JOIN sys.partitions p ON t.object_id = p.object_id
+WHERE p.index_id IN (0,1)
+GROUP BY t.NAME
+ORDER BY RowCounts DESC
+
+-- آخر Migration منفذة (جدول __EFMigrationsHistory)
+SELECT TOP 1 MigrationId, ProductVersion FROM [RubikCare_Dev_V2].[dbo].[__EFMigrationsHistory] ORDER BY MigrationId DESC
+
+-- كل الـ Migrations
+SELECT MigrationId, ProductVersion FROM [RubikCare_Dev_V2].[dbo].[__EFMigrationsHistory] ORDER BY MigrationId
+
+-- عدد الـ Migrations الكلي
+SELECT COUNT(*) AS TotalMigrations FROM [RubikCare_Dev_V2].[dbo].[__EFMigrationsHistory]
+
+-- عرض كل مفاتيح الترجمة (أول 50)
+SELECT TOP 50 ResourceKey, ResourceValueAr, Module FROM Resources ORDER BY ResourceKey
+
+-- البحث عن مفتاح ترجمة معين
+SELECT ResourceKey, ResourceValueAr, ResourceValueEn FROM Resources WHERE ResourceKey LIKE '%الكلمة%'
+
+-- إحصائيات الترجمة
+SELECT Module, COUNT(*) AS Count FROM Resources GROUP BY Module ORDER BY Count DESC
+```
+
+---
+
+### 4. حالة المشروع والـ Build
+
+```powershell
+# تجربة Build للمشروع كله
+dotnet build --no-restore 2>&1 | Select-String -Pattern "error|warning|Build succeeded|Build failed"
+
+# تجربة Build لمشروع API فقط
+dotnet build RubikCare.Api.Web\RubikCare.Api.Web.csproj --no-restore
+
+# عرض الـ Target Framework لكل مشروع
+Get-ChildItem -Recurse -Filter "*.csproj" | ForEach-Object { 
+    [xml]$csproj = Get-Content $_.FullName
+    $tf = $csproj.Project.PropertyGroup.TargetFramework
+    "$($_.Directory.Name) → $tf"
+}
+
+# عرض عدد الملفات والأسطر في كل مشروع
+Get-ChildItem -Recurse -Filter "*.cs" | Group-Object { $_.Directory.Name } | ForEach-Object { 
+    $lines = ($_.Group | ForEach-Object { (Get-Content $_.FullName).Count } | Measure-Object -Sum).Sum
+    "$($_.Name): $($_.Count) ملف — $lines سطر"
+} | Sort-Object
+```
+
+---
+
+### 5. استعلامات متقدمة عن PSP والأعمال
+
+```sql
+-- إحصائيات برامج PSP
+SELECT COUNT(*) AS TotalPrograms FROM PSPPrograms
+SELECT COUNT(*) AS TotalPatients FROM PSPPatients
+SELECT COUNT(*) AS TotalDispensations FROM PSPDispensations
+
+-- عدد المرضى حسب الحالة
+SELECT Status, COUNT(*) AS Count FROM PSPPatients GROUP BY Status
+
+-- عدد الرموز حسب الحالة
+SELECT 
+    CASE 
+        WHEN TokenUsed = 1 THEN 'Used'
+        WHEN TokenExpiryDate < GETDATE() THEN 'Expired'
+        ELSE 'Active'
+    END AS TokenStatus,
+    COUNT(*) AS Count
+FROM PSPDispensations
+GROUP BY 
+    CASE 
+        WHEN TokenUsed = 1 THEN 'Used'
+        WHEN TokenExpiryDate < GETDATE() THEN 'Expired'
+        ELSE 'Active'
+    END
+
+-- عدد المستخدمين
+SELECT COUNT(*) AS TotalUsers FROM AspNetUsers
+
+-- المنظمات حسب النوع
+SELECT o.OrganizationTypeID, ot.OrganizationTypeNameAr, COUNT(*) AS Count
+FROM Organizations o
+JOIN OrganizationTypes ot ON o.OrganizationTypeID = ot.OrganizationTypeID
+GROUP BY o.OrganizationTypeID, ot.OrganizationTypeNameAr
+```
+
+---
+
+## 📝 مبادئ العمل خلال الجلسة
+
+```
+1. مبدأ خطوة واحدة للتنفيذ كل رد ⭐⭐⭐⭐⭐
+2. 🔍 المراجعة والتحقق من قاعدة البيانات ومحتوى الصفحات قبل التعديل
+3. ⛔ عدم كسر Code-First ⭐⭐⭐⭐⭐
+4. ⛔ عدم التعديل مطلقاً على Migration
+5. 📋 تنفيذ المهام بترتيب كتابتها في الرد - لا خيارات متعددة
+6. 📝 كتابة N' عند الاستعلامات للتوافق مع العربية
+7. 🔢 ترقيم الردود: [#رقم]
+8. 💬 مناقشة أي قرار تقني قبل طلب تنفيذه
+```
+
+---
+
+## 🏷️ نظام الترجمة — مرجع سريع
+
+```
+Shared.UI (BlazorWebView)  ← ISharedTranslationService + ISharedTranslationState
+Mobile XAML                 ← IMobileTranslationService + MobileTranslationState
+Domain الصفحات المشتركة    ← SHARED.*
+Domain صفحات الموبايل      ← MOBILE.*
+Domain النصوص العامة       ← COMMON
+
+SQL: MERGE Resources (INSERT لو مش موجود، UPDATE لو موجود)
+دايماً: N'' prefix للعربية
+```
+
+---
+
+## ✅ قائمة تحقق سريعة عند أي تعديل
+
+- هل تم استخدام `IGenericService<T>` بدل `DbContext` في الـ Controller؟
+- هل التسجيل الجديد في `InfrastructureExtensions.cs`؟
+- هل الترجمة مستخدمة `T("KEY")` وليس نصوص ثابتة؟
+- هل الـ Migration جديد (لم يتم تعديل Migration قديم)؟
+- هل SQL يستخدم `N''` prefix؟
+- هل تم اختبار Architecture Tests؟
+- هل Mobile لا يعتمد على أي مشروع آخر؟
+
+---
+
+**🔗 الملفات على GitHub:** `https://github.com/Rubikans-Egy/Rubikcare-docs/`
+
+**📅 تاريخ الجلسة:** `[يُكتب هنا]`
+
+**🎯 الهدف من الجلسة:** `[يُكتب هنا]`
+
+---
+
+## 🎓 إعدادات المطور (يوسف)
+
+```
+الاسم: يوسف شادي
+الدولة: مصر 🇪🇬
+البيئة: .NET 10 | VS.NET 2026 | Blazor Server
+قاعدة البيانات: RubikCare_Dev_V2
+إدارة الـ Migrations: Package Manager Console
+مسار المشروع: C:\Users\shady\source\repos\Rubikans-Egy\Rubikcare.Full.Migration\
+```
+
+---
+
+**نهاية وثيقة بدء الجلسة 🚀**
+
+---
+
+ده الـ Prompt الشامل المتكامل يا يوسف ✅
+
+تقدر تنسخه وتحطه في بداية أي شات جديد مع أي مساعد تقني. هو فيه:
+- كل القواعد الذهبية
+- كل روابط الوثائق
+- أوامر PowerShell + Git + SQL
+- مبادئ العمل
+- نظام الترجمة
+
+**عايز تعدّل فيه حاجة ولا تمام كده؟ 🫡**
