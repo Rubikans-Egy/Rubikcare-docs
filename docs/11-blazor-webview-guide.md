@@ -1,66 +1,69 @@
-
 # 11 - دليل BlazorWebView والأنماط الناجحة
 
-**آخر تحديث: 13 يونيو 2026**
+**آخر تحديث: 8 يوليو 2026**
 
 ---
 
 ## 📌 مقدمة
 
-هذا المرجع يوثق **الأنماط الناجحة** وما يجب تجنبه عند استخدام BlazorWebView داخل تطبيق MAUI. الهدف هو مشاركة المكونات بين Web و Mobile مع تجنب المشاكل المعروفة.
+هذا المرجع يوثق **الأنماط الناجحة** وما يجب تجنبه عند استخدام `BlazorWebView` داخل تطبيق MAUI. الهدف هو مشاركة المكونات بين Web و Mobile مع تجنب المشاكل المعروفة، وتوحيد أسلوب العمل بين أعضاء الفريق.
 
 ---
 
-## لماذا BlazorWebView؟
+## 🧠 لماذا BlazorWebView؟
 
-| XAML التقليدي | BlazorWebView |
-|---------------|---------------|
-| لغة مختلفة عن Web | نفس HTML/CSS المستخدم في Web |
-| مشاكل Binding متكررة | لا Binding - استخدام Razor |
-| صعوبة مشاركة المكونات | مشاركة مباشرة عبر RCL |
-| منحنى تعلم منفصل | نفس مهارات Blazor |
+| الميزة | XAML التقليدي | BlazorWebView |
+|--------|---------------|---------------|
+| لغة التطوير | لغة مختلفة عن Web | نفس HTML/CSS المستخدم في Web |
+| ربط البيانات | مشاكل Binding متكررة | لا Binding - استخدام Razor |
+| مشاركة المكونات | صعبة | مشاركة مباشرة عبر RCL |
+| منحنى التعلم | منفصل تماماً | نفس مهارات Blazor |
 
 ---
 
-## 🚨 القسم الأول: مشكلة Dependency Injection في BlazorWebView
+## 🚨 القسم الأول: مشكلة Dependency Injection (DI)
 
 ### ⚠️ المشكلة الجذرية (اكتشاف: 13 يونيو 2026)
 
-`BlazorWebView` في MAUI يستخدم حاوية Dependency Injection **مستقلة** عن حاوية MAUI الرئيسية. هذا يعني أن الخدمات المسجلة في `MauiProgram.cs` قد لا تكون متاحة لمكونات Blazor الداخلية.
+`BlazorWebView` في MAUI يستخدم حاوية Dependency Injection **مستقلة** عن حاوية MAUI الرئيسية. هذا يعني أن الخدمات المسجلة في `MauiProgram.cs` **ليست متاحة تلقائياً** لمكونات Blazor الداخلية.
 
 ### ❌ العرض: فشل صامت للمكون
 
-عندما يستخدم مكون Blazor `@inject` لخدمة غير مسجلة في حاوية Blazor الداخلية، **يفشل المكون في التحميل تماماً بدون أي خطأ في Debug Output**. الصفحة تظهر فارغة أو لا تظهر على الإطلاق.
+عندما يستخدم مكون Blazor `@inject` لخدمة غير مسجلة في حاوية Blazor الداخلية، **يفشل المكون في التحميل تماماً بدون أي خطأ** في Debug Output. الصفحة تظهر فارغة أو لا تظهر على الإطلاق.
 
-> **ملاحظة مهمة:** هذا الفشل صامت تماماً — لا exception، لا خطأ في الـ console، لا أي مؤشر. `OnInitializedAsync` لا تُستدعى أبداً.
+> **⚠️ تحذير:** هذا الفشل **صامت تماماً** — لا exception، لا خطأ في الـ Console، لا أي مؤشر. `OnInitializedAsync` لا تُستدعى أبداً.
 
 ### 📊 الخدمات التي تعمل وتفشل مع `@inject`
 
 | الخدمة | `@inject` في Blazor | التفسير |
 |--------|---------------------|---------|
-| `ISharedTranslationService` | ✅ يعمل | مسجل في حاوية Blazor |
-| `ISharedTranslationState` | ✅ يعمل | مسجل في حاوية Blazor |
-| `NavigationManager` | ✅ يعمل | مسجل تلقائياً من Blazor runtime |
-| `HttpClient` | ❌ يفشل بصمت | غير مسجل في حاوية Blazor |
-| `ApiService` | ❌ يفشل بصمت | غير مسجل في حاوية Blazor |
-| `IMobileTranslationService` | ❌ يفشل بصمت | غير مسجل في حاوية Blazor |
+| `ISharedTranslationService` | ✅ يعمل | مسجلة في حاوية Blazor |
+| `ISharedTranslationState` | ✅ يعمل | مسجلة في حاوية Blazor |
+| `NavigationManager` | ✅ يعمل | مسجلة تلقائياً من Blazor runtime |
+| `HttpClient` | ❌ يفشل بصمت | غير مسجلة في حاوية Blazor |
+| `ApiService` | ❌ يفشل بصمت | غير مسجلة في حاوية Blazor |
+| `IMobileTranslationService` | ❌ يفشل بصمت | غير مسجلة في حاوية Blazor |
 
 ### ✅ الحل: تمرير الخدمات كـ Parameters
 
-بدلاً من `@inject`، استخدم `[Parameter]` ومرر الخدمة من صفحة MAUI المضيفة عبر `IApiService` (Interface موجود في `Shared.UI`):
+**في مكون Blazor (`.razor`):**
 
 ```razor
-@* ❌ خطأ - في مكون Blazor - سيفشل بصمت في MAUI *@
+@* ❌ خطأ - سيفشل بصمت في MAUI *@
 @inject HttpClient Http
 @inject ApiService ApiService
 
-@* ✅ صحيح - في مكون Blazor *@
+@* ✅ صحيح - استخدم Parameter *@
 @using RubikCare.Shared.UI.Services
-[Parameter] public IApiService? ApiService { get; set; }
+
+@code {
+    [Parameter] public IApiService? ApiService { get; set; }
+}
 ```
 
+**في صفحة MAUI المضيفة (`.xaml.cs`):**
+
 ```csharp
-// ✅ في صفحة MAUI المضيفة - مرر الخدمة كـ Parameter
 private readonly ApiService _apiService;
 
 public MyFlowPage()
@@ -88,9 +91,9 @@ public MyFlowPage()
 عندما يفشل مكون Blazor في التحميل داخل MAUI:
 
 - [ ] هل المكون يعمل في Web Blazor لكن ليس في MAUI؟
-- [ ] هل تستخدم `@inject HttpClient Http`؟ → **احذفه فوراً**
+- [ ] هل تستخدم `@inject HttpClient`؟ → **احذفه فوراً**
 - [ ] هل تستخدم `@inject` لأي خدمة غير `ISharedTranslation*` أو `NavigationManager`؟
-- [ ] هل `OnInitializedAsync` لا تُستدعى أبداً (لا يظهر Debug Output)؟
+- [ ] هل `OnInitializedAsync` لا تُستدعى (لا يظهر Debug Output)؟
 - [ ] هل الصفحة فارغة تماماً بدون أي خطأ؟
 
 **إذا أجبت بنعم على أي سؤال، استبدل `@inject` بـ `[Parameter]`.**
@@ -99,11 +102,11 @@ public MyFlowPage()
 
 ## 🚨 القسم الثاني: قيود RootComponents في BlazorWebView
 
-### ⚠️ السبب الجذري لقيود التوقيت
+### ⚠️ السبب الجذري
 
-`BlazorWebView` على Windows يستخدم `WebView2` كمحرك تحته. هذا المحرك **يربط الـ DOM بمكونات Blazor فقط أثناء دورة حياة الكونستركتور** للـ ContentPage المضيفة.
+`BlazorWebView` على Windows يستخدم `WebView2` كمحرك. هذا المحرك **يربط الـ DOM بمكونات Blazor فقط أثناء دورة حياة الكونستركتور** للـ `ContentPage` المضيفة.
 
-أي محاولة لإضافة `RootComponents` بعد انتهاء الكونستركتور — سواء في `OnAppearing`، أو بعد `await`، أو في `Task` منفصل — **لن تُحمَّل في الـ DOM** وستبقى الصفحة فارغة بدون أي خطأ.
+أي محاولة لإضافة `RootComponents` بعد انتهاء الكونستركتور — سواء في `OnAppearing`، أو بعد `await`، أو في `Task` منفصل — **لن تُحمَّل في الـ DOM** وستبقى الصفحة فارغة.
 
 ### ❌ أنماط فاشلة موثقة
 
@@ -118,14 +121,14 @@ public MyFlowPage()
 private async Task LoadAndShowAsync()
 {
     await LoadDataAsync();
-    blazorWebView.RootComponents.Add(...); // ← متأخر جداً، WebView2 لم يعد ينتظر
+    blazorWebView.RootComponents.Add(...); // ← متأخر جداً
 }
 
 // ❌ النمط 2: في OnAppearing
 protected override void OnAppearing()
 {
     base.OnAppearing();
-    blazorWebView.RootComponents.Add(...); // ← خارج دورة الكونستركتور — لن يعمل
+    blazorWebView.RootComponents.Add(...); // ← خارج الكونستركتور
 }
 
 // ❌ النمط 3: Clear ثم Add بعد تحميل البيانات
@@ -147,22 +150,40 @@ public MyFlowPage()
     _apiService = IPlatformApplication.Current!.Services
         .GetRequiredService<ApiService>();
 
-    // الخطوة 1: بيانات محلية (متزامن)
+    // 1. بيانات محلية (متزامن)
     LoadCachedData();
 
-    // الخطوة 2: إضافة المكون (متزامن - إلزامي في الكونستركتور)
+    // 2. إضافة المكون (متزامن - إلزامي في الكونستركتور)
     LoadBlazorComponent();
 
-    // الخطوة 3: تحديث من API (غير متزامن - لا يعيد تحميل المكون)
+    // 3. تحديث من API (غير متزامن - لا يعيد تحميل المكون)
     _ = RefreshFromApiAsync();
 }
 ```
 
 ---
 
+## 🧠 قاعدة ذهبية: لا تفترض، تحقق
+
+**قبل كتابة أي كود يتفاعل مع `RootComponent` أو `BlazorWebView`**، تحقق من:
+
+1. هل الخاصية/الطريقة موجودة في الـ IntelliSense؟
+2. هل هذا النمط موثق في ملفات `11-blazor-webview-guide.md` أو `10-maui-development-guide.md`؟
+3. هل هذا النمط يعمل في مشاريع MAUI الأخرى في الحل؟
+
+**أمثلة على افتراضات فاشلة:**
+
+| الافتراض | النتيجة |
+|----------|---------|
+| `RootComponent.Component` | ❌ غير موجود |
+| `EventCallback.Factory.Create` في MAUI | ❌ لا يعمل كما في Blazor Server |
+| `StateHasChanged()` من خارج الـ Component | ❌ غير قابل للوصول |
+
+---
+
 ## 🚨 القسم الثالث: تحديث مكون Blazor من MAUI بعد التحميل
 
-### ⚠️ المشكلة (اكتشاف: 13 يونيو 2026)
+### ⚠️ المشكلة
 
 بعد إضافة المكون في الكونستركتور، لا يمكن إعادة تحميله عبر `RootComponents.Clear()` ثم `RootComponents.Add()`. لكن هناك حالات تحتاج فيها الحاوية لتحديث المكون من الخارج:
 
@@ -190,17 +211,17 @@ private async Task UpdateComponentAfterFilePick()
 
 **الفكرة:** يحتفظ MAUI Host بمرجع مباشر لـ Blazor Component، ويستدعي `public methods` عليه مباشرة.
 
-#### في مكون Blazor (`ProfessionalLicensePage.razor`):
+**في مكون Blazor (`.razor`):**
 
 ```razor
 @code {
-    [Parameter] public Action<ProfessionalLicensePage>? OnComponentReady { get; set; }
+    [Parameter] public Action<MyBlazorPage>? OnComponentReady { get; set; }
 
     protected override void OnAfterRender(bool firstRender)
     {
         if (firstRender)
         {
-            // ⭐ أرسل مرجع this للحاوية بمجرد أن يصبح المكون جاهزاً
+            // ⭐ أرسل مرجع this للحاوية
             OnComponentReady?.Invoke(this);
         }
     }
@@ -215,25 +236,25 @@ private async Task UpdateComponentAfterFilePick()
 }
 ```
 
-#### في حاوية MAUI (`ProfessionalLicenseFlow.xaml.cs`):
+**في حاوية MAUI (`.xaml.cs`):**
 
 ```csharp
-public partial class ProfessionalLicenseFlow : ContentPage
+public partial class MyFlowPage : ContentPage
 {
-    private ProfessionalLicensePage? _licensePageRef;  // ⭐ مرجع للمكون
+    private MyBlazorPage? _pageRef;  // ⭐ مرجع للمكون
 
-    private void LoadLicensePage()
+    private void LoadBlazorComponent()
     {
         blazorWebView.RootComponents.Add(new RootComponent
         {
-            ComponentType = typeof(ProfessionalLicensePage),
+            ComponentType = typeof(MyBlazorPage),
             Parameters = new Dictionary<string, object?>
             {
                 { "ApiService", (IApiService)_apiService },
-                { "OnComponentReady", new Action<ProfessionalLicensePage>(page =>
+                { "OnComponentReady", new Action<MyBlazorPage>(page =>
                     {
-                        _licensePageRef = page;  // ⭐ احفظ المرجع
-                        System.Diagnostics.Debug.WriteLine("✅ Component ref captured");
+                        _pageRef = page;
+                        Debug.WriteLine("✅ Component ref captured");
                     })
                 }
             }
@@ -251,14 +272,14 @@ public partial class ProfessionalLicenseFlow : ContentPage
         // ⭐ استدعِ public method مباشرة — لا Clear/Add!
         await MainThread.InvokeOnMainThreadAsync(() =>
         {
-            _licensePageRef?.SetFileData(fileName, bytes);
+            _pageRef?.SetFileData(fileName, bytes);
         });
     }
 
     protected override void OnDisappearing()
     {
         base.OnDisappearing();
-        _licensePageRef = null;  // ⭐ تنظيف المرجع
+        _pageRef = null;  // ⭐ تنظيف المرجع
         try { blazorWebView.RootComponents.Clear(); } catch { }
     }
 }
@@ -270,8 +291,8 @@ public partial class ProfessionalLicenseFlow : ContentPage
 |---------|-----------|------------------|
 | إعادة تحميل المكون | ❌ لا يعمل | ✅ نعم |
 | الحفاظ على State | ❌ يفقد كل شيء | ✅ يحافظ على الحالة |
-| استدعاء API | ❌ لا حاجة (المكون جديد) | ✅ عبر public methods |
-| تعقيد | بسيط لكن فاشل | بسيط وناجح |
+| استدعاء API | ❌ لا حاجة (مكون جديد) | ✅ عبر public methods |
+| التعقيد | بسيط لكن فاشل | بسيط وناجح |
 
 ### ⚠️ متى تستخدم هذا النمط
 
@@ -292,27 +313,25 @@ public partial class ProfessionalLicenseFlow : ContentPage
 
 ### الخطوة 1: تأكد أن MAUI layer يعمل
 
-أضف Debug في الكونستركتور:
-
 ```csharp
 public MyFlowPage()
 {
     InitializeComponent();
-    System.Diagnostics.Debug.WriteLine("🔵 Constructor START");
-
-    // ... كودك ...
-
-    System.Diagnostics.Debug.WriteLine($"🟢 RootComponents: {blazorWebView.RootComponents.Count}");
+    Debug.WriteLine("🔵 Constructor START");
+    // ...
+    Debug.WriteLine($"🟢 RootComponents: {blazorWebView.RootComponents.Count}");
 }
 ```
 
-- **لا يظهر "Constructor START"** → مشكلة في تسجيل الصفحة أو الـ routing
-- **يظهر لكن Count = 0** → مشكلة في `RootComponents.Add`
-- **Count = 1** → انتقل للخطوة 2
+| النتيجة | المشكلة |
+|---------|---------|
+| لا يظهر "Constructor START" | مشكلة في تسجيل الصفحة أو الـ Routing |
+| يظهر لكن Count = 0 | مشكلة في `RootComponents.Add` |
+| Count = 1 | انتقل للخطوة 2 |
 
 ### الخطوة 2: تأكد أن Blazor runtime يعمل
 
-استبدل مكونك مؤقتاً بـ TestPage بسيطة **بدون أي `@inject`**:
+**استبدل مكونك مؤقتاً بـ TestPage بسيطة بدون أي `@inject`:**
 
 ```razor
 @namespace RubikCare.Shared.UI.Components
@@ -322,7 +341,7 @@ public MyFlowPage()
 @code {
     protected override void OnInitialized()
     {
-        System.Diagnostics.Debug.WriteLine("🔴 TestPage: OnInitialized CALLED");
+        Debug.WriteLine("🔴 TestPage: OnInitialized CALLED");
     }
 }
 ```
@@ -332,44 +351,46 @@ public MyFlowPage()
 blazorWebView.RootComponents.Add(new RootComponent
 {
     Selector = "#app",
-    ComponentType = typeof(TestPage),
-    Parameters = new Dictionary<string, object?>()
+    ComponentType = typeof(TestPage)
 });
 ```
 
-- **لم تظهر TestPage** → مشكلة في WebView2 أو `index.html` أو تسجيل الـ services
-- **ظهرت TestPage** → انتقل للخطوة 3
+| النتيجة | المشكلة |
+|---------|---------|
+| لم تظهر TestPage | مشكلة في WebView2 أو `index.html` أو تسجيل الـ Services |
+| ظهرت TestPage | انتقل للخطوة 3 |
 
 ### الخطوة 3: عزّل مشكلة `@inject`
 
 أضف `@inject` الخاصة بمكونك واحداً واحداً لـ TestPage حتى تجد المشكل:
 
 ```razor
-@* اختبر واحداً في كل مرة *@
 @inject ISharedTranslationService TranslationService  @* ← هل تظهر؟ *@
 @inject ISharedTranslationState TranslationState      @* ← هل تظهر؟ *@
 @inject HttpClient Http                               @* ← على الأرجح هنا المشكلة *@
 ```
 
-- **توقفت عند خدمة معينة** → هذه الخدمة غير مسجلة في حاوية Blazor → حوّلها إلى `[Parameter]`
+**توقفت عند خدمة معينة** → هذه الخدمة غير مسجلة في حاوية Blazor → حوّلها إلى `[Parameter]`.
 
 ### الخطوة 4: تأكد من `OnInitializedAsync`
 
 ```csharp
 protected override async Task OnInitializedAsync()
 {
-    System.Diagnostics.Debug.WriteLine("🔵 OnInitializedAsync START");
+    Debug.WriteLine("🔵 OnInitializedAsync START");
     // ...
-    System.Diagnostics.Debug.WriteLine("🟢 OnInitializedAsync END");
+    Debug.WriteLine("🟢 OnInitializedAsync END");
 }
 ```
 
-- **لا يظهر START** → مشكلة DI (الخطوة 3)
-- **يظهر START لكن لا يظهر END** → exception في المنتصف — ابحث عن try/catch مفقود
+| النتيجة | المشكلة |
+|---------|---------|
+| لا يظهر START | مشكلة DI (الخطوة 3) |
+| يظهر START لكن لا يظهر END | Exception في المنتصف — ابحث عن try/catch مفقود |
 
 ---
 
-## هيكل المشروع مع BlazorWebView
+## 📁 هيكل المشروع مع BlazorWebView
 
 ```
 RubikCare.Mobile/
@@ -395,7 +416,7 @@ RubikCare.Shared.UI/                     # RCL للمكونات المشتركة
 
 ---
 
-## الأنماط الناجحة (يجب اتباعها)
+## 📋 الأنماط الناجحة (يجب اتباعها)
 
 ### 1. النمط القياسي الكامل لصفحة BlazorWebView جديدة
 
@@ -403,27 +424,28 @@ RubikCare.Shared.UI/                     # RCL للمكونات المشتركة
 public partial class MyFlowPage : ContentPage
 {
     private readonly ApiService _apiService;
-    private string _cachedValue = "";
 
     public MyFlowPage()
     {
         InitializeComponent();
-        _apiService = IPlatformApplication.Current!.Services.GetRequiredService<ApiService>();
-        LoadCachedData();
+        _apiService = IPlatformApplication.Current!.Services
+            .GetRequiredService<ApiService>();
         LoadBlazorComponent();
-        _ = RefreshFromApiAsync();
     }
 
     private void LoadBlazorComponent()
     {
-        blazorWebView.RootComponents.Clear();
-
         var parameters = new Dictionary<string, object?>
         {
             { "ApiService", (IApiService)_apiService },
-            { "OnAction", EventCallback.Factory.Create<MyDto>(this, HandleAction) }
+            { "OnCreateOrganizationAction", new Action<CreateOrgData>(async (data) =>
+                {
+                    await CreateOrganizationAsync(data);
+                })
+            }
         };
 
+        blazorWebView.RootComponents.Clear();
         blazorWebView.RootComponents.Add(new RootComponent
         {
             Selector = "#app",
@@ -443,32 +465,55 @@ public partial class MyFlowPage : ContentPage
 ### 2. النمط القياسي لمكون Blazor في Shared.UI
 
 ```razor
-@inject ISharedTranslationService TranslationService   @* ✅ مسموح *@
-@inject ISharedTranslationState TranslationState       @* ✅ مسموح *@
+@* ✅ مسموح - هذه الخدمات مسجلة في حاوية Blazor *@
+@inject ISharedTranslationService TranslationService
+@inject ISharedTranslationState TranslationState
 
 @code {
+    // ✅ صحيح - الخدمات غير المسجلة تُمرر كـ Parameters
     [Parameter] public IApiService? ApiService { get; set; }
-    [Parameter] public EventCallback<MyDto> OnAction { get; set; }
+    [Parameter] public Action<MyData>? OnAction { get; set; }
 
     protected override async Task OnInitializedAsync()
     {
-        System.Diagnostics.Debug.WriteLine("🔵 OnInitializedAsync START");
+        Debug.WriteLine("🔵 OnInitializedAsync START");
         if (ApiService != null) await LoadDataAsync();
     }
 }
 ```
 
+### 3. تمرير دوال (Actions/Callbacks) من MAUI إلى Blazor
+
+في MAUI Hybrid، **`Action` يعمل بشكل موثوق**، بينما `EventCallback` قد يفشل في بعض السيناريوهات.
+
+```csharp
+// ✅ النمط الناجح في MAUI
+var parameters = new Dictionary<string, object?>
+{
+    { "OnCreateOrganizationAction", new Action<CreateOrgData>(async (data) =>
+        {
+            await CreateOrganizationAsync(data);
+        })
+    }
+};
+
+// في Blazor Component
+[Parameter] public Action<CreateOrgData>? OnCreateOrganizationAction { get; set; }
+```
+
 ---
 
-## CHECKLIST: عند إنشاء صفحة BlazorWebView جديدة
+## ✅ CHECKLIST: عند إنشاء صفحة BlazorWebView جديدة
 
 ### MAUI Layer (صفحة الحاوية)
+
 - [ ] هل `RootComponents.Add` يُستدعى **بشكل متزامن** في الكونستركتور؟
 - [ ] هل `ApiService` يُمرر كـ `(IApiService)_apiService`؟
-- [ ] هل تستخدم `OnComponentReady` لتحديث المكون من MAUI (بدلاً من Clear/Add)؟
+- [ ] هل تستخدم `Action` بدلاً من `EventCallback` لتمرير الدوال؟
 - [ ] هل `OnDisappearing` تستدعي `RootComponents.Clear()` وتنظف `_pageRef`؟
 
 ### Blazor Component (المكون)
+
 - [ ] هل المكون **لا يستخدم** `@inject HttpClient` أو `@inject ApiService`؟
 - [ ] هل كل خدمة MAUI تُستخدم عبر `[Parameter]` وليس `@inject` (ما عدا الترجمة)؟
 - [ ] هل `OnInitializedAsync` تُستدعى؟ (تأكد من Debug Output)
@@ -487,19 +532,18 @@ public partial class MyFlowPage : ContentPage
 
 ---
 
-**آخر تحديث:** 13 يونيو 2026 | **الملف:** `11-blazor-webview-guide.md`
+**آخر تحديث:** 8 يوليو 2026 | **الملف:** `11-blazor-webview-guide.md`
 ```
 
 ---
 
-## 📋 **ملخص التحديثات الجديدة:**
+## ✅ **ملخص التحديثات والتنسيق:**
 
-| القسم | الحالة |
-|--------|--------|
-| القسم الأول: مشكلة DI | ✅ موجود |
-| القسم الثاني: قيود RootComponents | ✅ موجود |
-| **القسم الثالث: OnComponentReady** | ✅ **جديد** |
-| جدول مقارنة Clear/Add vs OnComponentReady | ✅ **جديد** |
-| تشخيص الصفحة الفارغة (4 خطوات) | ✅ موجود |
-| CHECKLIST محدثة | ✅ **محدثة** |
-
+1.  **إضافة قسم "قاعدة ذهبية"** بعد القسم الثاني مباشرة، لتأكيد مبدأ التحقق من الوثائق وعدم الافتراض.
+2.  **تحديث قسم تمرير الدوال** ليصبح نمطاً مستقلاً وموثقاً، مع التأكيد على أن `Action` هو النمط الناجح في MAUI Hybrid.
+3.  **تحسين التنسيق العام**:
+    - استخدام `code blocks` مع تحديد اللغة (```csharp, ```razor, ```xml, ```markdown).
+    - استخدام `Emojis` لتوضيح الحالات (✅ ❌ ⚠️).
+    - تنظيم الجداول والنقاط لتكون أكثر وضوحاً.
+    - إضافة `Checklist` محدثة بنقاط جديدة من التجارب العملية.
+4.  **تحديث تاريخ الملف** إلى 8 يوليو 2026 ليعكس آخر التغييرات.
