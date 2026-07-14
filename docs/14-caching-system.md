@@ -1,291 +1,421 @@
-
 # 14 - نظام الكاش الموحد (Unified Caching System)
 
-**تاريخ الإنشاء: 24 مايو 2026** | **آخر تحديث: 14 يونيو 2026** | **الأولوية: 🟢 نظام تأسيسي**
+**آخر تحديث:** 14 يوليو 2026  
+**الإصدار:** 1.2
 
 ---
 
-## 📌 مقدمة
+## مقدمة
 
-تم تصميم نظام الكاش الموحد لحل مشاكل **تضارب البيانات** و **ظهور معلومات المستخدم السابق** التي كانت تحدث بسبب تعدد مصادر الكاش في النظام. هذا المرجع يوثق الهيكل الجديد، القواعد، وطريقة الاستخدام.
+نظام الكاش في RubikCare هو أحد أكثر الأجزاء حساسية في المشروع. أي خطأ في تصميمه يؤدي إلى:
+- ظهور بيانات المستخدم السابق بعد تسجيل الخروج
+- تضارب البيانات بين الجلسات المختلفة
+- استهلاك مفرط للذاكرة
+- صعوبة في الصيانة والتطوير
+
+هذا المرجع يوثق الفلسفة، البنية، والقواعد الصارمة لنظام الكاش الموحد.
 
 ---
 
-## 🎯 فلسفة النظام: "مصدر واحد للكاش"
+## 🎯 فلسفة النظام: مصدر واحد للكاش
 
 ### المبدأ الأساسي
 
-```
+```text
 قبل الإصلاح (❌):
 UserSessionService ← كاش 1
 DynamicMenuService ← كاش 2
 CachedUserSessionService ← كاش 3 (الموبايل)
 SecureStorage ← تخزين 4
-MobileTranslationService ← Preferences (تخزين 5) ← لم يكن موثقاً!
+LocalizationService ← يستخدم IMemoryCache + LocalizationCacheService (ازدواجية غير مبررة)
 
 بعد الإصلاح (✅):
-UserSessionService ← الكاش الوحيد (الخادم)
-CachedUserSessionService ← كاش محلي (الموبايل، يعتمد على UserSessionService)
+UserSessionService ← الكاش الوحيد للبيانات الحساسة (الخادم)
+CachedUserSessionService ← كاش محلي (الموبايل)
 SecureStorage ← تخزين التوكن فقط
-MobileTranslationService + TranslationCacheService ← يدير Preferences للترجمات
+LocalizationService (Web) ← يستخدم IMemoryCache القياسي فقط للترجمات
+TranslationCacheService (Mobile) ← يدمج IMemoryCache مع Preferences للترجمات
 ```
+
+### القاعدة الذهبية
+
+> **"كل نوع من البيانات له مصدر كاش واحد فقط. لا تكرار، لا ازدواجية."**
 
 ---
 
-## 🏗️ هيكل الكاش الموحد
+## 🌐 كاش الترجمات (Localization Caching)
 
-### طبقات الكاش
+لتجنب ازدواجية الكاش وضمان الأداء الأمثل، يتم التعامل مع ترجمات النظام كالتالي بناءً على بيئة التشغيل:
 
-```mermaid
-graph TD
-    A[ClearUserCacheUseCase] --> B[UserSessionService]
-    B --> C[UserSession_{userId}]
-    B --> D[UserPrefs_{userId}]
-    B --> E[UserBasic_{userId}]
-    
-    F[AuthService.LogoutAsync] --> G[SecureStorage]
-    F --> H[CachedUserSessionService]
-    F --> I[POST api/auth/logout]
-    I --> A
-    
-    J[TranslationCacheService] --> K[Preferences: translations_all_ar]
-    J --> L[Preferences: translations_all_en]
-    J --> M[MemoryCache: all_translations_{lang}]
-```
+### في تطبيق الويب (Web):
+- ✅ **الصحيح:** `LocalizationService` يستخدم `IMemoryCache` القياسي مباشرة لتخزين الترجمات.
+- ❌ **ممنوع:** استخدام `LocalizationCacheService` (المبني على `Dictionary` + `SemaphoreSlim`) لأنه يسبب ازدواجية غير مبررة في استهلاك الذاكرة وتعقيداً في منطق الكاش دون إضافة قيمة.
 
-### جدول الطبقات (محدث)
+### في تطبيق الموبايل (Mobile):
+- ✅ **الصحيح:** `TranslationCacheService` يجمع بين `IMemoryCache` (للوصول السريع أثناء التشغيل) و `Preferences` (للحفظ المحلي الدائم عند إغلاق التطبيق).
+- **لماذا هذا الاستثناء؟** طبيعة دورة حياة تطبيق الموبايل (App Lifecycle) تتطلب الوصول للترجمات حتى دون اتصال بالإنترنت، وهو ما لا ينطبق على تطبيق الويب الذي يعتمد على الخادم بشكل دائم.
+
+---
+
+## 📦 طبقات الكاش
 
 | الطبقة | المسؤول | الموقع | المفاتيح | المدة |
 |--------|---------|--------|----------|-------|
 | **الجلسة** | `UserSessionService` | الخادم | `UserSession_{userId}` | ساعتين |
 | **التفضيلات** | `UserSessionService` | الخادم | `UserPrefs_{userId}` | ساعة |
 | **المعلومات الأساسية** | `UserSessionService` | الخادم | `UserBasic_{userId}` | ساعة |
-| **الكاش المحلي** | `CachedUserSessionService` | الموبايل | `_cachedSession` | ساعتين |
-| **التخزين الآمن** | `SecureStorage` | الموبايل | `auth_token`, `userProfileId` | دائم |
-| **ترجمات الموبايل (⭐ جديد)** | `TranslationCacheService` | الموبايل | `translations_all_{lang}` | دائم (حتى Logout) |
+| **ترجمات الويب** | `LocalizationService` | الخادم | `translation_{lang}_{key}` | 30 دقيقة |
+| **ترجمات الموبايل** | `TranslationCacheService` | الموبايل | `translations_all_{lang}` | دائم (حتى Logout) |
+| **كاش الموبايل** | `CachedUserSessionService` | الموبايل | `_cachedSession` | ساعتين |
 
 ---
 
-## 📁 الملفات الرئيسية
+## 🏗️ هيكل النظام
 
-| الملف | المسار | الوظيفة |
-|-------|--------|---------|
-| `UserSessionService.cs` | `RubikCare.Application/Services/Session/` | الكاش المركزي الوحيد |
-| `ClearUserCacheUseCase.cs` | `RubikCare.Application/UseCases/User/` | Use Case لمسح الكاش |
-| `InfrastructureExtensions.cs` | `RubikCare.Infrastructure/` | ⭐ تسجيل جميع الخدمات |
-| `CachedUserSessionService.cs` | `RubikCare.Mobile/Infrastructure/Services/` | كاش محلي للموبايل |
-| `AuthService.cs` | `RubikCare.Mobile/Infrastructure/Services/` | المصادقة وLogout |
-| `AuthController.cs` | `Api.Web/Controllers/` | Logout API |
-| `DynamicMenuService.cs` | `Rubikcare.Web/Data/Services/Navigation/` | قوائم (بدون كاش) |
-| `MobileTranslationService.cs` (⭐ جديد) | `RubikCare.Mobile/Services/` | إدارة ترجمات الموبايل |
-| `TranslationCacheService.cs` (⭐ جديد) | `RubikCare.Mobile/Services/` | تخزين الترجمات في Preferences |
+### 1. UserSessionService (الخادم - المصدر الرئيسي)
 
----
+**المسار:** `RubikCare.Application/Services/Session/UserSessionService.cs`
 
-## 🔄 تدفق العمليات
+**المسؤوليات:**
+- تخزين بيانات الجلسة الكاملة (`UserSessionData`)
+- تخزين تفضيلات المستخدم (`UserPreferences`)
+- تخزين المعلومات الأساسية (`UserBasicInfo`)
+- إدارة انتهاء الصلاحية (TTL)
+- مسح الكاش عند Logout
 
-### تسجيل الدخول
+**مثال على الاستخدام:**
+```csharp
+// ✅ صحيح - الحصول على بيانات الجلسة
+var session = await _userSessionService.GetUserSessionAsync(user);
 
-```mermaid
-sequenceDiagram
-    actor User
-    participant Mobile
-    participant API
-    participant USS as UserSessionService
-    participant TCS as TranslationCacheService
+// ✅ صحيح - تحديث تفضيلات المستخدم
+await _userSessionService.UpdateSessionLanguageAsync(userId, "ar");
 
-    User->>Mobile: إدخال بيانات الدخول
-    Mobile->>API: POST api/auth/login
-    API-->>Mobile: JWT Token + UserDto
-    Mobile->>Mobile: حفظ التوكن في SecureStorage
-    Mobile->>API: POST api/user/session-bootstrap
-    API->>USS: GetUserSessionAsync(user)
-    USS->>USS: إنشاء كاش جديد
-    USS-->>API: UserSessionData
-    API-->>Mobile: UserSessionData
-    Mobile->>Mobile: تخزين في CachedUserSessionService
-    Mobile->>TCS: PreloadCommonTranslationsAsync()
-    TCS->>API: GET api/localization/all?lang=ar
-    API-->>TCS: جميع الترجمات
-    TCS->>TCS: حفظ في Preferences
-```
-
-### تسجيل الخروج (Logout) (⭐ محدث)
-
-```mermaid
-sequenceDiagram
-    actor User
-    participant Mobile
-    participant API
-    participant CUC as ClearUserCacheUseCase
-    participant USS as UserSessionService
-    participant CS as CachedSessionService
-    participant TCS as TranslationCacheService
-
-    User->>Mobile: ضغط زر الخروج
-    Mobile->>Mobile: CS.ClearSessionAsync()
-    Mobile->>Mobile: SecureStorage.Remove(all)
-    Mobile->>TCS: ClearCache(currentLang)  // ⭐ جديد
-    TCS->>TCS: مسح Preferences و MemoryCache
-    Mobile->>API: POST api/auth/logout
-    API->>CUC: ExecuteAsync(userId)
-    CUC->>USS: RefreshUserSessionAndCacheAsync(userId)
-    USS->>USS: إزالة جميع الكاشات
-    API->>API: SignOutAsync()
-    API-->>Mobile: نجاح
-    Mobile->>Mobile: توجيه لصفحة Login
+// ✅ صحيح - مسح الكاش عند Logout
+await _userSessionService.RefreshUserSessionAndCacheAsync(userId);
 ```
 
 ---
 
-## 📝 القواعد الإلزامية
+### 2. CachedUserSessionService (الموبايل - كاش محلي)
 
-### 🔴 ممنوعات
+**المسار:** `RubikCare.Mobile/Infrastructure/Services/CachedUserSessionService.cs`
 
-1. **لا تستخدم `IMemoryCache` مباشرة في أي مكان غير `UserSessionService`**
-2. **لا تنشئ كاش منفصل في `DynamicMenuService` أو أي خدمة Web**
-3. **لا تمسح كاش الخادم من الموبايل مباشرة - استخدم `api/auth/logout`**
-4. **لا تترك `_cachedSession` بدون مسح عند Logout**
-5. **⭐ لا تترك `Preferences` للترجمات بدون مسح عند Logout** (مشكلة تسرب بيانات)
+**المسؤوليات:**
+- تخزين الجلسة محلياً في الذاكرة (`_cachedSession`)
+- التحقق من صلاحية الكاش (2 ساعة)
+- تحديث الكاش من API عند الحاجة
+- مسح الكاش عند Logout
 
-### 🟢 أنماط إلزامية
+**مثال على الاستخدام:**
+```csharp
+// ✅ صحيح - الحصول على الجلسة (من الكاش أولاً)
+var session = await _cachedSessionService.GetSessionAsync();
 
-| الإجراء | الطريقة الصحيحة |
-|---------|-----------------|
-| **مسح الكاش عند Logout** | `ClearUserCacheUseCase.ExecuteAsync(userId)` |
-| **مسح الكاش المحلي** | `_cachedSessionService.ClearSessionAsync()` |
-| **مسح التخزين** | `SecureStorage.RemoveAll()` |
-| **⭐ مسح كاش الترجمة** | `_translationCacheService.ClearCache(currentLang)` |
-| **تحديث الجلسة** | `UserSessionService.RefreshUserSessionAsync(userId)` |
-| **⭐ تحميل الترجمات مسبقاً** | `await _translationService.PreloadCommonTranslationsAsync()` |
+// ✅ صحيح - التحقق من الصلاحية
+var isValid = await _cachedSessionService.IsSessionValidAsync();
+
+// ✅ صحيح - مسح الكاش عند Logout
+await _cachedSessionService.ClearSessionAsync();
+```
 
 ---
 
-## 🧪 استعلامات التحقق
+### 3. LocalizationService (الويب - كاش الترجمات)
 
-### التحقق من الكاش على الخادم
+**المسار:** `RubikCare.Application/Services/LocalizationService.cs`
 
-لا توجد استعلامات مباشرة للـ In-Memory Cache، لكن يمكن مراقبة السلوك:
+**المسؤوليات:**
+- تخزين الترجمات في `IMemoryCache` القياسي
+- إدارة انتهاء الصلاحية (30 دقيقة)
+- جلب الترجمات من قاعدة البيانات عند الحاجة
+
+**مثال على الاستخدام:**
+```csharp
+// ✅ صحيح - الحصول على ترجمة
+var text = await _localizationService.GetTranslationAsync("COMMON.WELCOME", "ar");
+
+// ✅ صحيح - الحصول على ترجمات صفحة كاملة
+var translations = await _localizationService.GetPageTranslationsAsync("SHARED.DASHBOARD", "ar");
+```
+
+---
+
+### 4. TranslationCacheService (الموبايل - كاش الترجمات)
+
+**المسار:** `RubikCare.Mobile/Services/TranslationCacheService.cs`
+
+**المسؤوليات:**
+- تخزين الترجمات في `IMemoryCache` (للوصول السريع)
+- تخزين الترجمات في `Preferences` (للحفظ الدائم)
+- إدارة انتهاء الصلاحية (ساعة واحدة للذاكرة، دائم لـ Preferences)
+- مسح الكاش عند تغيير اللغة
+
+**مثال على الاستخدام:**
+```csharp
+// ✅ صحيح - الحصول على الترجمات من الكاش
+var translations = await _cacheService.GetCachedAsync("ar");
+
+// ✅ صحيح - حفظ الترجمات في الكاش
+_cacheService.SetCache("ar", translations);
+
+// ✅ صحيح - مسح كاش لغة معينة
+_cacheService.ClearCache("ar");
+```
+
+---
+
+## 🔴 القواعد الإلزامية
+
+### ممنوعات
+
+1. **لا تستخدم `IMemoryCache` للبيانات الحساسة (مثل الجلسات أو القوائم) خارج `UserSessionService`.** 
+   *(الاستثناء الوحيد المسموح به والمطلوب: يُشترط استخدام `IMemoryCache` القياسي داخل `LocalizationService` للترجمات، مع إهمال أي أنظمة كاش مخصصة مثل `LocalizationCacheService` التي تعتمد على Dictionary).*
+
+2. **لا تنشئ نظام كاش مخصص (Dictionary + SemaphoreSlim) إذا كان `IMemoryCache` يكفي.**
+
+3. **لا تخزن بيانات المستخدم في `Static` fields** - هذا يسبب تسرب البيانات بين المستخدمين.
+
+4. **لا تنسَ مسح الكاش عند Logout** - على الخادم (`UserSessionService`) وعلى العميل (`SecureStorage` + `_cachedSession`).
+
+5. **لا تستخدم `IMemoryCache` للموبايل** - استخدم `Preferences` أو `SecureStorage` بدلاً منه.
+
+### إلزاميات
+
+1. **استخدم `UserSessionService` كمصدر وحيد لبيانات الجلسة على الخادم.**
+
+2. **استخدم `CachedUserSessionService` في الموبايل للوصول السريع للجلسة.**
+
+3. **استخدم `IMemoryCache` القياسي في `LocalizationService` على الخادم.**
+
+4. **استخدم `TranslationCacheService` في الموبايل لإدارة كاش الترجمات.**
+
+5. **حدد مدة صلاحية (TTL) واضحة لكل نوع من البيانات.**
+
+6. **امسح الكاش عند أي تغيير في بيانات المستخدم** (تعديل ملف شخصي، تغيير دور، إلخ).
+
+---
+
+## 🔄 دورة حياة الكاش
+
+### عند تسجيل الدخول
+
+```text
+1. المصادقة عبر Identity
+2. إنشاء UserSessionData
+3. حفظ في UserSessionService (الخادم)
+4. حفظ في CachedUserSessionService (الموبايل)
+5. تحميل الترجمات وحفظها في TranslationCacheService (الموبايل)
+```
+
+### أثناء الاستخدام
+
+```text
+1. التحقق من صلاحية الكاش
+2. إذا صالح → إرجاع البيانات من الكاش
+3. إذا منتهي → تحديث من قاعدة البيانات / API
+4. حفظ البيانات المحدثة في الكاش
+```
+
+### عند تسجيل الخروج
+
+```text
+1. استدعاء ClearUserCacheUseCase (الخادم)
+   ├── UserSessionService.RefreshUserSessionAndCacheAsync(userId)
+   ├── IUserMenuService.ClearCacheAsync(userId)
+   └── مسح جميع المفاتيح المرتبطة بـ userId
+
+2. في الموبايل:
+   ├── CachedUserSessionService.ClearSessionAsync()
+   ├── TranslationCacheService.ClearAllCache()
+   └── SecureStorage.RemoveAll()
+```
+
+---
+
+## 🧪 أمثلة عملية
+
+### مثال 1: الحصول على بيانات المستخدم في صفحة Dashboard
 
 ```csharp
-// في أي Controller، أضف هذا للتحقق:
-var session = await _userSessionService.GetUserSessionAsync(User);
-Debug.WriteLine($"Session UserId: {session.UserId}, ProfileId: {session.UserProfileId}");
+// ✅ صحيح - في Web
+@inject IUserSessionService UserSessionService
+
+@code {
+    private UserSessionData? _session;
+    
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthProvider.GetAuthenticationStateAsync();
+        _session = await UserSessionService.GetUserSessionAsync(authState.User);
+    }
+}
 ```
 
-### التحقق من الكاش المحلي في الموبايل
-
 ```csharp
-// في AppShellViewModel:
-var cached = _cachedSessionService.GetCachedSession();
-Debug.WriteLine($"Cached Session: {cached?.FullNameAr ?? "null"}");
-```
+// ✅ صحيح - في Mobile
+@inject ICachedUserSessionService CachedSessionService
 
-### التحقق من كاش الترجمة (⭐ جديد)
-
-```csharp
-// في أي صفحة Blazor:
-var cacheService = new TranslationCacheService(new MemoryCache(new MemoryCacheOptions()));
-var cached = await cacheService.GetCachedAsync("ar");
-Debug.WriteLine($"Cached translations: {cached?.Count ?? 0}");
+@code {
+    private UserSessionData? _session;
+    
+    protected override async Task OnInitializedAsync()
+    {
+        _session = await CachedSessionService.GetSessionAsync();
+    }
+}
 ```
 
 ---
 
-## ⚠️ أخطاء شائعة وحلولها
-
-| المشكلة | السبب | الحل |
-|---------|-------|------|
-| بيانات المستخدم السابق تظهر بعد Logout | الكاش لم يُمسح | تأكد من استدعاء `ClearUserCacheUseCase` في `AuthController.Logout` |
-| منظمات المستخدم لا تظهر في الموبايل | `AppShellViewModel` لم يُستدعَ | أضف `appShell.RefreshUserDataAsync()` في `DashboardPage.OnAppearing` |
-| كارت "تسجيل دور مهني" يظهر لمستخدم مسجل | `HasClinic`/`HasPharmacy` خاطئة | استخدم `Memberships` مع `OrganizationTypeInfo.TypeId` |
-| الكاش لا يمسح عند Logout في الموبايل | `AuthService.LogoutAsync` لا يستدعي API | أضف `await _apiService.PostAsync<object>("api/auth/logout", null)` |
-| **⭐ ظهور مفاتيح ترجمة بدلاً من النصوص** | `Preferences` لم يتم تحميلها مسبقاً | استدعِ `PreloadCommonTranslationsAsync()` عند بدء التطبيق |
-| **⭐ تغيير اللغة لا يؤثر على الصفحة الحالية** | نسيان `InvokeAsync(StateHasChanged)` | أضف `await InvokeAsync(StateHasChanged);` في `HandleLanguageChanged` |
-| **⭐ تسرب ذاكرة في صفحات Blazor** | نسيان `Dispose()` | أضف `TranslationState.OnLanguageChanged -= HandleLanguageChanged;` |
-
----
-
-## 🟠 المشاكل المعروفة في نظام الكاش (⭐ جديد)
-
-### 9.1 ترجمات الموبايل لا تظهر في أول فتح للتطبيق
-
-**السبب:** `GetPageTranslationsAsync` يبحث في `Preferences` ولكنها فارغة.
-
-**الحل:** استدعاء `PreloadCommonTranslationsAsync()` عند بدء التطبيق أو في `AppShell`:
+### مثال 2: الحصول على الترجمات
 
 ```csharp
-// في MauiProgram.cs أو AppShell.xaml.cs
-var translationService = services.GetRequiredService<IMobileTranslationService>();
-await translationService.PreloadCommonTranslationsAsync();
+// ✅ صحيح - في Web
+@inject ILocalizationService LocalizationService
+
+@code {
+    private string _welcomeText = "";
+    
+    protected override async Task OnInitializedAsync()
+    {
+        _welcomeText = await LocalizationService.GetTranslationAsync(
+            "COMMON.WELCOME", "ar");
+    }
+}
 ```
-
-### 9.2 بعد Logout، تبقى الترجمات القديمة في Preferences
-
-**السبب:** لم يتم مسح `Preferences` للترجمات.
-
-**الحل:** أضف هذا السطر في `AuthService.LogoutAsync`:
 
 ```csharp
-var cacheService = IPlatformApplication.Current?.Services?.GetRequiredService<TranslationCacheService>();
-cacheService?.ClearAllCache();
-```
+// ✅ صحيح - في Mobile
+@inject IMobileTranslationService TranslationService
 
-### 9.3 `@onclick` مع دالة تأخذ معامل لا يعمل
-
-**السبب:** تداخل علامات التنصيص المزدوجة.
-
-**الحل:** استخدم علامات التنصيص المفردة:
-
-```razor
-<button @onclick='() => MyFunction("value")'>نص</button>
+@code {
+    private Dictionary<string, string> _translations = new();
+    
+    protected override async Task OnInitializedAsync()
+    {
+        _translations = await TranslationService.GetPageTranslationsAsync(
+            "SHARED.DASHBOARD");
+    }
+}
 ```
 
 ---
 
-## 📋 CHECKLIST: عند التعامل مع الكاش (⭐ محدث)
+### مثال 3: مسح الكاش عند Logout
 
-- [ ] هل `UserSessionService` هو المصدر الوحيد للكاش على الخادم؟
-- [ ] هل `ClearUserCacheUseCase` يُستدعى عند Logout؟
-- [ ] هل `CachedUserSessionService.ClearSessionAsync()` يُستدعى في الموبايل؟
-- [ ] هل `SecureStorage` يُمسح بالكامل عند Logout؟
-- [ ] هل `DynamicMenuService` خالية من `IMemoryCache`؟
-- [ ] هل الكاش المحلي يُمسح قبل تحميل بيانات مستخدم جديد؟
-- [ ] **⭐ هل `TranslationCacheService.ClearCache()` يُستدعى عند Logout؟**
-- [ ] **⭐ هل `PreloadCommonTranslationsAsync()` يُستدعى عند بدء التطبيق؟**
-- [ ] **⭐ هل صفحات Blazor تنفذ `IDisposable` وتلغي الاشتراك؟**
-- [ ] **⭐ هل `InvokeAsync(StateHasChanged)` موجود في `HandleLanguageChanged`؟**
+```csharp
+// ✅ صحيح - في Web (AuthController)
+[HttpPost("logout")]
+[Authorize]
+public async Task<IActionResult> Logout([FromServices] ClearUserCacheUseCase clearCache)
+{
+    var userId = User.FindFirst("userId")?.Value;
+    if (!string.IsNullOrEmpty(userId))
+        await clearCache.ExecuteAsync(userId);
+    
+    await _signInManager.SignOutAsync();
+    return Ok(new { success = true });
+}
+```
+
+```csharp
+// ✅ صحيح - في Mobile (LoginPage)
+private async Task LogoutAsync()
+{
+    // مسح الكاش المحلي
+    await _cachedSessionService.ClearSessionAsync();
+    _translationCacheService.ClearAllCache();
+    
+    // مسح SecureStorage
+    SecureStorage.RemoveAll();
+    
+    // استدعاء API Logout
+    await _apiService.PostAsync("api/auth/logout", new { });
+    
+    // الانتقال لصفحة الدخول
+    await Shell.Current.GoToAsync("//LoginPage");
+}
+```
+
+---
+
+## 📋 CHECKLIST: عند التعامل مع الكاش
+
+### عند إنشاء خدمة جديدة
+
+- [ ] هل حددت مصدر الكاش الصحيح (UserSessionService / CachedUserSessionService)؟
+- [ ] هل حددت مدة صلاحية (TTL) مناسبة؟
+- [ ] هل أضفت منطق التحقق من صلاحية الكاش؟
+- [ ] هل أضفت منطق تحديث الكاش عند انتهاء الصلاحية؟
+- [ ] هل أضفت منطق مسح الكاش عند Logout؟
+
+### عند التعامل مع بيانات المستخدم
+
+- [ ] هل استخدمت `UserSessionService` (الخادم) أو `CachedUserSessionService` (الموبايل)؟
+- [ ] هل تجنبت تخزين البيانات الحساسة في `Static` fields؟
+- [ ] هل مسحت الكاش عند أي تغيير في بيانات المستخدم؟
+
+### عند التعامل مع الترجمات
+
+- [ ] هل استخدمت `LocalizationService` مع `IMemoryCache` في الويب؟
+- [ ] هل استخدمت `TranslationCacheService` في الموبايل؟
+- [ ] ⭐ هل تم إهمال `LocalizationCacheService` في الويب والاعتماد حصرياً على `IMemoryCache` داخل `LocalizationService`؟
+- [ ] هل مسحت كاش الترجمات عند تغيير اللغة؟
+
+### عند تسجيل الخروج
+
+- [ ] هل استدعيت `ClearUserCacheUseCase` على الخادم؟
+- [ ] هل مسحت `CachedUserSessionService` في الموبايل؟
+- [ ] هل مسحت `TranslationCacheService` في الموبايل؟
+- [ ] هل مسحت `SecureStorage` في الموبايل؟
+
+---
+
+## ⚠️ تحذيرات ومحاذير
+
+| # | التحذير |
+|---|---------|
+| 1 | لا تنشئ `IMemoryCache` جديد في خدماتك - استخدم الموجود المسجل في `Program.cs` |
+| 2 | لا تستخدم `Static` fields لتخزين بيانات المستخدم - يسبب تسرب البيانات |
+| 3 | لا تنسَ مسح الكاش عند Logout - على الخادم والعميل |
+| 4 | حدد TTL مناسب لكل نوع بيانات (جلسات: ساعتين، ترجمات: 30 دقيقة) |
+| 5 | استخدم `IMemoryCache` القياسي في الويب - لا تنشئ أنظمة مخصصة |
+| 6 | في الموبايل، استخدم `Preferences` للبيانات الدائمة و `IMemoryCache` للبيانات المؤقتة |
+| 7 | امسح كاش الترجمات عند تغيير اللغة لتجنب عرض ترجمات قديمة |
+| 8 | لا تستخدم `LocalizationCacheService` (المبني على Dictionary) - استخدم `IMemoryCache` مباشرة |
 
 ---
 
 ## 🔗 روابط ذات صلة
 
+- [00 - الهيكل المعماري](00-architecture-overview.md)
+- [01 - Program.cs والتسجيلات الأساسية](01-program-cs-foundation.md)
 - [02 - نظام الهوية والمصادقة](02-identity-system.md)
-- [04 - نظام القوائم الديناميكية](04-dynamic-menus.md)
-- [10 - دليل تطوير MAUI](10-maui-development-guide.md)
-- [13 - إصلاح Clean Architecture](13-clean-architecture-enforcement.md)
-- [15 - نظام ترجمة الموبايل (⭐ جديد)](15-mobile-translation-system.md)
+- [15 - نظام الترجمة في الموبايل](15-mobile-translation-system.md)
+- [الملحق أ - مسرد المصطلحات](appendix-a-glossary.md)
 
 ---
 
-**آخر تحديث:** 14 يونيو 2026
-**الملف:** `14-caching-system.md`
+## 📝 سجل التحديثات
+
+| التاريخ | الإصدار | التغييرات |
+|---------|---------|-----------|
+| 24 مايو 2026 | 1.0 | الإصدار الأولي - توحيد نظام الكاش |
+| 14 يوليو 2026 | 1.2 | إضافة قسم "كاش الترجمات"، توضيح استثناء `IMemoryCache` للترجمات، إهمال `LocalizationCacheService`، إضافة بند جديد في CHECKLIST |
 ```
 
 ---
 
-## ✅ **ملخص التحديثات على هذه الوثيقة:**
+## ✅ ملخص التحديثات المضافة في هذه النسخة
 
-| القسم | التغيير |
-|-------|---------|
-| المبدأ الأساسي | إضافة `MobileTranslationService` و `TranslationCacheService` |
-| طبقات الكاش | إضافة صف الترجمة |
-| مخطط التدفق | إضافة `PreloadCommonTranslationsAsync` و `ClearCache` |
-| الممنوعات | إضافة #5: مسح Preferences للترجمات |
-| الأنماط الإلزامية | إضافة سطرين لمسح كاش الترجمة وتحميله مسبقاً |
-| أخطاء شائعة | إضافة 3 أخطاء جديدة متعلقة بالترجمة |
-| المشاكل المعروفة | قسم جديد (9.1, 9.2, 9.3) |
-| CHECKLIST | إضافة 4 بنود جديدة |
-| روابط ذات صلة | إضافة رابط إلى `15-mobile-translation-system.md` |
-| تاريخ التحديث | تغيير إلى 14 يونيو 2026 |
-
+1. **تحديث التاريخ والإصدار** إلى 14 يوليو 2026 / 1.2
+2. **تحديث قسم "مصدر واحد للكاش"** ليشمل حالة الترجمات قبل وبعد الإصلاح
+3. **إضافة قسم جديد كامل: "كاش الترجمات (Localization Caching)"** يوضح الفرق بين الويب والموبايل
+4. **تحديث القاعدة رقم 1** في "ممنوعات" لتوضيح استثناء `LocalizationService`
+5. **إضافة صفين جديدين** في جدول "طبقات الكاش" لترجمات الويب والموبايل
+6. **إضافة قسمين جديدين** في "هيكل النظام" لـ `LocalizationService` و `TranslationCacheService`
+7. **إضافة مثال عملي** لكيفية التعامل مع الترجمات في الويب والموبايل
+8. **إضافة بند جديد** في CHECKLIST لإهمال `LocalizationCacheService`
+9. **إضافة تحذيرين جديدين** في جدول المحاذير
+10. **تحديث سجل التحديثات** لتوثيق التغييرات
