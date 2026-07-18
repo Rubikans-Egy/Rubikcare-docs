@@ -1,14 +1,10 @@
-## 📝 ملف `02-identity-system.md` بعد التحديث:
-
 # 02 - نظام الهوية والمصادقة (Identity System)
 
-**آخر تحديث: 24 مايو 2026**
-
----
+**آخر تحديث:** 18 يوليو 2026
 
 ## مقدمة
 
-نظام الهوية في RubikCare هو **أكثر الأجزاء حساسية** في المشروع. أي خطأ هنا يعني أن المستخدمين لن يستطيعوا الدخول، أو سيرون بيانات لا تخصهم. هذا المرجع يشرح الفلسفة، البنية، والقواعد الصارمة التي يجب اتباعها.
+نظام الهوية في RubikCare هو أكثر الأجزاء حساسية في المشروع. أي خطأ هنا يعني أن المستخدمين لن يستطيعوا الدخول، أو سيرون بيانات لا تخصهم. هذا المرجع يشرح الفلسفة، البنية، والقواعد الصارمة التي يجب اتباعها.
 
 ---
 
@@ -52,19 +48,19 @@ erDiagram
 ### AspNetUsers (من Microsoft Identity + تعديلاتنا)
 
 | العمود | النوع | الوصف |
-|--------|-------|-------|
+|--------|------|-------|
 | Id | PK, nvarchar(450) | GUID |
 | UserName, NormalizedUserName | nvarchar | |
 | Email, NormalizedEmail | nvarchar | |
 | PasswordHash, SecurityStamp | nvarchar | |
-| **UserProfileID** | FK → UserProfiles | الرابط إلى البيانات الموسعة ⭐ |
-| **DisplayName** | nvarchar | اسم العرض ⭐ |
-| **LastActivityDate** | datetime2 | آخر نشاط ⭐ |
+| UserProfileID | FK → UserProfiles | الرابط إلى البيانات الموسعة ⭐ |
+| DisplayName | nvarchar | اسم العرض ⭐ |
+| LastActivityDate | datetime2 | آخر نشاط ⭐ |
 
 ### AspNetRoles (الأدوار النظامية)
 
 | العمود | النوع | الوصف |
-|--------|-------|-------|
+|--------|------|-------|
 | Id | PK, nvarchar(450) | GUID |
 | Name | nvarchar | "Admin", "Doctor", "Pharmacist" |
 | NormalizedName | nvarchar | أحرف كبيرة |
@@ -72,25 +68,25 @@ erDiagram
 ### AspNetUserRoles (⭐ المعدل والموسع - الأهم)
 
 | العمود | النوع | الوصف |
-|--------|-------|-------|
+|--------|------|-------|
 | UserId | PK, FK → AspNetUsers | |
 | RoleId | PK, FK → AspNetRoles | |
-| **UserProfileID** | FK → UserProfiles | NOT NULL ⭐ |
-| **RoleType** | nvarchar(50) | "System", "Professional", "Organizational" ⭐ |
-| **ProfessionalLicense** | nvarchar(100) | ترخيص مهني |
-| **Specialization** | nvarchar(200) | تخصص فرعي |
-| **IsVerified** | bit | DEFAULT 0 |
-| **VerifiedDate** | datetime2 | |
-| **LicenseExpiryDate** | datetime2 | |
-| **ValidFrom** | datetime2 | |
-| **ValidTo** | datetime2 | |
-| **IsActive** | bit | DEFAULT 1 |
-| **OrganizationID** | FK → Organizations | إذا كان الدور مرتبط بمؤسسة |
+| UserProfileID | FK → UserProfiles | NOT NULL ⭐ |
+| RoleType | nvarchar(50) | "System", "Professional", "Organizational" ⭐ |
+| ProfessionalLicense | nvarchar(100) | ترخيص مهني |
+| Specialization | nvarchar(200) | تخصص فرعي |
+| IsVerified | bit | DEFAULT 0 |
+| VerifiedDate | datetime2 | |
+| LicenseExpiryDate | datetime2 | |
+| ValidFrom | datetime2 | |
+| ValidTo | datetime2 | |
+| IsActive | bit | DEFAULT 1 |
+| OrganizationID | FK → Organizations | إذا كان الدور مرتبط بمؤسسة |
 
 ### UserProfiles (البيانات الموسعة)
 
 | العمود | النوع | الوصف |
-|--------|-------|-------|
+|--------|------|-------|
 | UserProfileID | PK, int | معرف فريد |
 | ApplicationUserId | FK → AspNetUsers | رابط عكسي (One-to-One) |
 | FirstName, LastName | nvarchar | |
@@ -107,7 +103,7 @@ erDiagram
 
 ### لماذا هذه الخدمة؟
 
-`AspNetUserRoles` هو جدول **محوري** يربط بين:
+`AspNetUserRoles` هو جدول محوري يربط بين:
 - المستخدم (`AspNetUsers`)
 - الدور (`AspNetRoles`)
 - البيانات الموسعة (`UserProfiles`)
@@ -160,10 +156,8 @@ namespace Rubikcare.Web.Data.Services
         {
             if (userRole == null) throw new ArgumentNullException(nameof(userRole));
             await using var context = await _dbContextFactory.CreateDbContextAsync();
-
             var existing = await context.UserRoles
                 .FirstOrDefaultAsync(ur => ur.UserId == userRole.UserId && ur.RoleId == userRole.RoleId);
-
             if (existing != null)
             {
                 context.Entry(existing).CurrentValues.SetValues(userRole);
@@ -180,10 +174,8 @@ namespace Rubikcare.Web.Data.Services
         {
             if (userRole == null) throw new ArgumentNullException(nameof(userRole));
             await using var context = await _dbContextFactory.CreateDbContextAsync();
-
             var existing = await context.UserRoles
                 .FirstOrDefaultAsync(ur => ur.UserId == userRole.UserId && ur.RoleId == userRole.RoleId);
-
             if (existing != null)
             {
                 context.UserRoles.Remove(existing);
@@ -244,7 +236,6 @@ sequenceDiagram
     participant DB as Database
     participant UM as UserManager
     participant URS as UserRoleService
-
     Dev->>DB: 1. Create UserProfile
     DB-->>Dev: Return UserProfileID
     Dev->>UM: 2. Create ApplicationUser (link UserProfileID)
@@ -252,6 +243,8 @@ sequenceDiagram
     Dev->>UM: 3. AddToRoleAsync
     Dev->>URS: 4. AddAsync (optional extra data)
 ```
+
+### الكود التفصيلي
 
 ```csharp
 // الخطوة 1: إنشاء UserProfile أولاً
@@ -298,7 +291,7 @@ if (result.Succeeded)
 
 ### ⚠️ تحذير حرج
 
-**لا تحاول أبداً إنشاء `ApplicationUser` بدون `UserProfile` أولاً.** هذا يكسر العلاقة ويجعل النظام غير قادر على ربط حساب الدخول بالبيانات الموسعة.
+لا تحاول أبداً إنشاء `ApplicationUser` بدون `UserProfile` أولاً. هذا يكسر العلاقة ويجعل النظام غير قادر على ربط حساب الدخول بالبيانات الموسعة.
 
 ---
 
@@ -306,24 +299,24 @@ if (result.Succeeded)
 
 ### 🔴 ممنوعات مطلقة
 
-1. **لا تعدل `AspNetUserRoles` يدوياً في قاعدة البيانات** أبداً. استخدم `UserRoleService` أو `UserManager`.
-2. **لا تحذف `AspNetUsers` بدون حذف `UserProfiles` أولاً** (أو العكس). التسلسل مهم.
-3. **لا تستخدم `[Key]` في `UserRole.cs`** - المفتاح مركب (UserId, RoleId) ويتم تعريفه في `OnModelCreating`.
-4. **لا تغير أنواع مفاتيح Identity** (تبقى `nvarchar(450)`).
+- لا تعدل `AspNetUserRoles` يدوياً في قاعدة البيانات أبداً. استخدم `UserRoleService` أو `UserManager`.
+- لا تحذف `AspNetUsers` بدون حذف `UserProfiles` أولاً (أو العكس). التسلسل مهم.
+- لا تستخدم `[Key]` في `UserRole.cs` - المفتاح مركب (UserId, RoleId) ويتم تعريفه في `OnModelCreating`.
+- لا تغير أنواع مفاتيح Identity (تبقى `nvarchar(450)`).
 
 ### 🟡 إجراءات تتطلب حذراً
 
 | الإجراء | الصحيح | الخطأ |
-|----------|--------|-------|
-| **إضافة مستخدم** | `UserProfile` ← `ApplicationUser` ← أدوار | إنشاء `ApplicationUser` بدون `UserProfile` |
-| **حذف مستخدم** | أدوار ← عضويات ← `AspNetUser` ← `UserProfile` | الحذف العشوائي |
-| **تعديل دور** | استخدم `UpdateAsync` في `UserRoleService` | التعديل المباشر على `AspNetUserRoles` |
+|---------|--------|-------|
+| إضافة مستخدم | UserProfile ← ApplicationUser ← أدوار | إنشاء ApplicationUser بدون UserProfile |
+| حذف مستخدم | أدوار ← عضويات ← AspNetUser ← UserProfile | الحذف العشوائي |
+| تعديل دور | استخدم `UpdateAsync` في `UserRoleService` | التعديل المباشر على `AspNetUserRoles` |
 
 ### 🔵 أفضل الممارسات
 
-1. **استخدم `UserRoleService`** لكل العمليات على `AspNetUserRoles`.
-2. **استخدم `UserManager`** لعمليات Identity الأساسية (إنشاء مستخدم، إضافة لدور).
-3. **تحقق من الصلاحية الزمنية** دائماً:
+- استخدم `UserRoleService` لكل العمليات على `AspNetUserRoles`.
+- استخدم `UserManager` لعمليات Identity الأساسية (إنشاء مستخدم، إضافة لدور).
+- تحقق من الصلاحية الزمنية دائماً:
 
 ```csharp
 var isValid = userRole.IsActive && 
@@ -343,14 +336,14 @@ var isValid = userRole.IsActive &&
 
 Use Case مسؤول عن مسح جميع كاشات المستخدم عند Logout:
 
-**المسار:** `RubikCare.Application/UseCases/User/ClearUserCacheUseCase.cs`
+- **المسار:** `RubikCare.Application/UseCases/User/ClearUserCacheUseCase.cs`
+- **الوظيفة:**
+  - يستدعي `UserSessionService.RefreshUserSessionAndCacheAsync(userId)`
+  - يمسح كاشات: `UserSession_`, `UserPrefs_`, `UserBasic_`
+  - يستدعي `IUserMenuService.ClearCacheAsync(userId)`
 
-**الوظيفة:**
-- يستدعي `UserSessionService.RefreshUserSessionAndCacheAsync(userId)`
-- يمسح كاشات: `UserSession_`, `UserPrefs_`, `UserBasic_`
-- يستدعي `IUserMenuService.ClearCacheAsync(userId)`
+### الاستخدام في AuthController.Logout
 
-**الاستخدام في AuthController.Logout:**
 ```csharp
 [HttpPost("logout")]
 [Authorize]
@@ -359,7 +352,6 @@ public async Task<IActionResult> Logout([FromServices] ClearUserCacheUseCase cle
     var userId = User.FindFirst("userId")?.Value;
     if (!string.IsNullOrEmpty(userId))
         await clearCache.ExecuteAsync(userId);
-    
     await _signInManager.SignOutAsync();
     return Ok(new { success = true, message = "تم تسجيل الخروج بنجاح" });
 }
@@ -382,9 +374,9 @@ UserSessionService.RefreshUserSessionAndCacheAsync(userId)
 
 | الطبقة | المسؤول | المفاتيح | المدة |
 |--------|---------|----------|-------|
-| **Session** | `UserSessionService` | `UserSession_{userId}` | ساعتين |
-| **Preferences** | `UserSessionService` | `UserPrefs_{userId}` | ساعة |
-| **BasicInfo** | `UserSessionService` | `UserBasic_{userId}` | ساعة |
+| Session | UserSessionService | UserSession_{userId} | ساعتين |
+| Preferences | UserSessionService | UserPrefs_{userId} | ساعة |
+| BasicInfo | UserSessionService | UserBasic_{userId} | ساعة |
 
 ### ملاحظات هامة
 
@@ -394,9 +386,162 @@ UserSessionService.RefreshUserSessionAndCacheAsync(userId)
 
 ---
 
+## 🧭 شجرة القرار المعماري: متى نستخدم كل خدمة هوية (⭐ جديد - 18 يوليو 2026)
+
+### السؤال الأول: ما نوع العملية؟
+
+```mermaid
+graph TD
+    A[عملية تتعلق بالهوية] --> B{ما نوع العملية؟}
+    B -->|CRUD بسيط على UserRole| C[UserRoleService]
+    B -->|عملية معقدة متعددة الخطوات| D[UseCase في Application]
+    B -->|عملية مشتركة Web + Mobile| E[UseCase + API]
+    B -->|معلومات المستخدم الحالي| F[UserContextService]
+```
+
+### 📊 مصفوفة اختيار خدمة الهوية
+
+| نوع العملية | الخدمة الموصى بها | مثال |
+|------------|-------------------|------|
+| **CRUD بسيط على UserRole** | `UserRoleService` | عرض قائمة المستخدمين في دور معين |
+| **إنشاء مستخدم جديد** | UseCase (`CreateUserUseCase`) | تسجيل طبيب جديد مع بيانات موسعة |
+| **تغيير كلمة المرور** | UseCase + API (`ChangePasswordUseCase`) | المستخدم المسجل يغير كلمة مروره |
+| **إعادة تعيين كلمة المرور** | UseCase + API (`ResetPasswordUseCase`) | نسي كلمة المرور |
+| **مسح الكاش عند Logout** | UseCase (`ClearUserCacheUseCase`) | تسجيل الخروج |
+| **معلومات المستخدم الحالي** | `UserContextService` | عرض اسم المستخدم في الصفحة |
+| **التحقق من الصلاحية** | `UserRoleService` + منطق مخصص | التحقق من صلاحية الوصول |
+
+### 💡 أمثلة عملية
+
+#### ✅ مثال 1: عرض قائمة الأطباء (CRUD بسيط)
+
+**القرار:** استخدم `UserRoleService`
+
+```csharp
+// في Web/Pages/Admin/Doctors.razor
+@inject IUserRoleService UserRoleService
+
+@code {
+    private List<UserRole> doctors = new();
+    
+    protected override async Task OnInitializedAsync()
+    {
+        var doctorRole = await GetRoleIdByName("Doctor");
+        doctors = await UserRoleService.GetUsersInRoleAsync(doctorRole);
+    }
+}
+```
+
+**السبب:** عملية قراءة بسيطة، لا تحتاج UseCase.
+
+#### ✅ مثال 2: تسجيل طبيب جديد (عملية معقدة)
+
+**القرار:** استخدم UseCase
+
+```csharp
+// في Application/UseCases/User/RegisterDoctorUseCase.cs
+public class RegisterDoctorUseCase
+{
+    private readonly UserManager<ApplicationUser> _userManager;
+    private readonly IUserRoleService _userRoleService;
+    private readonly BusinessDbContext _context;
+    
+    public async Task<Result<int>> ExecuteAsync(RegisterDoctorDto dto)
+    {
+        // 1. إنشاء UserProfile
+        var userProfile = new UserProfile { /* ... */ };
+        _context.UserProfiles.Add(userProfile);
+        await _context.SaveChangesAsync();
+        
+        // 2. إنشاء ApplicationUser
+        var user = new ApplicationUser 
+        { 
+            UserProfileID = userProfile.UserProfileID,
+            /* ... */
+        };
+        var result = await _userManager.CreateAsync(user, dto.Password);
+        if (!result.Succeeded)
+            return Result<int>.Failure(result.Errors.ToString());
+        
+        // 3. إضافة الدور
+        await _userManager.AddToRoleAsync(user, "Doctor");
+        
+        // 4. إضافة بيانات مهنية
+        var userRole = new UserRole { /* ... */ };
+        await _userRoleService.AddAsync(userRole);
+        
+        return Result<int>.Success(userProfile.UserProfileID);
+    }
+}
+
+// في Web/Pages/Admin/RegisterDoctor.razor
+@inject RegisterDoctorUseCase RegisterDoctorUseCase
+
+@code {
+    private async Task Register()
+    {
+        var result = await RegisterDoctorUseCase.ExecuteAsync(dto);
+        // ...
+    }
+}
+```
+
+**السبب:** عملية معقدة متعددة الخطوات (4 خطوات)، تحتاج UseCase.
+
+#### ✅ مثال 3: تغيير كلمة المرور (عملية مشتركة)
+
+**القرار:** استخدم UseCase + API
+
+```csharp
+// 1. في Application/UseCases/User/ChangePasswordUseCase.cs
+public class ChangePasswordUseCase
+{
+    private readonly UserManager<ApplicationUser> _userManager;
+    private readonly IUserSessionService _sessionService;
+    
+    public async Task<Result> ExecuteAsync(string userId, string currentPassword, string newPassword)
+    {
+        var user = await _userManager.FindByIdAsync(userId);
+        var result = await _userManager.ChangePasswordAsync(user, currentPassword, newPassword);
+        
+        if (result.Succeeded)
+        {
+            // ⭐ إبطال جميع الجلسات الأخرى
+            await _userManager.UpdateSecurityStampAsync(user);
+            await _sessionService.RefreshUserSessionAndCacheAsync(userId);
+        }
+        
+        return result.Succeeded 
+            ? Result.Success() 
+            : Result.Failure(result.Errors.ToString());
+    }
+}
+
+// 2. في Api.Web/Controllers/AuthController.cs
+[HttpPost("change-password")]
+[Authorize]
+public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
+{
+    var userId = User.FindFirst("userId")?.Value;
+    var result = await _changePasswordUseCase.ExecuteAsync(userId, request.CurrentPassword, request.NewPassword);
+    return result.IsSuccess ? Ok(result) : BadRequest(result);
+}
+
+// 3. في Mobile - يستدعي API
+var result = await ApiService.PostAsync<Result>("api/auth/change-password", 
+    new { CurrentPassword = "...", NewPassword = "..." });
+
+// 4. في Web - يستدعي UseCase مباشرة
+var result = await ChangePasswordUseCase.ExecuteAsync(userId, current, new);
+```
+
+**السبب:** العملية مشتركة بين Web و Mobile، وتحتاج أماناً عالياً.
+
+---
+
 ## استعلامات مفيدة للتحقق
 
-### للتشخيص والمراقبة
+للتشخيص والمراقبة:
 
 ```sql
 -- 1. المستخدمون بدون UserProfile
@@ -430,20 +575,26 @@ SELECT
 ## CHECKLIST: عند التعامل مع الهوية
 
 ### عند إنشاء صفحة تتعامل مع المستخدمين
+
 - [ ] هل استخدمت `UserContextService` لجلب المستخدم الحالي؟
 - [ ] هل تحققت من الصلاحية الزمنية للأدوار (`ValidTo`)?
 - [ ] هل استخدمت `UserRoleService` للتعامل مع `AspNetUserRoles`؟
+- [ ] ⭐ **هل راجعت شجرة القرار أعلاه لاختيار الخدمة الصحيحة؟**
 
 ### عند إضافة مستخدم جديد
+
 - [ ] هل أنشأت `UserProfile` أولاً؟
 - [ ] هل ربطت `ApplicationUser.UserProfileID` بقيمة `UserProfile.UserProfileID`؟
 - [ ] هل أضفت الأدوار باستخدام `_userManager.AddToRoleAsync()`؟
+- [ ] ⭐ **هل العملية معقدة؟** → استخدم UseCase بدلاً من كود مباشر
 
 ### عند تعديل أو حذف
+
 - [ ] هل أخذت نسخة احتياطية من قاعدة البيانات قبل التعديلات الكبيرة؟
 - [ ] هل تتبعت التسلسل الصحيح للحذف؟
 
 ### عند التعامل مع الجلسات والكاش (جديد)
+
 - [ ] هل تمسح الكاش عند Logout باستخدام `ClearUserCacheUseCase`؟
 - [ ] هل تمسح `SecureStorage` و `_cachedSession` في الموبايل؟
 - [ ] هل `UserSessionService` هو المصدر الوحيد للكاش؟
@@ -452,9 +603,22 @@ SELECT
 
 ## 🔗 روابط ذات صلة
 
-- [00 - الهيكل المعماري](00-architecture-overview.md)
-- [01 - Program.cs والتسجيلات الأساسية](01-program-cs-foundation.md)
+- [00 - الهيكل المعماري](00-architecture-overview.md) - يحتوي على شجرة القرار المعماري الكاملة ⭐
+- [01 - Program.cs والتسجيلات الأساسية](01-program-cs-foundation.md) - يحتوي على مصفوفة اختيار الخدمة ⭐
 - [04 - نظام القوائم الديناميكية](04-dynamic-menus.md)
 - [14 - نظام الكاش الموحد](14-caching-system.md) ⭐ جديد
 - [الملحق أ - مسرد المصطلحات](../appendix-a-glossary.md)
 ```
+
+---
+
+## 📊 ملخص التحديثات في هذه الوثيقة
+
+| القسم | التغيير |
+|-------|---------|
+| **المحتوى الأصلي** | ✅ محفوظ بالكامل دون أي حذف |
+| **القسم الجديد: 🧭 شجرة القرار المعماري للهوية** | ✅ إضافة كاملة مع Mermaid Diagram |
+| **مصفوفة اختيار خدمة الهوية** | ✅ 7 أنواع عمليات مع الخدمة المناسبة |
+| **أمثلة عملية** | ✅ 3 أمثلة كود (CRUD، معقدة، مشتركة) |
+| **CHECKLIST محدّث** | ✅ إضافة نقاط التحقق المعمارية |
+| **الروابط** | ✅ إضافة روابط للوثيقتين 00 و 01 المحدّثتين |
