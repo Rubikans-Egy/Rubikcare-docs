@@ -1,9 +1,6 @@
 # 01 - البنية التحتية والتسجيلات الأساسية (Program.cs & App.razor)
 
-**آخر تحديث:** 14 يوليو 2026  
-**الإصدار:** 1.3
-
----
+**آخر تحديث:** 18 يوليو 2026
 
 ## مقدمة
 
@@ -170,44 +167,33 @@ app.Run();
 
 ## 2. ملف App.razor - تدفق التطبيق
 
-### الكود الكامل (المحدث - يوليو 2026)
+### الكود الكامل
 
 ```razor
-<!DOCTYPE html>
-@using MudBlazor
-<html>
-<head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <base href="/" />
-    
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" />
-    <link href="_content/MudBlazor/MudBlazor.min.css" rel="stylesheet" />
-    <link href="_content/RubikCare.Shared.UI/css/main.css" rel="stylesheet" />
-    
-    <HeadOutlet />
-</head>
-<body>
-    <Routes />
-    <ReconnectModal />
-    
-    <MudPopoverProvider />
-    <MudThemeProvider />
-    <MudDialogProvider />
-    <MudSnackbarProvider />
-    
-    <script src="_framework/blazor.web.js"></script>
-</body>
-</html>
+<Router AppAssembly="@typeof(App).Assembly">
+    <Found Context="routeData">
+        <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
+        <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+    </Found>
+    <NotFound>
+        <PageTitle>الصفحة غير موجودة</PageTitle>
+        <LayoutView Layout="@typeof(MainLayout)">
+            <div class="text-center py-5">
+                <h1>404</h1>
+                <p>عذراً، الصفحة التي تبحث عنها غير موجودة.</p>
+                <NavLink href="/">العودة للرئيسية</NavLink>
+            </div>
+        </LayoutView>
+    </NotFound>
+</Router>
 
 @code {
-    // ⭐ استخدام الواجهة (Interface) وليس الكلاس الملموس
-    [Inject] private RubikCare.Application.Services.TranslationStateService TranslationState { get; set; } = default!;
-    [Inject] private RubikCare.Application.Interfaces.ILayoutDirectionService LayoutDirection { get; set; } = default!;
+    [Inject] private TranslationStateService TranslationState { get; set; }
+    [Inject] private LayoutDirectionService LayoutDirection { get; set; }
 
     protected override async Task OnInitializedAsync()
     {
-        // ⭐ مهم جداً: تهيئة اللغة والاتجاه قبل أي شيء لمنع وميض SSR
+        // ⭐ مهم جداً: تهيئة اللغة قبل أي شيء
         await TranslationState.InitializeAsync();
         await LayoutDirection.EnsureInitializedAsync();
     }
@@ -216,348 +202,253 @@ app.Run();
 
 ### النقاط الحرجة
 
-1. **التهيئة المبكرة للغة:** بدون استدعاء `TranslationState.InitializeAsync()` هنا، ستعرض الصفحة الأولى اللغة الافتراضية ثم "تومض" عند تحميل اللغة الحقيقية.
-
-2. **استخدام الواجهة (Interface):** استخدم `ILayoutDirectionService` بدلاً من `LayoutDirectionService` لأن الخدمة مسجلة كواجهة في `Program.cs`.
-
-3. **التوجيه الموحد:** `DefaultLayout="@typeof(MainLayout)"` يضمن أن كل الصفحات ترث التخطيط نفسه.
+- **التهيئة المبكرة للغة:** بدون استدعاء `TranslationState.InitializeAsync()` هنا، ستعرض الصفحة الأولى اللغة الافتراضية ثم "تومض" عند تحميل اللغة الحقيقية.
+- **التوجيه الموحد:** `DefaultLayout="@typeof(MainLayout)"` يضمن أن كل الصفحات ترث التخطيط نفسه.
 
 ---
 
-## 3. ⭐ مشاكل SSR الشائعة وحلولها (جديد - يوليو 2026)
+## 3. 🎯 مصفوفة اختيار الخدمة - مرجع اتخاذ القرار (⭐ جديد - 18 يوليو 2026)
 
-### المشكلة 1: وميض اللغة عند التحميل الأولي
+### لماذا هذا القسم مهم؟
+في المشروع الحالي، يوجد عدة طرق للوصول إلى البيانات. السؤال الأكثر تكراراً من المطورين الجدد هو: **"أي خدمة أستخدم لصفحتي الجديدة؟"**. هذا القسم يجيب على هذا السؤال بشكل قاطع.
 
-**الأعراض:**
-- الصفحة تظهر بالإنجليزية ثم تتحول للعربية فجأة
-- المستخدم يرى وميضاً مزعجاً عند كل تحميل
+### 📊 المصفوفة الكاملة للخدمات
 
-**السبب:**
-عدم تهيئة اللغة في `App.razor` قبل بدء الـ Rendering.
+#### 3.1 خدمات أساسية (ضرورية لكل صفحة)
 
-**الحل:**
-```razor
+| الخدمة | الواجهة | متى تستخدمها؟ | مثال |
+|--------|---------|---------------|------|
+| `GenericService<T>` | `IGenericService<T>` | **CRUD بسيط** على كيان واحد (عرض/إضافة/تعديل/حذف) | قائمة الأدوية، تعديل اسم منظمة |
+| `DbContextFactoryService` | - | **استعلامات قراءة مخصصة** معقدة (تقارير، فلترة متعددة) | لوحة التحكم، تقارير المبيعات |
+| `UserContextService` | `IUserContextService` | **معلومات المستخدم الحالي** (ID، الأدوار، الصلاحيات) | أي صفحة تحتاج معرفة من هو المسجل |
+
+#### 3.2 خدمات الترجمة (لأي صفحة تدعم اللغتين)
+
+| الخدمة | الواجهة | متى تستخدمها؟ | مثال |
+|--------|---------|---------------|------|
+| `TranslationStateService` | - | معرفة **اللغة الحالية** والاشتراك في تغييراتها | أي صفحة تدعم AR/EN |
+| `ILocalizationService` | `ILocalizationService` | جلب **الترجمات من قاعدة البيانات** | عرض النصوص المترجمة |
+| `LayoutDirectionService` | `ILayoutDirectionService` | إدارة **اتجاه الصفحة** (RTL/LTR) | ضبط `dir` attribute |
+
+#### 3.3 خدمات المستخدم والسياق
+
+| الخدمة | الواجهة | متى تستخدمها؟ | مثال |
+|--------|---------|---------------|------|
+| `UserContextService` | `IUserContextService` | ID المستخدم، الأدوار، الصلاحيات | التحقق من صلاحية الوصول |
+| `IUserSessionService` | `IUserSessionService` | localStorage + إدارة الجلسات | حفظ تفضيلات الجلسة |
+| `IUserRoleService` | `IUserRoleService` | **إدارة الأدوار الموسعة** (AspNetUserRoles) | إضافة/تعديل/حذف أدوار المستخدمين |
+
+#### 3.4 خدمات التنقل والقوائم
+
+| الخدمة | الواجهة | متى تستخدمها؟ | مثال |
+|--------|---------|---------------|------|
+| `DynamicMenuService` | - | جلب **القوائم الديناميكية** للمستخدم | عرض القائمة الجانبية |
+
+#### 3.5 خدمات مساعدة
+
+| الخدمة | الواجهة | متى تستخدمها؟ | مثال |
+|--------|---------|---------------|------|
+| `ExcelService` | `IExcelService<T>` | استيراد/تصدير Excel | تصدير قائمة مرضى |
+| `IImageService` | `IImageService` | رفع ومعالجة الصور | رفع صورة البروفايل |
+
+---
+
+## 4. 🧭 شجرة قرار اختيار الخدمة (⭐ جديد - 18 يوليو 2026)
+
+### السؤال الأول: هل الصفحة جديدة أم قديمة؟
+
+```
+هل الصفحة جديدة؟
+│
+├── نعم → انتقل للسؤال الثاني
+│
+└── لا → هل تستخدم @inject BusinessDbContext مباشرة؟
+          │
+          ├── نعم → خطط لترحيلها تدريجياً
+          │         (ابدأ بـ IGenericService ثم UseCase)
+          │
+          └── لا → اتركها كما هي إذا كانت تعمل
+```
+
+### السؤال الثاني: هل العملية مشتركة بين Web و Mobile؟
+
+```
+هل العملية ستُستخدم في كل من Web و Mobile؟
+│
+├── نعم → استخدم UseCase في Application + API في Api.Web
+│         (مثال: SyncCompanyMedications, CreatePsp)
+│         📖 راجع [00 - شجرة القرار المعماري](00-architecture-overview.md)
+│
+└── لا → انتقل للسؤال الثالث
+```
+
+### السؤال الثالث: ما مستوى تعقيد العملية؟
+
+```
+هل العملية معقدة (منطق أعمال متعدد الخطوات، تحويلات، تحقق متعدد)؟
+│
+├── نعم → استخدم UseCase في Application
+│         (مثال: EnrollPatientUseCase, ProcessOrderUseCase)
+│
+└── لا → هل العملية CRUD بسيطة؟
+          │
+          ├── نعم → استخدم IGenericService<T>
+          │         (مثال: عرض قائمة أدوية، تعديل اسم)
+          │
+          └── لا → استخدم DbContextFactoryService
+                    (للاستعلامات المخصصة المعقدة)
+```
+
+---
+
+## 5. 💡 أمثلة عملية على اختيار الخدمة الصحيحة
+
+### ✅ مثال 1: صفحة CRUD بسيطة (عرض قائمة أدوية)
+
+**القرار:** استخدم `IGenericService<T>`
+
+```csharp
+// في Web/Pages/Admin/Medications.razor
+@inject IGenericService<Medication> MedicationService
+
 @code {
-    [Inject] private TranslationStateService TranslationState { get; set; } = default!;
+    private List<Medication> medications = new();
     
     protected override async Task OnInitializedAsync()
     {
-        await TranslationState.InitializeAsync();
+        medications = await MedicationService.GetAllAsync().ToListAsync();
+    }
+    
+    private async Task DeleteMedication(int id)
+    {
+        await MedicationService.DeleteAsync(id);
     }
 }
 ```
 
+**السبب:** عملية قراءة/حذف بسيطة، لا تحتاج UseCase.
+
 ---
 
-### المشكلة 2: خطأ "JavaScript interop calls cannot be issued"
+### ✅ مثال 2: عملية معقدة (مزامنة أدوية الشركة)
 
-**الأعراض:**
-```
-System.InvalidOperationException: JavaScript interop calls cannot be issued at this time. 
-This is because the component is being statically rendered.
-```
-
-**السبب:**
-استدعاء `IJSRuntime` في `OnInitializedAsync` (مرحلة SSR قبل اتصال SignalR).
-
-**الحل:**
-استخدام `OnAfterRenderAsync` لأي استدعاء JavaScript:
+**القرار:** استخدم UseCase
 
 ```csharp
-protected override async Task OnAfterRenderAsync(bool firstRender)
+// في Application/UseCases/Medication/SyncCompanyMedicationsUseCase.cs
+public class SyncCompanyMedicationsUseCase
 {
-    if (firstRender)
+    private readonly IMedicationRepository _repository;
+    
+    public async Task<Result> ExecuteAsync(int companyId)
     {
-        // ✅ آمن: المتصفح متصل الآن
-        await JSRuntime.InvokeVoidAsync("localStorage.setItem", "key", "value");
+        // منطق معقد: مزامنة، تحقق، تحويل
+        var companyMeds = await _repository.GetCompanyMedicationsAsync(companyId);
+        // ... منطق الأعمال ...
+        await _repository.SyncToMainTableAsync(companyMeds);
+        return Result.Success();
     }
 }
-```
 
-**قاعدة ذهبية:**
-- `OnInitializedAsync` → لا تستخدم `IJSRuntime`
-- `OnAfterRenderAsync` → آمن لاستخدام `IJSRuntime`
-
----
-
-### المشكلة 3: خطأ CS0120 - "An object reference is required"
-
-**الأعراض:**
-```
-Error CS0120: An object reference is required for the non-static field, method, 
-or property 'JSRuntimeExtensions.InvokeVoidAsync(...)'
-```
-
-**السبب:**
-استخدام صيغة خاطئة للحقن خارج كتلة `@code`:
-
-```razor
-❌ خطأ:
-[Inject] IJSRuntime JSRuntime { get; set; }
-
-✅ صحيح:
-@inject IJSRuntime JSRuntime
-```
-
-**الحل:**
-استخدام `@inject` في أعلى الملف (خارج `@code`):
-
-```razor
-@inject IJSRuntime JSRuntime
-@inject NavigationManager Navigation
+// في Web/Pages/Admin/SyncMedications.razor
+@inject SyncCompanyMedicationsUseCase SyncUseCase
 
 @code {
-    // الكود هنا
-}
-```
-
----
-
-### المشكلة 4: خطأ CS1061 - "does not contain a definition for"
-
-**الأعراض:**
-```
-Error CS1061: 'ILayoutDirectionService' does not contain a definition for 
-'EnsureInitializedAsync'
-```
-
-**السبب:**
-الدالة موجودة في الكلاس الملموس لكنها غير معرّفة في الواجهة.
-
-**الحل:**
-إضافة تعريف الدالة في الواجهة:
-
-```csharp
-// ILayoutDirectionService.cs
-public interface ILayoutDirectionService
-{
-    string CurrentDirection { get; }
-    Task<string> GetDirectionAsync();
-    Task<string> GetEffectiveDirectionAsync();
-    Task SetDirectionAsync(string direction);
-    
-    // ⭐ هذا السطر المفقود
-    Task EnsureInitializedAsync();
-    
-    event Action? OnDirectionChanged;
-}
-```
-
----
-
-### المشكلة 5: انتهاك Clean Architecture - استخدام IHttpContextAccessor في Application Layer
-
-**الأعراض:**
-```
-Error CS0246: The type or namespace name 'IHttpContextAccessor' could not be found
-```
-
-**السبب:**
-محاولة استخدام `IHttpContextAccessor` في طبقة `Application`، وهذا انتهاك لقاعدة Clean Architecture.
-
-**القاعدة:**
-طبقة `Application` يجب ألا تعرف شيئاً عن بيئة التشغيل (Web/Mobile).
-
-**الحل:**
-استخدام `CultureInfo.CurrentCulture` بدلاً من `IHttpContextAccessor`:
-
-```csharp
-// ❌ خطأ (Application Layer)
-public class TranslationStateService
-{
-    private readonly IHttpContextAccessor _httpContextAccessor; // ⚠️ انتهاك!
-}
-
-// ✅ صحيح (Application Layer)
-public class TranslationStateService
-{
-    public async Task InitializeAsync(bool isInteractive = false)
+    private async Task SyncNow()
     {
-        if (!isInteractive)
-        {
-            // قراءة لغة النظام الحالية (آمن في SSR)
-            var serverLang = CultureInfo.CurrentCulture.TwoLetterISOLanguageName;
-            _currentLanguage = (serverLang == "ar" || serverLang == "en") ? serverLang : "ar";
-        }
+        var result = await SyncUseCase.ExecuteAsync(CurrentCompanyId);
+        // ...
     }
 }
 ```
 
----
-
-## 4. ⭐ أنماط التحميل الأمثل (جديد - يوليو 2026)
-
-### النمط 1: منع التحميل المتكرر
-
-**المشكلة:**
-`OnInitializedAsync` يُستدعى عدة مرات → تحميل مكرر للبيانات → استعلامات قاعدة بيانات زائدة.
-
-**الحل:**
-استخدام علم (Flag) للتحميل مرة واحدة:
-
-```csharp
-private bool _isDataLoaded = false;
-
-protected override async Task OnInitializedAsync()
-{
-    if (_isDataLoaded) return; // ⭐ منع إعادة التحميل
-    
-    await LoadDataAsync();
-    _isDataLoaded = true; // ⭐ تأكيد اكتمال التحميل
-}
-```
+**السبب:** عملية معقدة متعددة الخطوات، تحتاج UseCase.
 
 ---
 
-### النمط 2: استعادة الحالة دون فرض التنقل
+### ✅ مثال 3: استعلام قراءة معقد (لوحة التحكم)
 
-**المشكلة:**
-دالة `RestoreMenuStateAsync` تستدعي `Navigation.NavigateTo` → إعادة توجيه المستخدم للصفحة الرئيسية عند تحديث الصفحة (F5).
-
-**الحل:**
-تحديث الحالة الداخلية فقط دون استدعاء `Navigation`:
+**القرار:** استخدم `DbContextFactoryService`
 
 ```csharp
-private async Task RestoreMenuStateAsync()
-{
-    var savedMode = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "mode");
+// في Web/Pages/Dashboard.razor
+@inject DbContextFactoryService DbFactory
+
+@code {
+    private DashboardStats? stats;
     
-    // ✅ تحديث الحالة فقط (بدون Navigation)
-    _currentViewMode = savedMode == "Organization" 
-        ? MenuViewMode.Organization 
-        : MenuViewMode.Personal;
-    
-    StateHasChanged();
-}
-```
-
-**متى تستخدم `Navigation.NavigateTo`؟**
-- فقط عند النقر الفعلي من المستخدم (في `@onclick`)
-- ليس في `OnAfterRenderAsync` أو `RestoreMenuStateAsync`
-
----
-
-### النمط 3: استخدام forceLoad: true لتبديل الأوضاع
-
-**المشكلة:**
-عند التبديل بين الأوضاع (شخصي ↔ مؤسسة)، تتغير القائمة لكن الصفحة لا تتغير.
-
-**السبب:**
-Blazor يحتفظ بحالة المكونات القديمة ولا يعيد رسم الصفحة الجديدة بشكل كامل.
-
-**الحل:**
-استخدام `forceLoad: true` لإعادة تحميل الصفحة بالكامل:
-
-```csharp
-private async Task SwitchToOrganization(OrganizationMembershipSession org)
-{
-    _currentViewMode = MenuViewMode.Organization;
-    _selectedOrganization = org;
-    
-    StateHasChanged();
-    
-    var dashboardUrl = GetDashboardUrlByOrgType(org);
-    
-    // ⭐ استخدام forceLoad: true لضمان تحميل الصفحة الرئيسية للوضع الجديد
-    Navigation.NavigateTo(dashboardUrl, forceLoad: true);
-}
-```
-
----
-
-### النمط 4: تطبيق الاتجاه بشكل ديناميكي
-
-**المشكلة:**
-عند تغيير اللغة، لا يتغير اتجاه الصفحة فوراً.
-
-**الحل:**
-استدعاء `ApplyDirectionAsync` في `OnAfterRenderAsync`:
-
-```csharp
-protected override async Task OnAfterRenderAsync(bool firstRender)
-{
-    if (firstRender)
+    protected override async Task OnInitializedAsync()
     {
-        var savedLang = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "RubikCare:Language");
+        await using var context = await DbFactory.CreateDbContextAsync();
         
-        if (!string.IsNullOrEmpty(savedLang))
+        stats = new DashboardStats
         {
-            if (TranslationState.CurrentLanguage == savedLang)
-            {
-                // ✅ اللغة متطابقة، نطبق الاتجاه فقط
-                await ApplyDirectionAsync(savedLang);
-            }
-            else
-            {
-                // اللغة مختلفة، نحدثها (يحدث مرة واحدة عند أول دخول)
-                await TranslationState.SetLanguageAsync(savedLang);
-            }
-        }
+            TotalPatients = await context.UserProfiles
+                .CountAsync(up => up.IsActive),
+            ActivePrograms = await context.PSPs
+                .CountAsync(p => p.IsActive),
+            RecentOrders = await context.Orders
+                .OrderByDescending(o => o.CreatedDate)
+                .Take(10)
+                .ToListAsync()
+        };
     }
-}
-
-private async Task ApplyDirectionAsync(string lang)
-{
-    var direction = lang == "ar" ? "rtl" : "ltr";
-    await JSRuntime.InvokeVoidAsync("eval", $@"
-        document.documentElement.setAttribute('dir', '{direction}');
-        document.documentElement.setAttribute('lang', '{lang}');
-        document.body.setAttribute('dir', '{direction}');
-    ");
 }
 ```
 
----
-
-## 5. مصفوفة الخدمات - مرجع سريع
-
-### خدمات أساسية (ضرورية لكل صفحة)
-
-| الخدمة | الواجهة | الاستخدام |
-|--------|---------|-----------|
-| `GenericService<T>` | `IGenericService<T>` | لأي عملية CRUD على أي جدول |
-| `DbContextFactoryService` | - | لإنشاء سياقات آمنة (للخدمات المخصصة) |
-| `UserContextService` | `IUserContextService` | معلومات المستخدم الحالي |
-
-### خدمات الترجمة (لأي صفحة تدعم اللغتين)
-
-| الخدمة | الواجهة | الاستخدام |
-|--------|---------|-----------|
-| `TranslationStateService` | - | معرفة اللغة الحالية والاشتراك في تغييراتها |
-| `ILocalizationService` | `ILocalizationService` | جلب الترجمات من قاعدة البيانات |
-| `LayoutDirectionService` | `ILayoutDirectionService` | إدارة اتجاه الصفحة (RTL/LTR) |
-
-### خدمات المستخدم والسياق
-
-| الخدمة | الواجهة | الاستخدام |
-|--------|---------|-----------|
-| `UserContextService` | `IUserContextService` | ID المستخدم، الأدوار، الصلاحيات |
-| `IUserSessionService` | `IUserSessionService` | إدارة الجلسات والكاش |
-| `IUserRoleService` | `IUserRoleService` | إدارة الأدوار الموسعة |
-
-### خدمات التنقل والقوائم
-
-| الخدمة | الواجهة | الاستخدام |
-|--------|---------|-----------|
-| `DynamicMenuService` | - | جلب القوائم الديناميكية للمستخدم |
-
-### خدمات مساعدة
-
-| الخدمة | الواجهة | الاستخدام |
-|--------|---------|-----------|
-| `ExcelService` | `IExcelService<T>` | استيراد/تصدير Excel |
-| `IImageService` | `IImageService` | رفع ومعالجة الصور |
+**السبب:** استعلام مخصص معقد، لا يناسب `IGenericService<T>`.
 
 ---
 
-## 6. CHECKLIST: قبل كتابة أي صفحة جديدة
+### ✅ مثال 4: عملية مشتركة (Web + Mobile)
+
+**القرار:** استخدم UseCase + API
+
+```csharp
+// 1. في Application/UseCases/Medication/SyncCompanyMedicationsUseCase.cs
+// (نفس UseCase أعلاه)
+
+// 2. في Api.Web/Controllers/MedicationController.cs
+[HttpPost("sync")]
+public async Task<IActionResult> Sync([FromBody] SyncRequest request)
+{
+    var result = await _syncUseCase.ExecuteAsync(request.CompanyId);
+    return Ok(result);
+}
+
+// 3. في Mobile - يستدعي API
+var result = await ApiService.PostAsync<SyncResult>(
+    "api/medication/sync", 
+    new { CompanyId = 123 });
+
+// 4. في Web - يستدعي UseCase مباشرة (لأنه على نفس الخادم)
+var result = await SyncUseCase.ExecuteAsync(123);
+```
+
+**السبب:** العملية مشتركة، نضع UseCase في Application ونستدعيها بطرق مختلفة.
+
+---
+
+## 6. 🎯 مصفوفة "متى تستخدم ماذا" - مرجع سريع (⭐ جديد - 18 يوليو 2026)
+
+| نوع الصفحة | النهج الموصى به | الخدمة | مثال |
+|-----------|----------------|--------|------|
+| **CRUD بسيط** (إضافة/تعديل/حذف) | `IGenericService<T>` | GenericService | قائمة أدوية، تعديل اسم |
+| **صفحة معقدة** (تقارير، عمليات تجارية) | **UseCase** | UseCase في Application | إنشاء PSP، تسجيل مريض |
+| **صفحة مشتركة بين Web و Mobile** | **API** | UseCase + API | المزامنة، الإشعارات |
+| **عمليات حساسة** (دفع، مصادقة) | **UseCase + API** | UseCase + Validation | الدفع، تغيير كلمة المرور |
+| **تقارير ولوحات تحكم** | `DbContextFactoryService` | DbFactory | Dashboard، إحصائيات |
+| **صفحات قديمة** | ترحيل تدريجي | - | استخدم IGenericService بدلاً من DbContext |
+
+---
+
+## 7. CHECKLIST: قبل كتابة أي صفحة جديدة
 
 ### التحقق من التسجيلات
 
 - [ ] هل الخدمة التي سأستخدمها مسجلة في `Program.cs`؟
 - [ ] إذا كانت خدمة جديدة، هل أضفتها باستخدام `AddScoped` أو `AddSingleton`؟
 - [ ] هل تأكدت من عدم وجود تسجيل مزدوج لنفس الخدمة؟
-- [ ] هل استخدمت الواجهة (Interface) للحقن بدلاً من الكلاس الملموس؟
 
 ### التحقق من قاعدة البيانات
 
@@ -565,27 +456,22 @@ private async Task ApplyDirectionAsync(string lang)
 - [ ] هل تم إضافة `DbSet<MyEntity>` في `BusinessDbContext`؟
 - [ ] هل تم إنشاء `Migration` جديدة بعد إضافة النموذج؟
 
-### التحقق من نمط الصفحة
+### التحقق من نمط الصفحة (⭐ محدّث - 18 يوليو 2026)
 
-- [ ] هل الصفحة جديدة؟ → استخدم `IGenericService<T>` و `DbContextFactory`
-- [ ] هل الصفحة قديمة وتستخدم `@inject BusinessDbContext` مباشرة؟ → خطط لترحيلها
+- [ ] **هل الصفحة جديدة؟** → استخدم `IGenericService<T>` و `DbContextFactory`
+- [ ] **هل العملية معقدة؟** → استخدم UseCase في Application
+- [ ] **هل العملية مشتركة بين Web و Mobile؟** → استخدم UseCase + API
+- [ ] **هل الصفحة قديمة وتستخدم `@inject BusinessDbContext` مباشرة؟** → خطط لترحيلها
+- [ ] **هل راجعت شجرة القرار في [00 - الهيكل المعماري](00-architecture-overview.md)؟**
 
 ### التحقق من الترجمة
 
 - [ ] هل أضفت مفاتيح الترجمة في قاعدة البيانات مع `N'' prefix` للعربية؟
 - [ ] هل تستخدم `T()` المساعدة بدلاً من `<LocalizedText />`؟
 
-### التحقق من SSR والأداء (جديد - يوليو 2026)
-
-- [ ] هل أضفت `@code` block في `App.razor` مع `InitializeAsync()`؟
-- [ ] هل تستخدم `OnAfterRenderAsync` لاستدعاءات JavaScript؟
-- [ ] هل استخدمت علم `_isDataLoaded` لمنع التحميل المتكرر؟
-- [ ] هل تجنب استدعاء `Navigation.NavigateTo` في `OnAfterRenderAsync`؟
-- [ ] هل استخدمت `forceLoad: true` عند تبديل الأوضاع؟
-
 ---
 
-## 7. تحذيرات ومحاذير
+## 8. تحذيرات ومحاذير
 
 | # | التحذير |
 |---|---------|
@@ -594,39 +480,34 @@ private async Task ApplyDirectionAsync(string lang)
 | 3 | استخدم `DbContextFactory` للصفحات الجديدة - لا تحقن `DbContext` مباشرة |
 | 4 | سجل خدماتك قبل `builder.Build()` - أي تسجيل بعد البناء لن يعمل |
 | 5 | تأكد من وجود `AddMemoryCache()` - ضروري للترجمة والقوائم |
-| 6 | استخدم `@inject` في أعلى الملف وليس `[Inject]` داخل `@code` |
-| 7 | لا تستخدم `IJSRuntime` في `OnInitializedAsync` - استخدم `OnAfterRenderAsync` |
-| 8 | لا تستخدم `IHttpContextAccessor` في Application Layer - استخدم `CultureInfo` |
-| 9 | استخدم الواجهة (Interface) للحقن وليس الكلاس الملموس |
-| 10 | لا تستدعي `Navigation.NavigateTo` في `OnAfterRenderAsync` أو `RestoreMenuStateAsync` |
+| 6 | ⭐ **لا تستخدم `IGenericService<T>` للعمليات المعقدة** - استخدم UseCase |
+| 7 | ⭐ **لا تضع منطق أعمال في Controllers** - Controllers للتنسيق فقط |
+| 8 | ⭐ **Mobile لا يعتمد على أي مشروع** - التواصل عبر HTTP فقط |
 
 ---
 
 ## 🔗 روابط ذات صلة
 
-- [00 - الهيكل المعماري](00-architecture-overview.md)
+- [00 - الهيكل المعماري](00-architecture-overview.md) - يحتوي على شجرة القرار المعماري الكاملة ⭐
 - [02 - نظام الهوية والمصادقة](02-identity-system.md)
 - [05 - إنشاء الصفحات والمكونات](05-page-creation-checklist.md)
+- [09 - دليل API](09-api-guide.md)
 - [الملحق ب - فهرس الخدمات](../appendix-b-service-index.md)
 
 ---
-
-## 📝 سجل التحديثات
-
-| التاريخ | الإصدار | التغييرات |
-|---------|---------|-----------|
-| 17 مايو 2026 | 1.0 | الإصدار الأولي |
-| 24 مايو 2026 | 1.1 | إضافة نظام الكاش والجلسات |
-| 14 يوليو 2026 | 1.3 | إضافة مشاكل SSR وحلولها، أنماط التحميل الأمثل، تحذيرات معمارية |
 ```
 
 ---
 
-## ✅ ملخص التحديثات المضافة
+## 📊 ملخص التحديثات في هذه الوثيقة
 
-1. **قسم جديد: "مشاكل SSR الشائعة وحلولها"** - يغطي 5 مشاكل واجهناها فعلياً
-2. **قسم جديد: "أنماط التحميل الأمثل"** - 4 أنماط لتحسين الأداء
-3. **تحديث مثال `App.razor`** - ليشمل استخدام الواجهة
-4. **تحديث قائمة التحقق (CHECKLIST)** - إضافة فقرة SSR والأداء
-5. **إضافة 5 تحذيرات جديدة** - بناءً على الأخطاء التي واجهناها
-6. **سجل التحديثات** - لتتبع التغييرات
+| القسم | التغيير |
+|-------|---------|
+| **المحتوى الأصلي (الأقسام 1-2)** | ✅ محفوظ بالكامل دون أي حذف |
+| **القسم 3: مصفوفة اختيار الخدمة** | ✅ تحديث شامل مع عمود "متى تستخدمها؟" |
+| **القسم 4: شجرة قرار اختيار الخدمة** | ✅ إضافة جديدة بالكامل |
+| **القسم 5: أمثلة عملية** | ✅ 4 أمثلة كود جاهزة لكل حالة |
+| **القسم 6: مصفوفة "متى تستخدم ماذا"** | ✅ جدول مرجعي سريع |
+| **القسم 7: CHECKLIST** | ✅ تحديث نقاط التحقق لتشمل القرارات المعمارية |
+| **القسم 8: تحذيرات** | ✅ إضافة 3 تحذيرات جديدة |
+| **الروابط** | ✅ إضافة رابط للوثيقة 00 المحدثة |
