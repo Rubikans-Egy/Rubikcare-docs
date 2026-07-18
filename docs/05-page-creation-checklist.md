@@ -1,693 +1,639 @@
-# 05 - إنشاء الصفحات والمكونات (Core Chapter)
+# 05 - إنشاء الصفحات والمكونات (Page Creation Checklist)
 
-**آخر تحديث: 17 مايو 2026**
-
----
+**آخر تحديث:** 18 يوليو 2026
 
 ## مقدمة
 
-هذا هو **أهم مرجع في الدليل**، لأنه يجيب على السؤال العملي الأكثر تكراراً: **"كيف أبني صفحة جديدة بالطريقة الصحيحة؟"**
-
-سنغطي هنا:
-- **🔴 مشكلة الأداء الحالية** في الصفحات المترجمة وكيفية حلها نهائياً
-- **📋 CHECKLIST شاملة** لإنشاء أي صفحة جديدة (Static أو Interactive)
-- **💡 أنماط وحلول متقدمة** مستفادة من تجارب حقيقية
-- **📚 مرجع سريع** لخصائص جميع المكونات الذكية
+هذا الدليل يشرح كيفية إنشاء صفحات ومكونات جديدة في مشروع RubikCare، مع التركيز على **القرارات المعمارية الصحيحة** و**اختيار الخدمة المناسبة** لكل نوع من العمليات.
 
 ---
 
-## 🔴 تحذير عاجل - مشكلة الأداء الحالية في الترجمة
+## 🧭 شجرة القرار المعماري: كيف تختار النهج الصحيح (⭐ جديد - 18 يوليو 2026)
 
-### وصف المشكلة
+### لماذا هذا القسم مهم؟
+في المشاريع الحقيقية، لا يكفي أن تعرف **"ما هي المعمارية"**، بل يجب أن تعرف **"متى تستخدم ماذا"**. هذا القسم يحل التناقض بين الوثائق ويوفر دليلاً عملياً للمطور لاتخاذ القرارات الصحيحة.
 
-**الأعراض:**
-- الصفحات المترجمة تعاني من **بطء شديد في التحميل** (قد يصل إلى 5-10 ثواني)
-- **توقف عن العمل** عند محاولة أي تفاعل (نقر زر، كتابة في حقل بحث)
-- في Developer Tools -> Network، نرى **عشرات الطلبات** لنفس API
+### مستويات "النقاء المعماري" (من الأسوأ إلى الأفضل)
 
-### التشخيص: مشكلة N+1 Queries
+```
+المستوى 1 ❌ (مرفوض):
+Blazor Page → DbContext مباشرة
 
-```mermaid
-sequenceDiagram
-    actor Browser
-    participant Server
-    participant DB
+المستوى 2 ⚠️ (مقبول حالياً - للصفحات القديمة):
+Blazor Page → IGenericService<T> → DbContext
 
-    Browser->>Server: تحميل الصفحة
-    loop 30 مرة (كل <LocalizedText />)
-        Server->>DB: استعلام ترجمة منفصل
-        DB-->>Server: ترجمة واحدة
-    end
-    Server-->>Browser: الصفحة كاملة (بعد 30 استعلام!)
+المستوى 3 ✅ (الموصى به للصفحات المعقدة):
+Blazor Page → UseCase (Application) → Repository (Infrastructure) → DbContext
+
+المستوى 4 🏆 (الأنقى نظرياً - للعمليات المشتركة):
+Blazor Page → HTTP → Api.Web → UseCase → Repository → DbContext
 ```
 
-**السبب الجذري:**
-```razor
-{{!-- ❌ هذا هو سبب المشكلة --}}
-<h1><LocalizedText Key="PAGE.TITLE" /></h1>
-<p><LocalizedText Key="PAGE.DESCRIPTION" /></p>
-<label><LocalizedText Key="COMMON.NAME" /></label>
+### 🎯 القاعدة الذهبية: "اختر المستوى المناسب لتعقيد الصفحة"
 
-{{!-- كل سطر = استعلام منفصل لقاعدة البيانات --}}
-{{!-- 30 نصاً في الصفحة = 30 استعلام = بطء شديد --}}
+| نوع الصفحة | النهج الموصى به | السبب |
+|-----------|----------------|-------|
+| **CRUD بسيط** (إضافة/تعديل/حذف) | `IGenericService<T>` | سريع، بسيط، لا يحتاج تعقيد UseCase |
+| **صفحة معقدة** (تقارير، عمليات تجارية) | **UseCase** | يعبر عن "نية العمل" بوضوح |
+| **صفحة مشتركة بين Web و Mobile** | **API** | إعادة استخدام المنطق |
+| **عمليات حساسة** (دفع، مصادقة) | **UseCase + API** | أمان + اختبارية |
+
+### 📊 شجرة القرار التفصيلية
+
+```
+هل الصفحة جديدة؟
+│
+├── نعم → هل العملية مشتركة بين Web و Mobile؟
+│         │
+│         ├── نعم → استخدم UseCase في Application + API في Api.Web
+│         │         (مثال: SyncCompanyMedications, CreatePsp)
+│         │
+│         └── لا → هل العملية معقدة (منطق أعمال، تحويلات، تحقق متعدد)؟
+│                   │
+│                   ├── نعم → استخدم UseCase في Application
+│                   │         (مثال: EnrollPatientUseCase, ProcessOrderUseCase)
+│                   │
+│                   └── لا → هل العملية CRUD بسيطة؟
+│                             │
+│                             ├── نعم → استخدم IGenericService<T>
+│                             │         (مثال: عرض قائمة أدوية، تعديل اسم)
+│                             │
+│                             └── لا → استخدم DbContextFactoryService
+│                                       (للاستعلامات المخصصة المعقدة)
+│
+└── لا (صفحة قديمة) → هل تستخدم @inject BusinessDbContext مباشرة؟
+                      │
+                      ├── نعم → خطط لترحيلها تدريجياً
+                      │         (ابدأ بـ IGenericService ثم UseCase)
+                      │
+                      └── لا → اتركها كما هي إذا كانت تعمل
 ```
 
-### الحل الجذري: تحميل الترجمات دفعة واحدة
+---
 
-```mermaid
-sequenceDiagram
-    actor Browser
-    participant Server
-    participant DB
+## 🎯 أنواع الصفحات الخمسة (⭐ جديد - 18 يوليو 2026)
 
-    Browser->>Server: تحميل الصفحة
-    Server->>DB: استعلام واحد لكل ترجمات الصفحة
-    DB-->>Server: كل الترجمات (30+)
-    Server-->>Browser: الصفحة كاملة (سريعة!)
-```
+| النوع | الوصف | الأمثلة | النهج |
+|------|-------|---------|-------|
+| **Type 1: CRUD بسيطة** | عرض/إضافة/تعديل/حذف كيان واحد | قائمة الأدوية، تعديل اسم | `IGenericService<T>` |
+| **Type 2: عمليات معقدة** | منطق أعمال متعدد الخطوات | إنشاء PSP، تسجيل مريض | UseCase |
+| **Type 3: مشتركة** | تُستخدم في Web و Mobile | المزامنة، الإشعارات | UseCase + API |
+| **Type 4: حساسة** | عمليات مالية/أمنية | الدفع، تغيير كلمة المرور | UseCase + API + Validation |
+| **Type 5: تقارير** | استعلامات قراءة معقدة | لوحة التحكم، الإحصائيات | DbContextFactoryService |
+
+---
+
+## 📊 مصفوفة اختيار الخدمة - مرجع اتخاذ القرار (⭐ جديد - 18 يوليو 2026)
+
+### خدمات أساسية (ضرورية لكل صفحة)
+
+| الخدمة | الواجهة | متى تستخدمها؟ | مثال |
+|--------|---------|---------------|------|
+| `GenericService<T>` | `IGenericService<T>` | **CRUD بسيط** على كيان واحد | قائمة الأدوية، تعديل اسم منظمة |
+| `DbContextFactoryService` | - | **استعلامات قراءة مخصصة** معقدة | لوحة التحكم، تقارير المبيعات |
+| `UserContextService` | `IUserContextService` | **معلومات المستخدم الحالي** | أي صفحة تحتاج معرفة من هو المسجل |
+
+### خدمات الترجمة (لأي صفحة تدعم اللغتين)
+
+| الخدمة | الواجهة | متى تستخدمها؟ | مثال |
+|--------|---------|---------------|------|
+| `TranslationStateService` | - | معرفة **اللغة الحالية** | أي صفحة تدعم AR/EN |
+| `ILocalizationService` | `ILocalizationService` | جلب **الترجمات من قاعدة البيانات** | عرض النصوص المترجمة |
+| `LayoutDirectionService` | `ILayoutDirectionService` | إدارة **اتجاه الصفحة** (RTL/LTR) | ضبط `dir` attribute |
+
+### خدمات المستخدم والسياق
+
+| الخدمة | الواجهة | متى تستخدمها؟ | مثال |
+|--------|---------|---------------|------|
+| `UserContextService` | `IUserContextService` | ID المستخدم، الأدوار، الصلاحيات | التحقق من صلاحية الوصول |
+| `IUserSessionService` | `IUserSessionService` | localStorage + إدارة الجلسات | حفظ تفضيلات الجلسة |
+| `IUserRoleService` | `IUserRoleService` | **إدارة الأدوار الموسعة** | إضافة/تعديل/حذف أدوار المستخدمين |
+
+### خدمات التنقل والقوائم
+
+| الخدمة | الواجهة | متى تستخدمها؟ | مثال |
+|--------|---------|---------------|------|
+| `DynamicMenuService` | - | جلب **القوائم الديناميكية** | عرض القائمة الجانبية |
+
+### خدمات مساعدة
+
+| الخدمة | الواجهة | متى تستخدمها؟ | مثال |
+|--------|---------|---------------|------|
+| `ExcelService` | `IExcelService<T>` | استيراد/تصدير Excel | تصدير قائمة مرضى |
+| `IImageService` | `IImageService` | رفع ومعالجة الصور | رفع صورة البروفايل |
+
+---
+
+## 💡 أمثلة عملية على اختيار الخدمة الصحيحة (⭐ جديد - 18 يوليو 2026)
+
+### ✅ مثال 1: صفحة CRUD بسيطة (عرض قائمة أدوية)
+
+**القرار:** استخدم `IGenericService<T>`
 
 ```csharp
-// ✅ الحل: تحميل كل ترجمات الصفحة في استعلام واحد
-var translations = await Localizer.GetPageTranslationsAsync("PAGE_DOMAIN");
-var commonTranslations = await Localizer.GetPageTranslationsAsync("COMMON");
-
-// دمجها في قاموس واحد
-_allTranslations = commonTranslations.Concat(translations)
-    .ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
-
-// دالة مساعدة للوصول السريع
-private string T(string key) => 
-    _allTranslations.TryGetValue(key, out var value) ? value : key;
-```
-
-ثم في الـ HTML:
-```razor
-<h1>@T("TITLE")</h1>        {{!-- أسرع بـ 30 مرة --}}
-<p>@T("DESCRIPTION")</p>    {{!-- لا استعلامات إضافية --}}
-<label>@T("NAME")</label>   {{!-- يستخدم القاموس المحلي --}}
-```
-
----
-
-## 📋 CHECKLIST الشاملة لإنشاء صفحة جديدة
-
-### الخطوة 0: تحديد نوع الصفحة
-
-قبل كتابة أي سطر كود، اسأل:
-
-- [ ] هل الصفحة **Static** (مثل Login, Register, ExternalLogin)؟  
-  *هذه الصفحات لا تدعم الـ InteractiveServer Mode وتعتمد على HTML و JavaScript مباشر.*
-  
-- [ ] هل الصفحة **Interactive** (باقي الصفحات الإدارية والتطبيق)؟  
-  *هذه الصفحات تعمل مع Blazor InteractiveServer وتدعم دوال C# الكاملة.*
-
-**لماذا هذا التحديد مهم؟** لأن طريقة الترجمة تختلف تماماً بين النوعين.
-
----
-
-### الخطوة 1: الإعدادات الأساسية (لكل الصفحات)
-
-#### ✅ حقن الخدمات الأساسية
-
-```csharp
-@* في أعلى الصفحة *@
-@inject ILocalizationService Localizer
-@inject TranslationStateService TranslationState
-@inject IUserContextService UserContext
-```
-
-#### ✅ اختيار نمط الوراثة المناسب
-
-- **لصفحات CRUD الجديدة:**
-  ```csharp
-  @inherits BaseFactoryCrudPage<MyEntity>
-  ```
-- **للصفحات البسيطة:**
-  ```csharp
-  @code {
-      // لا حاجة لوراثة خاصة
-  }
-  ```
-
-#### ✅ إضافة مفاتيح الترجمة في قاعدة البيانات
-
-```sql
--- ⭐ مهم جداً: استخدم N'' prefix للعربية
-INSERT INTO Resources (ResourceKey, ResourceValueAr, ResourceValueEn, Module)
-VALUES 
-    (N'MY_PAGE.TITLE', N'عنوان الصفحة', N'Page Title', N'MY_MODULE'),
-    (N'MY_PAGE.SUBMIT', N'إرسال', N'Submit', N'MY_MODULE');
-
--- بدون N'' تظهر النصوص العربية كـ ??????
-```
-
----
-
-### الخطوة 2: تنفيذ نظام الترجمة الصحيح (حسب نوع الصفحة)
-
-#### للصفحات Static (مثل Login, Register, ExternalLogin)
-
-**النمط الكامل:**
-
-```csharp
-@page "/Account/ExternalLogin"
-@using System.Text.Encodings.Web
-@using System.Text.Json
-
-@inject ILocalizationService Localizer
-@inject IHttpContextAccessor HttpContextAccessor
-
-@{
-    // قراءة اللغة من QueryString أو Cookie
-    var queryLang = Context.Request.Query["lang"].ToString();
-    var cookieLang = Context.Request.Cookies["lang"];
-    var currentLang = !string.IsNullOrEmpty(queryLang) ? queryLang :
-                     !string.IsNullOrEmpty(cookieLang) ? cookieLang : "ar";
-
-    // تحميل الترجمات للصفحة
-    var loginTrans = await Localizer.GetPageTranslationsAsync("LOGIN", currentLang);
-    var commonTrans = await Localizer.GetPageTranslationsAsync("COMMON", currentLang);
-    var externalTrans = await Localizer.GetPageTranslationsAsync("EXTERNAL_LOGIN", currentLang);
-    
-    // دمج جميع الترجمات
-    var allTranslations = new Dictionary<string, string>();
-    foreach (var t in commonTrans.Concat(loginTrans).Concat(externalTrans))
-    {
-        allTranslations[t.Key] = t.Value;
-    }
-}
-
-<!DOCTYPE html>
-<html lang="@currentLang" dir="@(currentLang == "ar" ? "rtl" : "ltr")">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>@(allTranslations.GetValueOrDefault("LOGIN.TITLE", "تسجيل الدخول"))</title>
-    
-    <!-- ⭐ حقن الترجمات في JavaScript بطريقة آمنة -->
-    <script>
-        window.__initialTranslations = @Html.Raw(JsonSerializer.Serialize(
-            allTranslations,
-            new JsonSerializerOptions { 
-                Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
-            }));
-        window.__currentLang = "@currentLang";
-    </script>
-    
-    <!-- ⭐ تحميل ملف الترجمة الخاص بالصفحات الثابتة -->
-    <script src="/Assets/js/login-localization.js"></script>
-</head>
-<body>
-    <h1 data-translate="EXTERNAL_LOGIN.TITLE"></h1>
-    <p data-translate="EXTERNAL_LOGIN.DESCRIPTION"></p>
-    
-    <button onclick="toggleLanguageSimple()" class="lang-btn-simple">
-        @(currentLang == "ar" ? "English" : "العربية")
-    </button>
-</body>
-</html>
-```
-
-**ملف `login-localization.js` (النسخة النهائية الصحيحة):**
-
-```javascript
-// wwwroot/Assets/js/login-localization.js
-
-const loginLocalization = {
-    updateTranslations: async function (lang) {
-        try {
-            console.log(`🔄 Updating translations to ${lang}...`);
-
-            // ⭐ جلب الثلاث domains دفعة واحدة
-            const [loginRes, commonRes, externalRes] = await Promise.all([
-                fetch(`/api/localization/page/LOGIN?lang=${lang}`),
-                fetch(`/api/localization/page/COMMON?lang=${lang}`),
-                fetch(`/api/localization/page/EXTERNAL_LOGIN?lang=${lang}`)
-            ]);
-
-            if (!loginRes.ok || !commonRes.ok || !externalRes.ok) {
-                throw new Error('Failed to fetch one or more translation domains');
-            }
-
-            const [loginTrans, commonTrans, externalTrans] = await Promise.all([
-                loginRes.json(),
-                commonRes.json(),
-                externalRes.json()
-            ]);
-
-            // ⭐ دمج الترجمات
-            const translations = { ...commonTrans, ...loginTrans, ...externalTrans };
-
-            console.log(`✅ Received ${Object.keys(translations).length} translations`);
-
-            // تحديث العناصر النصية
-            document.querySelectorAll('[data-translate]').forEach(el => {
-                const key = el.getAttribute('data-translate');
-                const value = translations[key] 
-                           || translations[key.toUpperCase()] 
-                           || translations[key.toLowerCase()];
-                if (value) {
-                    if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
-                        el.value = value;
-                    } else {
-                        el.textContent = value;
-                    }
-                } else {
-                    console.warn(`⚠️ Key not found: ${key}`);
-                }
-            });
-
-            // تحديث placeholders
-            document.querySelectorAll('[data-translate-placeholder]').forEach(el => {
-                const key = el.getAttribute('data-translate-placeholder');
-                if (translations[key]) el.placeholder = translations[key];
-            });
-
-            // تحديث الاتجاه
-            document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
-            document.documentElement.lang = lang;
-
-            this.updateButtonStyle(lang);
-            localStorage.setItem('RubikCare:Language', lang);
-            document.cookie = `lang=${lang}; path=/; max-age=31536000; SameSite=Lax`;
-
-            console.log(`✅ Language switched to ${lang}`);
-
-        } catch (err) {
-            console.error('❌ Translation update failed:', err);
-        }
-    },
-
-    updateButtonStyle: function (lang) {
-        const button = document.querySelector('.lang-btn-simple');
-        if (button) {
-            button.classList.remove('lang-btn-simple-ar', 'lang-btn-simple-en');
-            button.classList.add(lang === 'ar' ? 'lang-btn-simple-ar' : 'lang-btn-simple-en');
-            button.title = lang === 'ar' ? 'العربية (AR)' : 'English (EN)';
-            button.textContent = lang === 'ar' ? 'English' : 'العربية';
-        }
-    },
-
-    init: function () {
-        const savedLang = localStorage.getItem('RubikCare:Language');
-        const serverLang = window.__currentLang || document.documentElement.lang || 'ar';
-
-        if (savedLang && savedLang !== serverLang) {
-            console.log(`🔄 Restoring saved language: ${savedLang} (server: ${serverLang})`);
-            this.updateTranslations(savedLang);
-        }
-    }
-};
-
-window.loginLocalization = loginLocalization;
-
-// ⭐ دالة تبديل اللغة
-window.toggleLanguageSimple = function () {
-    const current = document.documentElement.lang || window.__currentLang || 'ar';
-    const newLang = current === 'ar' ? 'en' : 'ar';
-    console.log(`🔀 Toggling: ${current} → ${newLang}`);
-    window.loginLocalization.updateTranslations(newLang);
-};
-
-document.addEventListener('DOMContentLoaded', () => {
-    window.loginLocalization.init();
-});
-```
-
----
-
-#### للصفحات Interactive (باقي الصفحات)
-
-**النمط الكامل مع `TranslationStateService`:**
-
-```razor
-@page "/admin/my-page"
-@inherits BaseFactoryCrudPage<MyEntity>
-@implements IDisposable  {{!-- ⭐ مهم جداً لإلغاء الاشتراك --}}
-
-@inject TranslationStateService TranslationState
-@inject ILocalizationService Localizer
-
-<h1>@T("TITLE")</h1>
-
-<SearchBar @bind-SearchTerm="SearchTerm" Placeholder="@T("SEARCH_PLACEHOLDER")" />
-
-<RubikSmartTable Data="@CurrentPageItems" TItem="MyEntity">
-    <Columns>
-        <th @onclick="() => SortByColumn('Name')">@T("NAME")</th>
-        <th>@T("ACTIONS")</th>
-    </Columns>
-    <RowTemplate Context="item">
-        <td>@item.Name</td>
-        <td>
-            <RubikButton Text="@T("EDIT")" Icon="bi-pencil" OnClick="() => Edit(item)" />
-        </td>
-    </RowTemplate>
-</RubikSmartTable>
+// في Web/Pages/Admin/Medications.razor
+@inject IGenericService<Medication> MedicationService
 
 @code {
-    private string _currentLang = "ar";
-    private Dictionary<string, string> _translations = new();
-    private string _pageDomain = "MY_PAGE";
-
+    private List<Medication> medications = new();
+    
     protected override async Task OnInitializedAsync()
     {
-        await base.OnInitializedAsync();
-        
-        _currentLang = TranslationState.CurrentLanguage ?? "ar";
-        
-        // ⭐ الاشتراك في أحداث تغيير اللغة
-        TranslationState.OnLanguageChanged += HandleLanguageChanged;
-        
-        await LoadTranslations(_currentLang);
+        medications = await MedicationService.GetAllAsync().ToListAsync();
     }
-
-    private async void HandleLanguageChanged()
+    
+    private async Task DeleteMedication(int id)
     {
-        _currentLang = TranslationState.CurrentLanguage ?? "ar";
-        await LoadTranslations(_currentLang);
-        await InvokeAsync(StateHasChanged);
-    }
-
-    private async Task LoadTranslations(string lang)
-    {
-        // ⭐ تحميل كل الترجمات دفعة واحدة
-        var pageTrans = await Localizer.GetPageTranslationsAsync(_pageDomain, lang);
-        var commonTrans = await Localizer.GetPageTranslationsAsync("COMMON", lang);
-        
-        _translations.Clear();
-        
-        foreach (var item in commonTrans) _translations[item.Key] = item.Value;
-        foreach (var item in pageTrans) _translations[item.Key] = item.Value;
-    }
-
-    // ⭐ دالة مساعدة سريعة
-    private string T(string key) =>
-        _translations.TryGetValue(key, out var value) ? value : key;
-
-    // ⭐ إلزامي: إلغاء الاشتراك عند التخلص من الصفحة
-    public void Dispose()
-    {
-        TranslationState.OnLanguageChanged -= HandleLanguageChanged;
+        await MedicationService.DeleteAsync(id);
     }
 }
 ```
 
-**⚠️ تحذيرات مهمة:**
-
-1. **`var` خارج الدوال ممنوع:**
-   ```csharp
-   @code {
-       // ❌ خطأ: CS0103
-       var x = 5;
-       
-       // ✅ صحيح
-       protected override void OnInitialized()
-       {
-           var x = 5;
-       }
-   }
-   ```
-
-2. **لا تنسى `Dispose()`:** أي صفحة تستخدم `TranslationStateService` يجب أن تنفذ `IDisposable` وإلا سيحدث **تسريب في الذاكرة (Memory Leak)**.
+**السبب:** عملية قراءة/حذف بسيطة، لا تحتاج UseCase.
 
 ---
 
-### الخطوة 3: استخدام المكونات الذكية
+### ✅ مثال 2: عملية معقدة (مزامنة أدوية الشركة)
 
-#### متى تستخدم أي مكون
+**القرار:** استخدم UseCase
 
-| المكون | متى تستخدمه |
-|--------|-------------|
-| **`RubikSmartTable`** | عند عرض بيانات في جدول (مع Sorting, تفاصيل إضافية) |
-| **`SearchBar`** | عند الحاجة لفلترة البيانات (مع Debounce 300ms) |
-| **`Pagination`** | عند وجود أكثر من 20-30 سجل |
-| **`GenericModal`** | عند الحاجة لنافذة منبثقة (إضافة، تعديل) |
-| **`DataOperationsModal`** | عند الحاجة لاستيراد/تصدير Excel |
-| **`RubikDropdown`** | عند الحاجة لقائمة منسدلة (بديل MudBlazor) |
-| **`RubikButton`** | للأزرار الموحدة في النظام |
-| **`AlertMessage`** | لعرض رسائل نجاح/خطأ/تحذير |
+```csharp
+// في Application/UseCases/Medication/SyncCompanyMedicationsUseCase.cs
+public class SyncCompanyMedicationsUseCase
+{
+    private readonly IMedicationRepository _repository;
+    
+    public async Task<Result> ExecuteAsync(int companyId)
+    {
+        // منطق معقد: مزامنة، تحقق، تحويل
+        var companyMeds = await _repository.GetCompanyMedicationsAsync(companyId);
+        // ... منطق الأعمال ...
+        await _repository.SyncToMainTableAsync(companyMeds);
+        return Result.Success();
+    }
+}
 
-#### مثال متكامل من صفحة الأمراض
+// في Web/Pages/Admin/SyncMedications.razor
+@inject SyncCompanyMedicationsUseCase SyncUseCase
 
-```razor
-@* Diseases.razor - النموذج المرجعي *@
+@code {
+    private async Task SyncNow()
+    {
+        var result = await SyncUseCase.ExecuteAsync(CurrentCompanyId);
+        // ...
+    }
+}
+```
 
-<div class="rubik-main-content">
-    <!-- شريط الأدوات -->
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <h2>@T("TITLE")</h2>
-        <div class="d-flex gap-2">
-            <RubikButton Icon="bi-file-earmark-excel" 
-                        ColorClass="btn-outline-success"
-                        OnClick="ToggleDataModal">
-                @T("EXPORT_IMPORT")
-            </RubikButton>
-            <RubikButton Icon="bi-plus-lg" 
-                        ColorClass="btn-primary"
-                        OnClick="OpenAddModal">
-                @T("ADD_NEW")
-            </RubikButton>
-        </div>
-    </div>
+**السبب:** عملية معقدة متعددة الخطوات، تحتاج UseCase.
 
-    <!-- بحث -->
-    <SearchBar @bind-SearchTerm="SearchTerm" 
-              Placeholder="@T("SEARCH_PLACEHOLDER")"
-              OnSearch="ExecuteSearch"
-              DebounceDelay="300" />
+---
 
-    <!-- الجدول الذكي -->
-    <RubikSmartTable Data="@CurrentPageItems.ToList()" TItem="Disease"
-                    EnableSorting="true"
-                    SortColumn="@_sortColumn"
-                    SortAscending="@_sortAscending"
-                    OnSortChanged="HandleSortChanged">
-        <Columns>
-            <th style="width: 50px">#</th>
-            <th @onclick="() => SortByColumn('DiseaseNameAr')">
-                @T("NAME_AR")
-                @if (_sortColumn == "DiseaseNameAr")
-                {
-                    <i class="bi @(_sortAscending ? "bi-sort-alpha-down" : "bi-sort-alpha-up-alt")"></i>
-                }
-            </th>
-            <th>@T("TYPE")</th>
-            <th class="text-center">@T("STATUS")</th>
-            <th class="text-center">@T("ACTIONS")</th>
-        </Columns>
-        <RowTemplate Context="disease">
-            <td>@((CurrentPage - 1) * PageSize + context.Index + 1)</td>
-            <td>@disease.DiseaseNameAr</td>
-            <td>@disease.DiseaseType?.TypeNameAr</td>
-            <td class="text-center">
-                <span class="badge @(disease.IsActive ? "bg-success" : "bg-secondary")">
-                    @(disease.IsActive ? T("ACTIVE") : T("INACTIVE"))
-                </span>
-            </td>
-            <td class="text-center">
-                <RubikButton Icon="bi-pencil" 
-                            ColorClass="btn-sm btn-outline-primary"
-                            OnClick="() => PrepareEdit(disease.DiseaseID)"
-                            Tooltip="@T("EDIT")" />
-                <RubikButton Icon="bi-trash" 
-                            ColorClass="btn-sm btn-outline-danger"
-                            OnClick="() => ConfirmDelete(disease)"
-                            Tooltip="@T("DELETE")" />
-            </td>
-        </RowTemplate>
-        <DetailTemplate Context="disease">
-            <div class="p-3 bg-light">
-                <h6>@T("DETAILS")</h6>
-                <p>@disease.Description</p>
-                <small>@T("CREATED"): @disease.CreatedDate?.ToString("yyyy-MM-dd")</small>
-            </div>
-        </DetailTemplate>
-    </RubikSmartTable>
+### ✅ مثال 3: استعلام قراءة معقد (لوحة التحكم)
 
-    <!-- Pagination -->
-    <Pagination CurrentPage="@CurrentPage"
-               TotalPages="@TotalPages"
-               PageSize="@PageSize"
-               TotalRecords="@TotalItems"
-               OnPageChanged="HandlePageChange"
-               ShowProgressBar="true" />
+**القرار:** استخدم `DbContextFactoryService`
 
-    <!-- مودال الإضافة/التعديل -->
-    <GenericModal @bind-IsVisible="_showModal"
-                 Title="@(_isEditMode ? T("EDIT_TITLE") : T("ADD_TITLE"))"
-                 OnSave="HandleSave"
-                 OnCancel="CloseModal">
-        <EditForm Model="@CurrentItem" OnValidSubmit="HandleSave">
-            <div class="mb-3">
-                <label class="form-label">@T("NAME_AR")</label>
-                <InputText class="form-control" @bind-Value="CurrentItem.DiseaseNameAr" />
-            </div>
-        </EditForm>
-    </GenericModal>
+```csharp
+// في Web/Pages/Dashboard.razor
+@inject DbContextFactoryService DbFactory
 
-    <!-- مودال عمليات Excel -->
-    <DataOperationsModal @bind-IsVisible="_showDataModal"
-                        OnClose="ToggleDataModal"
-                        OnExport="ExportToExcel"
-                        OnImport="ImportFromExcel"
-                        OnDownloadTemplate="DownloadTemplate" />
+@code {
+    private DashboardStats? stats;
+    
+    protected override async Task OnInitializedAsync()
+    {
+        await using var context = await DbFactory.CreateDbContextAsync();
+        
+        stats = new DashboardStats
+        {
+            TotalPatients = await context.UserProfiles
+                .CountAsync(up => up.IsActive),
+            ActivePrograms = await context.PSPs
+                .CountAsync(p => p.IsActive),
+            RecentOrders = await context.Orders
+                .OrderByDescending(o => o.CreatedDate)
+                .Take(10)
+                .ToListAsync()
+        };
+    }
+}
+```
 
-    <!-- Alert Messages -->
-    <AlertMessage @ref="_alertRef" />
-</div>
+**السبب:** استعلام مخصص معقد، لا يناسب `IGenericService<T>`.
+
+---
+
+### ✅ مثال 4: عملية مشتركة (Web + Mobile)
+
+**القرار:** استخدم UseCase + API
+
+```csharp
+// 1. في Application/UseCases/Medication/SyncCompanyMedicationsUseCase.cs
+// (نفس UseCase أعلاه)
+
+// 2. في Api.Web/Controllers/MedicationController.cs
+[HttpPost("sync")]
+public async Task<IActionResult> Sync([FromBody] SyncRequest request)
+{
+    var result = await _syncUseCase.ExecuteAsync(request.CompanyId);
+    return Ok(result);
+}
+
+// 3. في Mobile - يستدعي API
+var result = await ApiService.PostAsync<SyncResult>(
+    "api/medication/sync", 
+    new { CompanyId = 123 });
+
+// 4. في Web - يستدعي UseCase مباشرة (لأنه على نفس الخادم)
+var result = await SyncUseCase.ExecuteAsync(123);
+```
+
+**السبب:** العملية مشتركة، نضع UseCase في Application ونستدعيها بطرق مختلفة.
+
+---
+
+## 🏛️ قواعد Shared.UI: مكونات vs صفحات (⭐ جديد - 18 يوليو 2026)
+
+### ✅ ما يوضع في Shared.UI:
+- **المكونات القابلة لإعادة الاستخدام** (RubikSmartTable, RubikDropdown)
+- **الأقسام المشتركة** (SettingsPage, SecuritySection, ProfileHeader)
+- **الخدمات المشتركة** (TranslationState, LayoutDirection)
+
+### ❌ ما لا يوضع في Shared.UI:
+- **صفحات كاملة** (Dashboard, PSP, Admin)
+- **منطق أعمال** (يجب أن يكون في Application)
+- **اتصالات API** (يجب أن تكون في ApiService الخاص بكل منصة)
+
+### 💡 لماذا هذا التمييز مهم؟
+
+1. **كسر مبدأ "Single Responsibility":** Shared.UI يصبح "مصغراً" لكل شيء
+2. **مشاكل الأداء في MAUI:** BlazorWebView أبطأ، والصفحات الكبيرة تزيد الحمل
+3. **صعوبة الاختبار:** كيف تختبر صفحة تعتمد على `NavigationManager` في Shared.UI؟
+4. **تضارب التبعيات:** Web يحتاج `DbContextFactory`، Mobile يحتاج `ApiService`
+
+### 📋 المعمارية الصحيحة (نموذج مرجعي)
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    RubikCare.Web (Blazor Server)                │
+│  ├── Pages/                                                     │
+│  │   ├── Dashboard.razor              ← صفحة كاملة             │
+│  │   ├── PSP.razor                    ← صفحة كاملة             │
+│  │   └── Admin/Medications.razor      ← صفحة كاملة             │
+│  │                                                              │
+│  └── يستخدم:                                                    │
+│      ├── Shared.UI Components         (مكونات فقط)             │
+│      ├── DbContextFactory             (للصفحات البسيطة)         │
+│      └── UseCases                     (للصفحات المعقدة)         │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│                    RubikCare.Mobile (MAUI)                      │
+│  ├── Pages/                                                     │
+│  │   ├── DashboardPage.xaml           ← صفحة كاملة             │
+│  │   └── PSPPage.xaml                 ← صفحة كاملة             │
+│  │                                                              │
+│  └── يستخدم:                                                    │
+│      ├── Shared.UI Components         (مكونات فقط)             │
+│      └── ApiService                   (HTTP calls)              │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│                    RubikCare.Shared.UI (RCL)                    │
+│  ├── Components/                                                │
+│  │   ├── RubikSmartTable.razor        ← مكون                   │
+│  │   ├── Patient/                                               │
+│  │   │   ├── SettingsPage.razor       ← مكون (ليس صفحة!)       │
+│  │   │   └── SecuritySection.razor    ← مكون                   │
+│  │   └── Shared/DashboardCard.razor   ← مكون                   │
+│  │                                                              │
+│  └── لا يستخدم:                                                 │
+│      ❌ DbContext                                               │
+│      ❌ ApiService                                              │
+│      ❌ NavigationManager (إلا عبر Parameters)                  │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-### الخطوة 4: الاختبار النهائي
+## 📱 دليل التجاوبية (Responsive Design Guidelines) (⭐ جديد - 18 يوليو 2026)
 
-#### اختبارات إلزامية
+### 🎯 المبادئ الأساسية
 
-- [ ] **الاختبار بالعربية:** هل كل النصوص تظهر بشكل صحيح؟
-- [ ] **الاختبار بالإنجليزية:** هل كل النصوص تظهر بشكل صحيح؟
-- [ ] **التبديل بين اللغتين:** هل يعمل بسلاسة دون إعادة تحميل الصفحة؟
-- [ ] **الأداء:** افتح Developer Tools -> Network، تأكد من:
-    - [ ] عدد قليل من الطلبات (1-2) وليس 20-30
-    - [ ] وقت التحميل أقل من ثانيتين
-- [ ] **عمليات CRUD:** هل الإضافة، التعديل، الحذف تعمل بعد الترجمة؟
-- [ ] **المكونات:** هل `RubikDropdown` و `RubikSmartTable` تعرض البيانات بشكل صحيح؟
+1. **Mobile-First:** صمم للموبايل أولاً، ثم وسّع للشاشات الأكبر
+2. **Touch-Friendly:** الحد الأدنى للعناصر القابلة للنقر: `48px × 48px`
+3. **Readable:** الحد الأدنى لحجم الخط: `14px` (Body), `16px` (Inputs)
+4. **Fast:** تجنب الصور الكبيرة، استخدم `lazy loading`
+
+### 📏 Breakpoints المعيارية
+
+| الاسم | العرض | الاستخدام |
+|-------|-------|-----------|
+| **Mobile (Portrait)** | ≤ 480px | هواتف صغيرة |
+| **Mobile (Landscape)** | 481px - 767px | هواتف كبيرة / تابلت صغير |
+| **Tablet** | 768px - 991px | تابلت |
+| **Desktop** | 992px - 1199px | شاشات متوسطة |
+| **Large Desktop** | ≥ 1200px | شاشات كبيرة |
+
+### 🎨 قواعد التجاوبية
+
+#### 1. Touch Targets (أهداف اللمس)
+
+```css
+/* ❌ خطأ: صغير جداً */
+.btn {
+    padding: 8px 16px;
+    font-size: 12px;
+}
+
+/* ✅ صحيح: حجم مريح */
+.btn {
+    min-height: 48px;
+    min-width: 48px;
+    padding: 12px 24px;
+    font-size: 14px;
+}
+```
+
+#### 2. iOS Zoom Prevention (منع التكبير التلقائي)
+
+```css
+/* ❌ خطأ: iOS سيكبر الصفحة عند التركيز */
+input {
+    font-size: 14px;
+}
+
+/* ✅ صحيح: يمنع التكبير */
+input {
+    font-size: 16px; /* الحد الأدنى لمنع التكبير في iOS */
+}
+```
+
+#### 3. Responsive Typography (خطوط متجاوبة)
+
+```css
+/* Desktop */
+h1 { font-size: 32px; }
+h2 { font-size: 24px; }
+p { font-size: 16px; }
+
+/* Tablet */
+@media (max-width: 992px) {
+    h1 { font-size: 28px; }
+    h2 { font-size: 20px; }
+    p { font-size: 15px; }
+}
+
+/* Mobile */
+@media (max-width: 480px) {
+    h1 { font-size: 24px; }
+    h2 { font-size: 18px; }
+    p { font-size: 14px; }
+}
+```
 
 ---
 
-## 💡 أنماط وحلول متقدمة
+## 🔐 أنماط صفحات المصادقة (Auth Pages) (⭐ جديد - 18 يوليو 2026)
 
-### مشكلة Case Sensitivity في المفاتيح
+### نظرة عامة
 
-**المشكلة:**
+تستخدم صفحات المصادقة (Login, Register, ForgotPassword, ResetPassword) نظام تصميم موحد يعتمد على نمط **Split-Panel** (لوحة بصرية + لوحة نموذج).
+
+### 🏗️ نمط Split-Panel
+
 ```
-COMMON.SUCCESS  ← مخزن في DB بحروف كبيرة
-Success         ← مستخدم في data-translate بحرف كبير أول فقط
-```
-
-**الحل في JavaScript:**
-```javascript
-const value = translations[key]
-           || translations[key.toUpperCase()]
-           || translations[key.toLowerCase()];
-```
-
-### مشكلة Encoding في SQL
-
-```sql
--- ❌ خطأ: يحفظ ???? بدلاً من عربي
-UPDATE Resources SET ResourceValueAr = 'نجاح' WHERE ResourceKey = 'COMMON.SUCCESS';
-
--- ✅ صحيح: N prefix ضروري للعربية
-UPDATE Resources SET ResourceValueAr = N'نجاح' WHERE ResourceKey = N'COMMON.SUCCESS';
+┌─────────────────────────────────────────────────────────┐
+│  Visual Panel (60%)  │  Form Panel (40%)               │
+│  ─────────────────   │  ──────────────                 │
+│  • تدرج لوني جذاب    │  • نموذج الإدخال                │
+│  • أيقونات عائمة     │  • شعار الشركة                  │
+│  • خطوات العملية     │  • أزرار الإجراء                │
+│  • موجات زخرفية      │  • روابط مساعدة                 │
+└─────────────────────────────────────────────────────────┘
 ```
 
-### مشكلة `CS0111` عند لصق الكود
+### 🎨 الألوان والتدرجات
 
-**المشكلة:** عند استرجاع الكود من GitHub أو وثيقة، يظهر خطأ `CS0111 already defines a member`.
+#### التدرج الأساسي (Visual Panel)
 
-**السبب:** وجود نسختين من نفس الدالة في الملف.
+```css
+background: linear-gradient(135deg, #0F3B52 0%, #1B5A7A 50%, #2C7AA0 100%);
+```
 
-**الحل:** احذف النسخة المكررة واحتفظ بالنسخة في السطر الأقل رقماً.
+### 📐 الفئات (Classes) المشتركة
+
+- `.forgot-root` - الحاوية الرئيسية
+- `.forgot-visual` - اللوحة البصرية
+- `.forgot-form-panel` - لوحة النموذج
+- `.forgot-input-wrap` - حاوية حقل الإدخال
+- `.forgot-submit-btn` - زر الإرسال
+
+### 📱 التجاوبية (Responsive Design)
+
+```css
+@media (max-width: 992px) {
+    .forgot-visual {
+        display: none; /* إخفاء اللوحة البصرية */
+    }
+    
+    .forgot-form-panel {
+        flex: 1;
+        width: 100%;
+        padding: 24px 16px;
+    }
+    
+    .forgot-input {
+        font-size: 16px; /* يمنع التكبير التلقائي في iOS */
+    }
+}
+```
 
 ---
 
-## 📚 مرجع سريع لخصائص المكونات
+## ✅ CHECKLIST: قبل كتابة أي صفحة جديدة (⭐ محدّث - 18 يوليو 2026)
 
-### GenericModal
+### التحقق من القرارات المعمارية (جديد)
 
-| الخاصية | الوصف | مثال |
-|----------|-------|-------|
-| `IsVisible` | عرض/إخفاء النافذة | `@bind-IsVisible="showModal"` |
-| `Title` | عنوان النافذة | `Title="إضافة جديد"` |
-| `ModalSize` | الحجم (Small, Large, XLarge) | `ModalSize="ModalSize.Large"` |
-| `OnSave` | حدث عند حفظ | `OnSave="HandleSave"` |
-| `OnCancel` | حدث عند إلغاء | `OnCancel="CloseModal"` |
+- [ ] **هل الصفحة جديدة؟** → استخدم `IGenericService<T>` و `DbContextFactory`
+- [ ] **هل العملية معقدة؟** → استخدم UseCase في Application
+- [ ] **هل العملية مشتركة بين Web و Mobile؟** → استخدم UseCase + API
+- [ ] **هل الصفحة قديمة وتستخدم `@inject BusinessDbContext` مباشرة؟** → خطط لترحيلها
+- [ ] **هل راجعت شجرة القرار أعلاه لاختيار الخدمة الصحيحة؟**
 
-### RubikDropdown
+### التحقق من التسجيلات
 
-| الخاصية | الوصف | مثال |
-|----------|-------|-------|
-| `Items` | قائمة العناصر | `Items="@categories"` |
-| `SelectedItem` | العنصر المحدد | `@bind-SelectedItem="selectedCategory"` |
-| `ItemTextSelector` | استخراج النص | `ItemTextSelector="@(c => c.NameAr)"` |
-| `ShowSearch` | تفعيل البحث | `ShowSearch="true"` |
+- [ ] هل الخدمة التي سأستخدمها مسجلة في `Program.cs`؟
+- [ ] إذا كانت خدمة جديدة، هل أضفتها باستخدام `AddScoped` أو `AddSingleton`؟
+- [ ] هل تأكدت من عدم وجود تسجيل مزدوج لنفس الخدمة؟
 
-### AlertMessage
+### التحقق من قاعدة البيانات
 
-| الخاصية | الوصف | مثال |
-|----------|-------|-------|
-| `MessageType` | نوع الرسالة | `MessageType="AlertType.Success"` |
-| `ShowAutoClose` | إغلاق تلقائي | `ShowAutoClose="true"` |
-| `AutoCloseDuration` | مدة الإغلاق (ms) | `AutoCloseDuration="3000"` |
+- [ ] هل النموذج (Model) موجود في مجلد `Data/Models`؟
+- [ ] هل تم إضافة `DbSet<MyEntity>` في `BusinessDbContext`؟
+- [ ] هل تم إنشاء `Migration` جديدة بعد إضافة النموذج؟
 
-### SearchBar
+### التحقق من نمط الصفحة
 
-| الخاصية | الوصف | مثال |
-|----------|-------|-------|
-| `SearchTerm` | نص البحث | `@bind-SearchTerm="searchText"` |
-| `DebounceDelay` | تأخير البحث (ms) | `DebounceDelay="300"` |
-| `Placeholder` | نص توجيهي | `Placeholder="ابحث..."` |
+- [ ] هل الصفحة تتبع نمط الدور الرئيسي (Clinic/Pharmacy/Rep)؟
+- [ ] هل تستخدم المتغيرات الصحيحة (`--clinic-*` / `--pharmacy-*` / `--rep-*`)?
+- [ ] هل الـ Hero Section يستخدم التدرج الصحيح؟
+- [ ] هل أيقونات الأزرار تستخدم الألوان الصحيحة؟
+- [ ] هل تم إضافة ملف CSS إلى الباندل المناسب؟
 
-### Pagination
+### ⭐ التحقق من التجاوبية (جديد - 18 يوليو 2026)
 
-| الخاصية | الوصف | مثال |
-|----------|-------|-------|
-| `CurrentPage` | الصفحة الحالية | `CurrentPage="@page"` |
-| `TotalPages` | إجمالي الصفحات | `TotalPages="@totalPages"` |
-| `PageSize` | عدد العناصر بالصفحة | `PageSize="20"` |
-| `OnPageChanged` | تغيير الصفحة | `OnPageChanged="LoadPage"` |
+- [ ] هل الصفحة تعمل على الموبايل (≤ 480px)؟
+- [ ] هل الأزرار بحجم `48px` على الأقل؟
+- [ ] هل حقول الإدخال `font-size: 16px` (لمنع تكبير iOS)؟
+- [ ] هل النصوص مقروءة بدون تكبير؟
+- [ ] هل تم اختبار الصفحة على 3 أجهزة (Mobile, Tablet, Desktop)؟
 
-### RubikSmartTable
+### ⭐ التحقق من صفحات المصادقة (جديد - 18 يوليو 2026)
 
-| الخاصية | الوصف | مثال |
-|----------|-------|-------|
-| `Data` | بيانات الجدول | `Data="@items"` |
-| `EnableSorting` | تفعيل الترتيب | `EnableSorting="true"` |
-| `SortColumn` | عمود الترتيب | `SortColumn="@sortColumn"` |
-| `OnSortChanged` | تغيير الترتيب | `OnSortChanged="HandleSort"` |
+- [ ] هل تستخدم `.forgot-*` classes المشتركة؟
+- [ ] هل Visual Panel يُخفى على الموبايل (`@media (max-width: 992px)`)?
+- [ ] هل Form Panel يملأ الشاشة على الموبايل؟
+- [ ] هل تم إضافة Media Queries للتجاوبية؟
 
-### RubikButton
+### التحقق من Shared.UI (جديد)
 
-| الخاصية | الوصف | مثال |
-|----------|-------|-------|
-| `Text` | نص الزر | `Text="حفظ"` |
-| `Icon` | أيقونة Bootstrap | `Icon="bi-save"` |
-| `ColorClass` | لون الزر | `ColorClass="btn-primary"` |
-| `OnClick` | حدث النقر | `OnClick="SaveData"` |
+- [ ] هل أضع **مكوناً** في Shared.UI وليس صفحة كاملة؟
+- [ ] هل المكون لا يستخدم `DbContext` أو `ApiService` مباشرة؟
+- [ ] هل المكون يستخدم `Parameters` بدلاً من `NavigationManager`؟
 
-### DataOperationsModal
+### التحقق من الترجمة
 
-| الخاصية | الوصف | مثال |
-|----------|-------|-------|
-| `IsVisible` | عرض/إخفاء | `@bind-IsVisible="showModal"` |
-| `OnExport` | تصدير Excel | `OnExport="ExportData"` |
-| `OnImport` | استيراد Excel | `OnImport="ImportData"` |
-| `OnDownloadTemplate` | تحميل قالب | `OnDownloadTemplate="GetTemplate"` |
+- [ ] هل أضفت مفاتيح الترجمة في قاعدة البيانات مع `N'' prefix` للعربية؟
+- [ ] هل تستخدم `T()` المساعدة بدلاً من `<LocalizedText />`؟
 
 ---
 
-## ✅ ملخص الفصل
+## 🛠️ كيفية إنشاء صفحة جديدة (خطوة بخطوة)
 
-في هذا المرجع، تعلمنا:
+### الخطوة 1: تحديد نوع الصفحة
 
-1. **🔴 مشكلة الأداء الحالية:** سببها N+1 Queries والحل هو تحميل الترجمات دفعة واحدة
-2. **📋 CHECKLIST من 4 خطوات:** من تحديد نوع الصفحة إلى الاختبار النهائي
-3. **💡 أنماط متقدمة:** حلول لمشاكل Case Sensitivity، Encoding، و `CS0111`
-4. **📚 مرجع سريع:** لجميع المكونات الذكية في النظام
+راجع **شجرة القرار المعماري** أعلاه وحدد:
+- هل هي CRUD بسيطة؟ → `IGenericService<T>`
+- هل هي عملية معقدة؟ → UseCase
+- هل هي مشتركة؟ → UseCase + API
 
-**النتيجة:** أي صفحة جديدة تتبع هذه الإرشادات ستكون:
-- ✅ **سريعة** (بدون استعلامات زائدة)
-- ✅ **مترجمة بشكل صحيح** (عربي/إنجليزي)
-- ✅ **متسقة** مع بقية النظام
-- ✅ **قابلة للصيانة** بسهولة
+### الخطوة 2: إنشاء الملفات المطلوبة
+
+#### للصفحات البسيطة (CRUD):
+```
+Web/Pages/
+└── Admin/
+    └── Medications.razor          ← الصفحة
+```
+
+#### للصفحات المعقدة (UseCase):
+```
+Application/UseCases/
+└── Medication/
+    └── SyncCompanyMedicationsUseCase.cs  ← UseCase
+
+Web/Pages/
+└── Admin/
+    └── SyncMedications.razor      ← الصفحة
+```
+
+#### للصفحات المشتركة (Web + Mobile):
+```
+Application/UseCases/
+└── Medication/
+    └── SyncCompanyMedicationsUseCase.cs  ← UseCase
+
+Api.Web/Controllers/
+└── MedicationController.cs        ← API Endpoint
+
+Web/Pages/
+└── Admin/
+    └── SyncMedications.razor      ← صفحة الويب
+
+Mobile/Pages/
+└── SyncMedicationsPage.xaml       ← صفحة الموبايل
+```
+
+### الخطوة 3: إضافة CSS (إذا لزم الأمر)
+
+```css
+/* في Shared.UI/wwwroot/css/_pages/Role/page-name.css */
+.page-root {
+    /* استخدم المتغيرات */
+    background: var(--rubik-body-bg);
+}
+
+/* أضف Media Queries للتجاوبية */
+@media (max-width: 992px) {
+    /* تنسيقات الموبايل */
+}
+```
+
+### الخطوة 4: إضافة الاستيراد في الباندل
+
+```css
+/* في _PagesBundle.css أو الباندل المناسب */
+@import url('_pages/Role/page-name.css');
+```
+
+### الخطوة 5: اختبار الصفحة
+
+- [ ] اختبر على Desktop (1920px)
+- [ ] اختبر على Tablet (768px)
+- [ ] اختبر على Mobile (375px)
+- [ ] اختبر الترجمة (AR/EN)
+- [ ] اختبر RTL/LTR
+
+---
+
+## ⚠️ تحذيرات ومحاذير (⭐ محدّث - 18 يوليو 2026)
+
+| # | التحذير |
+|---|---------|
+| 1 | لا تغير ترتيب Middleware - `UseAuthentication` قبل `UseAuthorization` دائماً |
+| 2 | لا تنسى `ServiceLifetime.Scoped` في `AddDbContextFactory` |
+| 3 | استخدم `DbContextFactory` للصفحات الجديدة - لا تحقن `DbContext` مباشرة |
+| 4 | سجل خدماتك قبل `builder.Build()` - أي تسجيل بعد البناء لن يعمل |
+| 5 | تأكد من وجود `AddMemoryCache()` - ضروري للترجمة والقوائم |
+| 6 | ⭐ **لا تستخدم `IGenericService<T>` للعمليات المعقدة** - استخدم UseCase |
+| 7 | ⭐ **لا تضع منطق أعمال في Controllers** - Controllers للتنسيق فقط |
+| 8 | ⭐ **Mobile لا يعتمد على أي مشروع** - التواصل عبر HTTP فقط |
+| 9 | ⭐ **لا تضع صفحات كاملة في Shared.UI** - مكونات فقط |
+| 10 | ⭐ **استخدم `font-size: 16px` في حقول الإدخال** - لمنع تكبير iOS |
 
 ---
 
 ## 🔗 روابط ذات صلة
 
-- [00 - الهيكل المعماري](00-architecture-overview.md)
-- [01 - Program.cs والتسجيلات الأساسية](01-program-cs-foundation.md)
-- [03 - دليل التصميم والنمط البصري](03-style-guide.md)
-- [06 - منهجية حل المشاكل](06-troubleshooting-methodology.md)
+- [00 - الهيكل المعماري](00-architecture-overview.md) - يحتوي على شجرة القرار المعماري الكاملة ⭐
+- [01 - Program.cs والتسجيلات الأساسية](01-program-cs-foundation.md) - يحتوي على مصفوفة اختيار الخدمة ⭐
+- [02 - نظام الهوية والمصادقة](02-identity-system.md)
+- [03 - دليل الأنماط](03-style-guide.md) - يحتوي على أنماط المصادقة والتجاوبية ⭐
+- [09 - دليل API](09-api-guide.md)
+- [الملحق ب - فهرس الخدمات](../appendix-b-service-index.md)
+
+---
+
+**آخر تحديث:** 18 يوليو 2026 | **الملف:** `05-page-creation-checklist.md`
 ```
+
+---
+
+## 📊 ملخص التحديثات في هذه الوثيقة
+
+| القسم | التغيير |
+|-------|---------|
+| **المحتوى الأصلي** | ✅ محفوظ بالكامل (إنشاء الصفحات، الترجمة، المكونات الذكية) |
+| **🧭 شجرة القرار المعماري** | ✅ إضافة كاملة مع Mermaid Diagram |
+| **🎯 أنواع الصفحات الخمسة** | ✅ تصنيف واضح مع أمثلة |
+| **📊 مصفوفة اختيار الخدمة** | ✅ تحديث شامل مع عمود "متى تستخدمها؟" |
+| **💡 أمثلة عملية** | ✅ 4 أمثلة كود جاهزة لكل حالة |
+| **🏛️ قواعد Shared.UI** | ✅ مكونات vs صفحات + رسم توضيحي |
+| **📱 دليل التجاوبية** | ✅ Breakpoints, Touch Targets, iOS Zoom Prevention |
+| **🔐 أنماط المصادقة** | ✅ Split-Panel, `.forgot-*` classes, Media Queries |
+| **✅ CHECKLIST محدّث** | ✅ إضافة 15 نقطة تحقق جديدة |
+| **🛠️ كيفية إنشاء صفحة** | ✅ خطوات عملية مفصلة |
+| **⚠️ تحذيرات** | ✅ إضافة 5 تحذيرات جديدة |
+
+---
