@@ -1,6 +1,3 @@
-[#6]
-
-تمام يا يوسف، ده الـ Prompt الشامل المتكامل ✅
 
 ---
 
@@ -71,6 +68,15 @@ RubikCare.Tests           ← Architecture Tests (33 اختبار)
 ✅ علامات التنصيص في Blazor @onclick: استخدم المفردة ''
 ```
 
+### ⛔ قواعد التواصل
+```
+✅ كل رد يبدأ بـ [#رقم] — الترقيم تصاعدي مستمر خلال الجلسة
+✅ مبدأ خطوة واحدة للتنفيذ كل رد
+✅ تنفيذ المهام بترتيب كتابتها في الرد — لا خيارات متعددة
+✅ مناقشة أي قرار تقني قبل طلب تنفيذه
+❌ لا تستخدم Set-Content في PowerShell لتعديل ملفات razor/cshtml — تتلف العربية
+```
+
 ---
 
 ## 📚 جدول الوثائق — روابط GitHub مباشرة (للنسخ والتحميل)
@@ -95,12 +101,11 @@ RubikCare.Tests           ← Architecture Tests (33 اختبار)
 | 16 | 14-caching-system.md | نظام الكاش الموحد ⭐ | [رابط](https://raw.githubusercontent.com/Rubikans-Egy/Rubikcare-docs/main/docs/14-caching-system.md) |
 | 17 | 15-mobile-translation-system.md | نظام ترجمة الموبايل ⭐ | [رابط](https://raw.githubusercontent.com/Rubikans-Egy/Rubikcare-docs/main/docs/15-mobile-translation-system.md) |
 | 18 | appendix-a-glossary.md | مسرد المصطلحات | [رابط](https://raw.githubusercontent.com/Rubikans-Egy/Rubikcare-docs/main/docs/appendix-a-glossary.md) |
+| 19 | 0 - Start New Chat.md | وثيقة بدء الجلسة (هذا الملف) | [رابط](https://raw.githubusercontent.com/Rubikans-Egy/Rubikcare-docs/main/docs/0%20-%20Start%20New%20Chat.md) |
 
 ---
 
 ## 🛠️ أدوات PowerShell + Git + SQL (للمساعد التقني)
-
-### المقطع ده بيخليني (سيد) أو أي مساعد تقني جديد أقدر أفحص المشروع وأفهم آخر التحديثات بنفسي
 
 انسخ الأوامر دي وشغلها في PowerShell (المسار: `C:\Users\shady\source\repos\Rubikans-Egy\Rubikcare.Full.Migration\`)
 
@@ -267,21 +272,6 @@ GROUP BY o.OrganizationTypeID, ot.OrganizationTypeNameAr
 
 ---
 
-## 📝 مبادئ العمل خلال الجلسة
-
-```
-1. مبدأ خطوة واحدة للتنفيذ كل رد ⭐⭐⭐⭐⭐
-2. 🔍 المراجعة والتحقق من قاعدة البيانات ومحتوى الصفحات قبل التعديل
-3. ⛔ عدم كسر Code-First ⭐⭐⭐⭐⭐
-4. ⛔ عدم التعديل مطلقاً على Migration
-5. 📋 تنفيذ المهام بترتيب كتابتها في الرد - لا خيارات متعددة
-6. 📝 كتابة N' عند الاستعلامات للتوافق مع العربية
-7. 🔢 ترقيم الردود: [#رقم]
-8. 💬 مناقشة أي قرار تقني قبل طلب تنفيذه
-```
-
----
-
 ## 🏷️ نظام الترجمة — مرجع سريع
 
 ```
@@ -315,6 +305,8 @@ SQL: MERGE Resources (INSERT لو مش موجود، UPDATE لو موجود)
 
 **🎯 الهدف من الجلسة:** `[يُكتب هنا]`
 
+**🐛 المشكلات الحالية:** `[يُكتب هنا]`
+
 ---
 
 ## 🎓 إعدادات المطور (يوسف)
@@ -333,14 +325,4 @@ SQL: MERGE Resources (INSERT لو مش موجود، UPDATE لو موجود)
 **نهاية وثيقة بدء الجلسة 🚀**
 
 ---
-
-ده الـ Prompt الشامل المتكامل يا يوسف ✅
-
-تقدر تنسخه وتحطه في بداية أي شات جديد مع أي مساعد تقني. هو فيه:
-- كل القواعد الذهبية
-- كل روابط الوثائق
-- أوامر PowerShell + Git + SQL
-- مبادئ العمل
-- نظام الترجمة
-
-**عايز تعدّل فيه حاجة ولا تمام كده؟ 🫡**
+شاكل الجديدة اللي عايز تشتغل عليها؟ 🫡
