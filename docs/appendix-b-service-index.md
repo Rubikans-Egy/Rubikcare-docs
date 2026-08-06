@@ -94,6 +94,36 @@
 
 ---
 
+## 9. ⚠️ ملاحظة معمارية هامة: فخ التتبع في GenericService (Tracking Pitfall)
+
+### المشكلة
+عند استخدام `IGenericService<T>` للقيام بعملية "جلب كيان" (`GetByIdAsync` أو `GetAllAsync`) ثم "تعديله" ثم "حفظه" (`SaveChangesAsync`) بشكل منفصل، قد تفشل عملية الحفظ بصمت وتُرجع `0` صفوف متأثرة، حتى لو لم يحدث استثناء (Exception).
+
+### السبب الجذري
+تعتمد `GenericService` على `IDbContextFactoryService` الذي ينشئ `DbContext` جديدًا ومعزولًا لكل عملية:
+1. `GetByIdAsync` يفتح سياقًا (أ)، ويجلب الكيان.
+2. عند الخروج من الدالة، يُتلف السياق (أ)، ويصبح الكيان **غير متتبع (Detached)**.
+3. عند استدعاء `SaveChangesAsync` لاحقًا، يفتح سياقًا (ب) جديدًا فارغًا. بما أن الكيان غير متتبع في السياق (ب)، فإن `ChangeTracker` لا يرى أي تعديلات، فيُرجع `0`.
+
+### الحل المعتمد معمارياً
+لعمليات التحديث المعقدة التي تتطلب جلب كيان وتعديله وحفظه، **يجب** استخدام أحد النهجين:
+
+**النهج 1 (الموصى به للعمليات الحساسة):** استخدام `ExecuteUpdateAsync` (إذا كان مدعوماً في إصدار EF Core) لتنفيذ تحديث مباشر يتجاوز `ChangeTracker`.
+
+**النهج 2 (البديل الآمن):** حقن `IDbContextFactoryService` مباشرة داخل الـ `UseCase` وتنفيذ الجلب والتعديل والحفظ داخل دالة `ExecuteWithNewContextAsync` واحدة، لضمان بقاء الكيان متتبعاً (Tracked) طوال دورة حياة العملية:
+
+```csharp
+// ✅ مثال صحيح داخل UseCase
+var result = await _dbFactory.ExecuteWithNewContextAsync(async context =>
+{
+    var dbContext = (DbContext)context;
+    var entity = await dbContext.Set<MyEntity>().FindAsync(id); // Tracked
+    if (entity == null) return 0;
+    
+    entity.Status = "NewStatus"; // ChangeTracker يلتقط هذا
+    return await dbContext.SaveChangesAsync(); // سيُرجع 1 بنجاح
+});
+```
 ## ✅ CHECKLIST: قبل استخدام أي خدمة
 
 - [ ] هل راجعت **شجرة القرار المعماري** للتأكد من أن هذه هي الخدمة الصحيحة لنوع صفحتي؟
