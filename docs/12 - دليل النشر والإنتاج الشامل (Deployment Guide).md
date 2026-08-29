@@ -1014,4 +1014,495 @@ RubikCare.PWA.s8e7likdzs.wasm
 
 ---
 
-هل تريد أن أكمل بقية القسم 5 (خطوات النشر + سكربت الأتمتة + الأخطاء الشائعة + المحاذير)؟
+### 📋 5.5 إجراءات ما قبل النشر (Pre-Deployment Checklist)
+
+#### ✅ التحقق من الكود
+
+```powershell
+# 1. تأكد من عدم وجود أخطاء بناء
+cd C:\RC\Rubikcare.Full.Migration
+dotnet build RubikCare.PWA -c Release
+
+# 2. اختبر محلياً (يفتح على localhost)
+dotnet run --project RubikCare.PWA
+```
+
+#### ✅ التحقق من وجود `web.config` في المشروع
+
+```powershell
+Test-Path "C:\RC\Rubikcare.Full.Migration\RubikCare.PWA\web.config"
+```
+
+**النتيجة المطلوبة:** `True`
+
+> ⚠️ إذا كان `False`، فستفقد إعدادات IIS عند كل نشر. أنشئ `web.config` في مجلد المشروع وأضفه إلى `.csproj` (راجع القسم 5.3).
+
+#### ✅ التحقق من `CopyBlazorAssets` Target في `.csproj`
+
+```powershell
+Select-String -Path "C:\RC\Rubikcare.Full.Migration\RubikCare.PWA\RubikCare.PWA.csproj" -Pattern "CopyBlazorAssets"
+```
+
+**النتيجة المطلوبة:** يجب أن يظهر `<Target Name="CopyBlazorAssets" ...>`
+
+#### ✅ التحقق من رابط الـ API في الكود
+
+تأكد أن `RubikCare.PWA` يشير إلى الـ API الصحيح لبيئة النشر. في بناء Release، يجب أن يكون:
+
+```csharp
+// في ApiService أو ملف الإعدادات
+apiUrl = "https://uat.rubikcare.com/";  // لبيئة Stage
+```
+
+> 🔴 **قاعدة ذهبية:** تطبيق الـ PWA في بيئة Stage **يجب** أن يتصل بـ `https://uat.rubikcare.com` وليس الـ Live.
+
+---
+
+### 📦 5.6 خطوات النشر (كل مرة)
+
+#### الخطوة 1: إيقاف الـ App Pool (لمنع قفل الملفات)
+
+```powershell
+C:\Windows\System32\inetsrv\appcmd stop apppool "PU_RubicCareStage"
+Start-Sleep -Seconds 2
+```
+
+> ⚠️ **لماذا؟** ملفات `.wasm` و `.js` قد تكون مقفولة من قبل عملية `w3wp.exe`. النسخ أثناء التشغيل قد يفشل أو ينتج ملفات ناقصة.
+
+#### الخطوة 2: مسح محتوى المجلد (باستثناء `web.config`)
+
+```powershell
+Get-ChildItem "C:\WebSite\PU_RubicCareStage" -Exclude "web.config" | 
+    Remove-Item -Recurse -Force
+```
+
+> 🔴 **هذا إلزامي!** ملفات الـ Blazor لها أسماء مُجزّأة (مثل `dotnet.runtime.zbexyp8zrs.js`) تتغير مع كل نشر. إذا لم تمسح المجلد، ستبقى ملفات قديمة بـ hash قديم، ويطلبها المتصفح ثم يحصل على **خطأ `SRI integrity checks failed`**.
+
+#### الخطوة 3: نشر المشروع
+
+```powershell
+cd C:\RC\Rubikcare.Full.Migration
+dotnet publish RubikCare.PWA -c Release -o E:\rubikans\Publish\PWA
+```
+
+**تحقق من نجاح النشر:**
+```powershell
+if ($LASTEXITCODE -eq 0) { "✅ النشر نجح" } else { "❌ النشر فشل" }
+```
+
+> 💡 إذا أضفت الـ `CopyBlazorAssets` Target (القسم 5.4)، فستظهر رسالة `✅ تم نسخ ملفات Blazor بالأسماء الثابتة` في نهاية النشر.
+
+#### الخطوة 4: نسخ الملفات إلى IIS
+
+```powershell
+Copy-Item -Path "E:\rubikans\Publish\PWA\*" -Destination "C:\WebSite\PU_RubicCareStage\" -Recurse -Force
+```
+
+#### الخطوة 5: تشغيل الـ App Pool
+
+```powershell
+C:\Windows\System32\inetsrv\appcmd start apppool "PU_RubicCareStage"
+```
+
+#### الخطوة 6: الاختبار من نافذة InPrivate
+
+> 🔴 **إلزامي:** اختبر دائماً من نافذة **InPrivate** (`Ctrl + Shift + N`). المتصفح العادي يحتوي على **Service Worker** مخزّن من النشر السابق، وسيخدم ملفات قديمة حتى بعد النشر الجديد.
+
+---
+
+### 🤖 5.7 سكربت النشر الأوتوماتيكي (`deploy-stage.ps1`)
+
+احفظ هذا السكربت في جذر المشروع. ينفّذ كل الخطوات أعلاه تلقائياً مع التحقق:
+
+```powershell
+# ============================================================
+# سكربت نشر RubikCare PWA إلى بيئة Stage
+# ============================================================
+
+param(
+    [string]$ProjectPath = "C:\RC\Rubikcare.Full.Migration",
+    [string]$PublishPath = "E:\rubikans\Publish\PWA",
+    [string]$IISPath = "C:\WebSite\PU_RubicCareStage",
+    [string]$AppPoolName = "PU_RubicCareStage",
+    [string]$SiteUrl = "https://stagepu.rubikcare.com"
+)
+
+Write-Host "================================================" -ForegroundColor Cyan
+Write-Host "  RubikCare PWA - النشر إلى بيئة Stage" -ForegroundColor Cyan
+Write-Host "================================================`n" -ForegroundColor Cyan
+
+# الخطوة 1: إيقاف الـ App Pool
+Write-Host "⏸️  الخطوة 1: إيقاف الـ App Pool..." -ForegroundColor Yellow
+C:\Windows\System32\inetsrv\appcmd stop apppool $AppPoolName
+Start-Sleep -Seconds 2
+
+# الخطوة 2: مسح المجلد (باستثناء web.config)
+Write-Host "`n🗑️  الخطوة 2: مسح المجلد القديم..." -ForegroundColor Yellow
+Get-ChildItem "$IISPath" -Exclude "web.config" | Remove-Item -Recurse -Force
+Write-Host "✅ تم المسح (احتفظنا بـ web.config)" -ForegroundColor Green
+
+# الخطوة 3: نشر المشروع
+Write-Host "`n📦 الخطوة 3: نشر المشروع..." -ForegroundColor Yellow
+Set-Location $ProjectPath
+dotnet publish RubikCare.PWA -c Release -o $PublishPath
+
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "❌ فشل النشر!" -ForegroundColor Red
+    C:\Windows\System32\inetsrv\appcmd start apppool $AppPoolName
+    exit 1
+}
+Write-Host "✅ النشر نجح" -ForegroundColor Green
+
+# الخطوة 4: نسخ الملفات إلى IIS
+Write-Host "`n📋 الخطوة 4: نسخ الملفات إلى IIS..." -ForegroundColor Yellow
+Copy-Item -Path "$PublishPath\*" -Destination $IISPath -Recurse -Force
+Write-Host "✅ تم النسخ" -ForegroundColor Green
+
+# الخطوة 5: التحقق من الملفات الحرجة
+Write-Host "`n🔍 الخطوة 5: التحقق من الملفات الحرجة..." -ForegroundColor Yellow
+
+$criticalFiles = @(
+    "$IISPath\wwwroot\index.html",
+    "$IISPath\wwwroot\manifest.webmanifest",
+    "$IISPath\wwwroot\service-worker.js",
+    "$IISPath\web.config"
+)
+
+$allFound = $true
+foreach ($file in $criticalFiles) {
+    if (Test-Path $file) {
+        Write-Host "  ✅ $(Split-Path $file -Leaf)" -ForegroundColor Green
+    } else {
+        Write-Host "  ❌ $(Split-Path $file -Leaf) - مفقود!" -ForegroundColor Red
+        $allFound = $false
+    }
+}
+
+# التحقق من ملفات الـ Runtime
+$wasmFiles = Get-ChildItem "$IISPath\wwwroot\_framework" -Filter "*.wasm" -ErrorAction SilentlyContinue
+$datFiles  = Get-ChildItem "$IISPath\wwwroot\_framework" -Filter "icudt_*.dat" -ErrorAction SilentlyContinue
+
+if ($wasmFiles.Count -gt 0) { Write-Host "  ✅ ملفات .wasm: $($wasmFiles.Count)" -ForegroundColor Green }
+else { Write-Host "  ❌ لا توجد ملفات .wasm!" -ForegroundColor Red; $allFound = $false }
+
+if ($datFiles.Count -gt 0) { Write-Host "  ✅ ملفات ICU (.dat): $($datFiles.Count)" -ForegroundColor Green }
+else { Write-Host "  ❌ لا توجد ملفات ICU!" -ForegroundColor Red; $allFound = $false }
+
+# الخطوة 6: تشغيل الـ App Pool
+Write-Host "`n▶️  الخطوة 6: تشغيل الـ App Pool..." -ForegroundColor Yellow
+C:\Windows\System32\inetsrv\appcmd start apppool $AppPoolName
+
+# الخطوة 7: اختبار الروابط
+Write-Host "`n🧪 الخطوة 7: اختبار الروابط..." -ForegroundColor Yellow
+Start-Sleep -Seconds 3
+
+$tests = @(
+    @{ Name = "الصفحة الرئيسية";        Url = "$SiteUrl/" },
+    @{ Name = "blazor.webassembly.js";  Url = "$SiteUrl/_framework/blazor.webassembly.js" },
+    @{ Name = "manifest.webmanifest";   Url = "$SiteUrl/manifest.webmanifest" },
+    @{ Name = "service-worker.js";      Url = "$SiteUrl/service-worker.js" }
+)
+
+$allPassed = $true
+foreach ($test in $tests) {
+    try {
+        $r = Invoke-WebRequest -Uri $test.Url -UseBasicParsing -TimeoutSec 15
+        Write-Host "  ✅ $($test.Name): $($r.StatusCode)" -ForegroundColor Green
+    } catch {
+        Write-Host "  ❌ $($test.Name): $($_.Exception.Message)" -ForegroundColor Red
+        $allPassed = $false
+    }
+}
+
+# النتيجة النهائية
+Write-Host "`n================================================" -ForegroundColor Cyan
+if ($allFound -and $allPassed) {
+    Write-Host "  🎉 تم النشر بنجاح!" -ForegroundColor Green
+    Write-Host "  📱 الرابط: $SiteUrl" -ForegroundColor Green
+    Write-Host "  ⚠️  تذكر: اختبر من نافذة InPrivate" -ForegroundColor Yellow
+} else {
+    Write-Host "  ⚠️  بعض الفحوصات فشلت - راجع الأخطاء أعلاه" -ForegroundColor Yellow
+}
+Write-Host "================================================`n" -ForegroundColor Cyan
+```
+
+**التشغيل:**
+```powershell
+powershell -ExecutionPolicy Bypass -File ".\deploy-stage.ps1"
+```
+
+---
+
+### 🧪 5.8 التحقق بعد النشر (Post-Deployment Verification)
+
+#### الفحص 1: حالة الموقع والـ App Pool
+
+```powershell
+C:\Windows\System32\inetsrv\appcmd list site "PU_RubicCareStage"
+C:\Windows\System32\inetsrv\appcmd list apppool "PU_RubicCareStage"
+```
+
+#### الفحص 2: المسار الفيزيائي (الأهم)
+
+```powershell
+C:\Windows\System32\inetsrv\appcmd list vdir "PU_RubicCareStage/" /text:physicalPath
+```
+
+**النتيجة الصحيحة:** `C:\WebSite\PU_RubicCareStage` (بدون `\wwwroot`)
+
+#### الفحص 3: ملفات الـ Runtime الحرجة
+
+```powershell
+# ملفات .wasm
+Get-ChildItem "C:\WebSite\PU_RubicCareStage\wwwroot\_framework" -Filter "*.wasm" | Select-Object Name, Length
+
+# ملفات ICU (.dat)
+Get-ChildItem "C:\WebSite\PU_RubicCareStage\wwwroot\_framework" -Filter "icudt_*.dat" | Select-Object Name, Length
+```
+
+#### الفحص 4: اختبار الروابط من السيرفر مباشرة
+
+```powershell
+$urls = @(
+    "https://stagepu.rubikcare.com/",
+    "https://stagepu.rubikcare.com/_framework/blazor.webassembly.js",
+    "https://stagepu.rubikcare.com/_framework/dotnet.js",
+    "https://stagepu.rubikcare.com/manifest.webmanifest",
+    "https://stagepu.rubikcare.com/service-worker.js",
+    "https://stagepu.rubikcare.com/icon-192.png"
+)
+
+foreach ($url in $urls) {
+    try {
+        $r = Invoke-WebRequest -Uri $url -UseBasicParsing -TimeoutSec 10
+        Write-Host "✅ $url → $($r.StatusCode)" -ForegroundColor Green
+    } catch {
+        Write-Host "❌ $url → $($_.Exception.Message)" -ForegroundColor Red
+    }
+}
+```
+
+#### الفحص 5: محتوى `web.config`
+
+```powershell
+Get-Content "C:\WebSite\PU_RubicCareStage\web.config" | Select-String "stopProcessing|mimeMap|rule name"
+```
+
+**النتيجة المطلوبة:** يجب أن تظهر قاعدتا `Serve subdir` و `SPA fallback routing` مع `stopProcessing="true"`.
+
+---
+
+### 🐛 5.9 الأخطاء الشائعة وحلولها (القسم الأهم)
+
+#### ❌ الخطأ 1: شاشة زرقاء + `Unexpected token '<'`
+
+**العرض في Console:**
+```
+blazor.webassembly.js:1 Uncaught SyntaxError: Unexpected token '<'
+```
+
+**السبب:** المتصفح يتلقى `index.html` (يبدأ بـ `<!DOCTYPE`) بدلاً من ملف JavaScript. هذا يحدث عندما تفشل قاعدة `Serve subdir` في إيجاد الملف، فيُعاد `index.html` عبر `SPA fallback`.
+
+**التشخيص:**
+```powershell
+# هل ملف بلوزر موجود فعلاً؟
+Test-Path "C:\WebSite\PU_RubicCareStage\wwwroot\_framework\blazor.webassembly.js"
+```
+
+**الحل:**
+1. إذا كان الملف **غير موجود** → أعد النشر (تأكد من وجود الـ `CopyBlazorAssets` Target).
+2. إذا كان **موجوداً** → تحقق من `web.config` يحتوي على `stopProcessing="true"` في قاعدة `Serve subdir`.
+3. تحقق من المسار الفيزيائي (القسم 5.2).
+
+---
+
+#### ❌ الخطأ 2: `SRI integrity checks failed` + ملفات `.dat` أو `.wasm` ترجع 404
+
+**العرض في Console:**
+```
+Failed to find a valid digest in the 'integrity' attribute for resource '...RubikCare.PWA.xxx.wasm'
+Failed to fetch. SRI's integrity checks failed.
+```
+
+**السبب:** أحد أمرين:
+1. **المسار الفيزيائي خاطئ** (يشير إلى `wwwroot` بدلاً من الجذر) → قاعدة `Serve subdir` تبحث في `wwwroot\wwwroot\...`.
+2. **ملفات قديمة بـ hash مختلف** ما زالت موجودة من نشر سابق.
+
+**الحل:**
+```powershell
+# 1. تحقق من المسار الفيزيائي
+C:\Windows\System32\inetsrv\appcmd list vdir "PU_RubicCareStage/" /text:physicalPath
+# يجب أن يكون: C:\WebSite\PU_RubicCareStage (بدون \wwwroot)
+
+# 2. إذا كان خاطئاً، صححه
+C:\Windows\System32\inetsrv\appcmd set vdir "PU_RubicCareStage/" /physicalPath:"C:\WebSite\PU_RubicCareStage"
+
+# 3. امسح المجلد وأعد النشر (لإزالة ملفات الـ hash القديم)
+C:\Windows\System32\inetsrv\appcmd stop apppool "PU_RubicCareStage"
+Get-ChildItem "C:\WebSite\PU_RubicCareStage" -Exclude "web.config" | Remove-Item -Recurse -Force
+Copy-Item -Path "E:\rubikans\Publish\PWA\*" -Destination "C:\WebSite\PU_RubicCareStage\" -Recurse -Force
+C:\Windows\System32\inetsrv\appcmd start apppool "PU_RubicCareStage"
+
+# 4. اختبر من نافذة InPrivate
+```
+
+---
+
+#### ❌ الخطأ 3: `manifest.webmanifest` يرجع 404
+
+**السبب:** IIS لا يعرف MIME type للامتداد `.webmanifest` افتراضياً.
+
+**الحل:** تأكد من وجود هذين السطرين في `<staticContent>` في `web.config`:
+```xml
+<remove fileExtension=".webmanifest" />
+<mimeMap fileExtension=".webmanifest" mimeType="application/manifest+json" />
+```
+
+**التحقق:**
+```powershell
+try {
+    $r = Invoke-WebRequest -Uri "https://stagepu.rubikcare.com/manifest.webmanifest" -UseBasicParsing
+    "✅ manifest: $($r.StatusCode) | $($r.Headers.'Content-Type')"
+} catch {
+    "❌ manifest: $($_.Exception.Message)"
+}
+```
+
+**النتيجة المطلوبة:** `✅ manifest: 200 | application/manifest+json`
+
+---
+
+#### ❌ الخطأ 4: الموقع لا يفتح أبداً (خطأ 500)
+
+**السبب:** وحدة **URL Rewrite** غير مثبتة. `web.config` يحتوي على قسم `<rewrite>` الذي لا يفهمه IIS بدون هذه الوحدة.
+
+**الحل:**
+```powershell
+# تحقق من وجود الوحدة
+Get-WebGlobalModule | Where-Object { $_.Name -like "*Rewrite*" }
+
+# إذا لم تظهر، ثبّتها من:
+# https://www.iis.net/downloads/microsoft/url-rewrite
+
+# ثم أعد تدوير الـ App Pool
+C:\Windows\System32\inetsrv\appcmd recycle apppool "PU_RubicCareStage"
+```
+
+---
+
+#### ❌ الخطأ 5: التطبيق يعمل في المتصفح العادي لكن ليس في InPrivate (أو العكس)
+
+**السبب:** **Service Worker** مخزّن في المتصفح العادي من نشر سابق، ويخدم ملفات قديمة.
+
+**الحل:**
+1. **اختبر دائماً من نافذة InPrivate:** `Ctrl + Shift + N`
+2. أو امسح Service Worker يدوياً من المتصفح العادي:
+   - افتح `F12` → **Application** → **Service Workers** → **Unregister**
+   - ثم `F12` → **Application** → **Storage** → **Clear site data**
+   - أعد تحميل الصفحة بـ `Ctrl + Shift + R`
+
+---
+
+#### ❌ الخطأ 6: صورة البروفايل لا تظهر + خطأ CORS
+
+**العرض في Console:**
+```
+Access to fetch at 'https://uat.rubikcare.com/uploads/...' from origin 'https://stagepu.rubikcare.com'
+has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header
+```
+
+**السبب:** الصور مخزنة على نطاق الـ API (`uat.rubikcare.com`)، والـ PWA على نطاق مختلف (`stagepu.rubikcare.com`). بدون سياسة CORS، يمنع المتصفح التحميل.
+
+**الحل:** أضف سياسة CORS في **الـ API** (`RubikCare.Api.Web/Program.cs`):
+
+```csharp
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowPWA", policy =>
+    {
+        policy.WithOrigins("https://stagepu.rubikcare.com")
+              .AllowAnyMethod()
+              .AllowAnyHeader()
+              .AllowCredentials();
+    });
+});
+
+// بعد builder.Build() — مهم أن يكون قبل UseAuthorization
+app.UseCors("AllowPWA");
+```
+
+> ⚠️ **تذكر:** هذا التعديل في الـ **API**، وليس في الـ PWA. ويجب إعادة نشر الـ API بعد التعديل.
+
+---
+
+### 🚫 5.10 المحاذير الحرجة (الممنوعات المطلقة)
+
+| # | المحظور | السبب | البديل |
+|---|---------|-------|--------|
+| 1 | ❌ حذف `web.config` عند النشر | يحتوي إعدادات IIS (MIME + Rewrite) | احتفظ به دائماً |
+| 2 | ❌ نسخ الملفات فوق القديمة بدون مسح | تضارب الأسماء المُجزّأة (hash) → `SRI failed` | امسح المجلد أولاً ثم انسخ |
+| 3 | ❌ تعديل `web.config` يدوياً على السيرفر | ستفقده في النشر القادم | اجعله جزءاً من المشروع |
+| 4 | ❌ تغيير المسار الفيزيائي إلى `wwwroot` | تضارب مع قاعدة `Serve subdir` | المسار الفيزيائي = الجذر دائماً |
+| 5 | ❌ اختبار في المتصفح العادي بعد نشر جديد | Service Worker يخدم ملفات قديمة | اختبر في InPrivate دائماً |
+| 6 | ❌ نشر بدون إيقاف الـ App Pool | قفل الملفات وفشل النسخ | أوقف الـ App Pool أولاً |
+| 7 | ❌ نشر الـ API إلى مجلد الـ PWA | هما تطبيقان منفصلان تماماً | لكلٍ مجلده الخاص |
+
+#### 🟡 إجراءات تتطلب حذراً
+
+| الإجراء | الطريقة الصحيحة | الطريقة الخاطئة |
+|---------|-----------------|-----------------|
+| إعادة النشر | إيقاف → مسح → نشر → نسخ → تشغيل | نسخ فوق الملفات مباشرة |
+| تعديل `web.config` | عدّل النسخة في المشروع ثم انشر | عدّل النسخة على السيرفر يدوياً |
+| تحديث الـ API | انشر في مجلده الخاص (`RubikCareUat`) | لا تنسخ ملفات API إلى مجلد PWA |
+
+#### 🟢 أفضل الممارسات
+
+| الممارسة | السبب |
+|----------|-------|
+| احتفظ بنسخة احتياطية من `web.config` | للرجوع إليها عند الحاجة |
+| وثّق أي تغيير في `Program.cs` أو `MainLayout.razor` | لتجنب فقدان التعديلات |
+| اختبر في InPrivate بعد كل نشر | لتجنب كاش Service Worker |
+| استخدم سكربت نشر موحد (`deploy-stage.ps1`) | لتجنب الأخطاء اليدوية |
+
+---
+
+### ✅ 5.11 قائمة المراجعة النهائية (CHECKLIST)
+
+#### قبل النشر
+- [ ] هل تم حفظ جميع التعديلات في الكود؟
+- [ ] هل تم اختبار التطبيق محلياً؟
+- [ ] هل `web.config` موجود في مجلد المشروع؟
+- [ ] هل `CopyBlazorAssets` Target موجود في `.csproj`؟
+- [ ] هل رابط الـ API في الكود يشير إلى البيئة الصحيحة (UAT)؟
+
+#### أثناء النشر
+- [ ] هل تم إيقاف الـ App Pool؟
+- [ ] هل تم مسح المجلد القديم (باستثناء `web.config`)؟
+- [ ] هل نجح `dotnet publish` بدون أخطاء؟
+- [ ] هل تم نسخ الملفات إلى IIS؟
+
+#### بعد النشر
+- [ ] هل تم تشغيل الـ App Pool؟
+- [ ] هل المسار الفيزيائي = الجذر (بدون `\wwwroot`)؟
+- [ ] هل جميع فحوصات الروابط تعيد `200`؟
+- [ ] هل اختبرت من نافذة InPrivate؟
+- [ ] هل Console خالي من الأخطاء الحمراء؟
+- [ ] هل تسجيل الدخول يعمل؟
+- [ ] هل الوظائف الرئيسية تعمل؟
+
+---
+
+### 🎯 ملخص سريع للنشر
+
+```
+1. أوقف الـ App Pool
+2. امسح المجلد (احتفظ بـ web.config)
+3. dotnet publish
+4. انسخ الملفات
+5. شغّل الـ App Pool
+6. اختبر في InPrivate
+```
+
+---
+
+هل تريد أن أكمل **القسم 6: نشر Mobile (MAUI)** أم ننتقل إلى الأقسام التالية (الأمان، النسخ الاحتياطي، المراقبة)؟
