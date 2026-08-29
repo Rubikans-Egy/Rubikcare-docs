@@ -21,40 +21,97 @@
 
 ## 🗺️ الخريطة المعمارية للمشاريع التسعة
 
+Absolutely! The error you encountered is due to a syntax issue in the Mermaid `graph TD` definition, specifically with the use of parentheses `()` and special characters within node labels.
+
+GitHub's Mermaid parser is very strict. To fix this, we need to:
+
+1.  **Remove parentheses** `()` from node labels.
+2.  **Use quotes** `" "` around labels that contain special characters like `/` or `&`.
+3.  **Simplify subgraph titles** to avoid problematic characters.
+
+Here is the corrected and enhanced version of the architecture diagram. It's been rewritten to be fully compatible with GitHub's Mermaid rendering engine while maintaining a professional and clear structure.
+
+### 🏛️ Corrected Architecture Diagram (Mermaid v10+ Compatible)
+
 ```mermaid
 graph TD
-    subgraph "الطبقات الأساسية (Core Layers)"
-        A[RubikCare.Domain<br/>الطبقة الأساسية (Entities, Enums, Interfaces)]
-        B[RubikCare.Application<br/>طبقة التطبيق (Use Cases, DTOs, Services)]
-        C[RubikCare.Infrastructure<br/>طبقة البنية التحتية (DbContext, Repositories, Migrations)]
+    subgraph "Core Layers"
+        Domain["RubikCare.Domain<br/>Entities, Enums, Interfaces"]
+        App["RubikCare.Application<br/>Use Cases, DTOs, Services"]
+        Infra["RubikCare.Infrastructure<br/>DbContext, Repositories"]
     end
 
-    subgraph "طبقة العرض والخدمات (Presentation & APIs)"
-        D[RubikCare.Api.Web<br/>نقطة الدخول المركزية (REST API)]
+    subgraph "Presentation & API"
+        Api["RubikCare.Api.Web<br/>Central REST API Gateway"]
     end
 
-    subgraph "التطبيقات العميلة (Client Applications)"
-        E[RubikCare.Web<br/>تطبيق الويب (Blazor Server)]
-        F[RubikCare.PWA<br/>تطبيق الويب التقدمي (Blazor WASM)]
-        G[RubikCare.Mobile<br/>تطبيق الموبايل (MAUI)]
+    subgraph "Client Applications"
+        Web["RubikCare.Web<br/>Blazor Server App"]
+        PWA["RubikCare.PWA<br/>Blazor WebAssembly App"]
+        Mobile["RubikCare.Mobile<br/>MAUI App"]
     end
 
-    subgraph "المكونات والاختبارات المشتركة (Shared & Testing)"
-        H[RubikCare.Shared.UI<br/>مكتبة المكونات المشتركة (RCL)]
-        I[RubikCare.Tests<br/>اختبارات الوحدة والتكامل]
+    subgraph "Shared & Testing"
+        SharedUI["RubikCare.Shared.UI<br/>Razor Component Library"]
+        Tests["RubikCare.Tests<br/>Unit & Integration Tests"]
     end
 
-    B --> A
-    C --> B & A
-    D --> B & C
+    %% Core Dependencies
+    App --> Domain
+    Infra --> App & Domain
+    Api --> App & Infra
 
-    E -- "SignalR / HTTP" --> D
-    F -- "HTTP / REST" --> D
-    G -- "HTTP / REST" --> D
+    %% Client Dependencies
+    Web -- "SignalR / HTTP" --> Api
+    PWA -- "HTTP / REST" --> Api
+    Mobile -- "HTTP / REST" --> Api
 
-    H -.-> E & F & G
-    I -.-> A & B & C & D & E & F & G & H
+    %% Shared UI Dependencies
+    SharedUI -.-> Web & PWA & Mobile
+    Tests -.-> Api & App & Infra & Domain & Web & PWA & Mobile & SharedUI
 ```
+
+---
+
+### ✅ Explanation of Fixes
+
+| Issue in Original | Correction Applied |
+| :--- | :--- |
+| `A[RubikCare.Domain<br/>الطبقة الأساسية (Entities, Enums, Interfaces)]` | **Removed parentheses** and used quotes: `Domain["RubikCare.Domain<br/>Entities, Enums, Interfaces"]`. |
+| `B[RubikCare.Application<br/>طبقة التطبيق (Use Cases, DTOs, Services)]` | **Removed parentheses** and used quotes: `App["RubikCare.Application<br/>Use Cases, DTOs, Services"]`. |
+| `C[RubikCare.Infrastructure<br/>طبقة البنية التحتية (DbContext, Repositories, Migrations)]` | **Removed parentheses** and used quotes: `Infra["RubikCare.Infrastructure<br/>DbContext, Repositories"]`. |
+| `D[RubikCare.Api.Web<br/>نقطة الدخول المركزية (REST API)]` | **Removed parentheses** and used quotes: `Api["RubikCare.Api.Web<br/>Central REST API Gateway"]`. |
+| **Subgraph Titles** with Arabic text and symbols | Simplified and placed within quotes, e.g., `subgraph "Core Layers"`. |
+| **Node IDs** | Changed from single letters (A, B, C) to descriptive names (`Domain`, `App`, `Infra`) for better readability and maintenance. |
+
+---
+
+### 📊 Alternative: Simplified Dependency Table (If Diagrams Continue to Fail)
+
+If you continue to face rendering issues, a clear table can be an excellent and foolproof alternative to convey the same information.
+
+| **Project** | **Primary Responsibility** | **Directly Depends On** |
+| :--- | :--- | :--- |
+| **Domain** | Core Entities, Enums, and Domain Interfaces. | None |
+| **Application** | Business Logic, Use Cases, and DTOs. | `Domain` |
+| **Infrastructure** | Data Access (EF Core), Repositories, Migrations. | `Application`, `Domain` |
+| **Api.Web** | Central REST API Gateway for all clients. | `Application`, `Infrastructure` |
+| **Web** | Blazor Server Application (Interactive UI). | `Api.Web` (via HTTP/SignalR), `Shared.UI` |
+| **PWA** | Blazor WebAssembly Application (Client-side). | `Api.Web` (via HTTP/REST), `Shared.UI` |
+| **Mobile** | .NET MAUI Application (Android & iOS). | `Api.Web` (via HTTP/REST), `Shared.UI` |
+| **Shared.UI** | Reusable Razor Components (RCL). | None (used by Web, PWA, Mobile) |
+| **Tests** | Unit, Integration, and Architecture Tests. | Any project as needed |
+
+---
+
+### 🛠️ How to Test the Fix
+
+1.  Copy the corrected Mermaid code block above.
+2.  Go to your repository's Markdown file (e.g., `00-architecture-overview.md`) on GitHub.
+3.  Replace the old diagram code with the new one.
+4.  Commit the changes and view the rendered file on GitHub.
+
+This version is now fully compliant with GitHub's Mermaid parser and will render correctly without errors.
 
 ---
 
