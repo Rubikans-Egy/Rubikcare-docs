@@ -21,7 +21,6 @@
 
 ## 🗺️ الخريطة المعمارية للمشاريع التسعة
 
-```mermaid
 graph TD
     subgraph "الطبقات الأساسية (Core Layers)"
         A[RubikCare.Domain<br/>الطبقة الأساسية (Entities, Enums, Interfaces)]
@@ -54,8 +53,6 @@ graph TD
 
     H -.-> E & F & G
     I -.-> A & B & C & D & E & F & G & H
-```
-
 ---
 
 ## 📊 الجدول التنفيذي للمشاريع
