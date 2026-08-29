@@ -1502,7 +1502,364 @@ app.UseCors("AllowPWA");
 5. شغّل الـ App Pool
 6. اختبر في InPrivate
 ```
+---
+
+## 📲 القسم 6: نشر Mobile (MAUI)
+
+### 📋 نظرة عامة
+
+تطبيق `RubikCare.Mobile` مبني بـ **.NET MAUI** مع **BlazorWebView** لعرض مكونات `Shared.UI`. يُنشر كـ **APK** أو **AAB** لـ Android و **IPA** لـ iOS.
+
+> ⚠️ **ملاحظة معمارية:** تطبيق الـ Mobile **لا يعتمد على أي مشروع آخر** مباشرة — يتواصل مع الـ API عبر HTTP فقط. لذلك، قبل نشر أي إصدار جديد من الموبايل، تأكد أن الـ API يدعم كل الـ Endpoints التي يستدعيها التطبيق.
 
 ---
 
-هل تريد أن أكمل **القسم 6: نشر Mobile (MAUI)** أم ننتقل إلى الأقسام التالية (الأمان، النسخ الاحتياطي، المراقبة)؟
+### 🤖 6.1 نشر Android (APK / AAB)
+
+#### متطلبات البناء
+
+| المكوّن | الإصدار الأدنى | الغرض |
+|---------|----------------|-------|
+| Android SDK | API 34+ | البناء والتوقيع |
+| Java JDK | 17+ | أدوات التوقيع |
+| .NET MAUI Workload | 10.0+ | `dotnet workload install maui-android` |
+
+#### الخطوة 1: إنشاء ملف التوقيع (Keystore) — مرة واحدة فقط
+
+```bash
+keytool -genkey -v -keystore rubikcare.keystore -alias rubikcare -keyalg RSA -keysize 2048 -validity 10000
+```
+
+> 🔴 **احفظ ملف `rubikcare.keystore` وكلمة المرور في مكان آمن.** لا يمكن تحديث التطبيق على Google Play بدونه.
+
+#### الخطوة 2: إنشاء APK للتوزيع المباشر
+
+```bash
+cd C:\RC\Rubikcare.Full.Migration
+dotnet publish RubikCare.Mobile -f net10.0-android -c Release /p:AndroidPackageFormat=apk
+```
+
+#### الخطوة 3: إنشاء AAB لـ Google Play
+
+```bash
+dotnet publish RubikCare.Mobile -f net10.0-android -c Release /p:AndroidPackageFormat=aab
+```
+
+#### الخطوة 4: التحقق من رابط الـ API
+
+تأكد أن `AppConfig.cs` في بناء Release يشير إلى البيئة الصحيحة:
+
+```csharp
+// في RubikCare.Mobile/Infrastructure/AppConfig.cs
+#if DEBUG
+    public static string ApiBaseUrl = "http://localhost:5235";
+#else
+    public static string ApiBaseUrl = "https://api.rubikcare.com"; // للإنتاج
+#endif
+```
+
+#### الخطوة 5: رفع إلى Google Play Console
+
+1. أنشئ إصداراً جديداً في **Production Track**
+2. ارفع ملف **AAB**
+3. املأ بيانات الإصدار (ملاحظات الإصدار)
+4. راجع بيانات المتجر (إن كانت أول مرة)
+5. قدّم للمراجعة
+
+---
+
+### 🍎 6.2 نشر iOS (IPA)
+
+#### المتطلبات
+
+| المكوّن | التفاصيل |
+|---------|----------|
+| Mac | Xcode 16+ مثبت |
+| Apple Developer Account | $99/سنة |
+| .NET MAUI Workload | `dotnet workload install maui-ios` |
+
+#### البناء من Windows (يتطلب Mac متصل)
+
+```bash
+dotnet publish RubikCare.Mobile -f net10.0-ios -c Release
+```
+
+#### البناء من Mac مباشرة
+
+```bash
+dotnet publish RubikCare.Mobile -f net10.0-ios -c Release /p:ArchiveOnBuild=true
+```
+
+#### الرفع إلى App Store
+
+1. افتح **Xcode → Organizer**
+2. اختر الأرشيف → **Distribute App**
+3. اختر **App Store Connect**
+4. اتبع خطوات الرفع
+5. في **App Store Connect**: أنشئ إصداراً جديداً وقدّمه للمراجعة
+
+---
+
+### 🐛 6.3 الأخطاء الشائعة في نشر الموبايل
+
+#### ❌ الخطأ 1: `Ambiguous routes matched`
+
+**العرض:**
+```
+System.ArgumentException: Ambiguous routes matched for: //.../pageName
+```
+
+**السبب:** نفس الصفحة مسجلة مرتين — في `AppShell.xaml` و `AppShell.xaml.cs` معاً.
+
+**الحل:**
+- الصفحات الرئيسية (Root) → تسجل في `AppShell.xaml` فقط
+- الصفحات الفرعية (Detail) → تسجل في `AppShell.xaml.cs` فقط عبر `Routing.RegisterRoute`
+
+#### ❌ الخطأ 2: `JavaProxyThrowable` عند زر الرجوع
+
+**السبب:** تعارض إصدارات حزم MAUI.
+
+**الحل:** وحّد الإصدارات في `.csproj`:
+```xml
+<PackageReference Include="Microsoft.Maui.Controls" Version="10.0.20" />
+<PackageReference Include="Microsoft.AspNetCore.Components.WebView.Maui" Version="10.0.20" />
+```
+
+> 🔴 **القاعدة الذهبية:** `Microsoft.AspNetCore.Components.WebView.Maui` يجب أن يكون دائماً على نفس إصدار `Microsoft.Maui.Controls`.
+
+---
+
+## 🔐 القسم 7: إعدادات الأمان
+
+### 🔑 7.1 مفاتيح الإنتاج
+
+#### للتطوير (User Secrets)
+
+```bash
+dotnet user-secrets set "Jwt:Key" "dev-key-12345678" --project RubikCare.Api.Web
+```
+
+#### للإنتاج (Environment Variables)
+
+```powershell
+# ⚠️ لا تضع مفاتيح الإنتاج في الكود أو في appsettings المنشور
+setx Jwt__Key "production-key-32-chars-minimum" /M
+```
+
+### 🛡️ 7.2 حماية البيانات (Data Protection)
+
+```csharp
+// في Program.cs
+builder.Services.AddDataProtection()
+    .PersistKeysToFileSystem(new DirectoryInfo(@"C:\Keys\RubikCare"))
+    .SetApplicationName("RubikCare");
+```
+
+> ⚠️ **مهم:** يجب أن يكون مجلد `C:\Keys\RubikCare` موجوداً على جميع الخوادم التي تشغل التطبيق، وإلا ستفشل المصادقة عند إعادة التشغيل.
+
+### 🌐 7.3 سياسات CORS
+
+#### للـ Web و PWA (على الـ API)
+
+```csharp
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowWebApp", policy =>
+    {
+        policy.WithOrigins(
+            "https://rubikcare.com",
+            "https://stagepu.rubikcare.com",
+            "https://test.rubikcare.com"
+        )
+        .AllowAnyMethod()
+        .AllowAnyHeader()
+        .AllowCredentials();
+    });
+});
+```
+
+> ⚠️ **لا تستخدم `AllowAnyOrigin`** مع `AllowCredentials` — هذا غير آمن وغير مدعوم.
+
+---
+
+## 💾 القسم 8: النسخ الاحتياطي
+
+### 🗄️ 8.1 قاعدة البيانات
+
+#### نسخ احتياطي كامل
+
+```sql
+BACKUP DATABASE RubikCare 
+TO DISK = 'C:\Backups\RubikCare_Full.bak' 
+WITH INIT, COMPRESSION;
+```
+
+#### نسخ احتياطي تفاضلي
+
+```sql
+BACKUP DATABASE RubikCare 
+TO DISK = 'C:\Backups\RubikCare_Diff.bak' 
+WITH DIFFERENTIAL, COMPRESSION;
+```
+
+### ⏰ 8.2 جدولة تلقائية (SQL Server Agent)
+
+```sql
+-- إنشاء Job للنسخ الاحتياطي اليومي الساعة 2 صباحاً
+EXEC sp_add_job @job_name = 'RubikCare_Daily_Backup';
+EXEC sp_add_jobstep @job_name = 'RubikCare_Daily_Backup',
+    @step_name = 'Backup',
+    @command = 'BACKUP DATABASE RubikCare TO DISK = ''C:\Backups\RubikCare.bak'' WITH INIT';
+EXEC sp_add_schedule @job_name = 'RubikCare_Daily_Backup',
+    @name = 'Daily',
+    @freq_type = 4,
+    @freq_interval = 1,
+    @active_start_time = 020000;
+EXEC sp_add_jobserver @job_name = 'RubikCare_Daily_Backup';
+```
+
+### 📂 8.3 نسخ ملفات الموقع
+
+```powershell
+# نسخة احتياطية من ملفات الـ PWA قبل النشر
+$timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+Compress-Archive -Path "C:\WebSite\PU_RubicCareStage\*" `
+    -DestinationPath "C:\Backups\PWA_$timestamp.zip" -Force
+```
+
+> 🔴 **قاعدة ذهبية:** خذ نسخة احتياطية من قاعدة البيانات **قبل أي نشر** يتضمن Migrations.
+
+---
+
+## 🔍 القسم 9: فحص الصحة والمراقبة (Health Checks & Monitoring)
+
+### 🏥 9.1 إضافة Health Check
+
+```csharp
+// في Program.cs
+builder.Services.AddHealthChecks()
+    .AddDbContextCheck<BusinessDbContext>()
+    .AddCheck("api-connectivity", () => HealthCheckResult.Healthy());
+
+app.MapHealthChecks("/health");
+```
+
+### 📊 9.2 المراقبة
+
+```powershell
+# فحص أن API يعمل
+Invoke-WebRequest -Uri "https://api.rubikcare.com/health" -UseBasicParsing
+# استجابة متوقعة: Healthy
+```
+
+### 📋 9.3 استكشاف الأخطاء في الإنتاج
+
+#### التطبيق لا يستجيب
+
+```powershell
+# تحقق من حالة الـ App Pool
+C:\Windows\System32\inetsrv\appcmd list apppool "RubikCareApi"
+
+# تحقق من سجلات النظام
+Get-EventLog -LogName Application -Source "*ASP.NET*" -Newest 20
+```
+
+#### أخطاء 500
+
+```powershell
+# فعّل السجلات في web.config للـ Blazor Server / API
+# <aspNetCore stdoutLogEnabled="true" stdoutLogFile=".\logs\stdout" />
+
+# ثم افحص السجلات
+Get-ChildItem "C:\WebSite\RubikCareApi\logs" -Filter "stdout_*.log" |
+    Sort-Object LastWriteTime -Descending |
+    Select-Object -First 1 |
+    Get-Content -Tail 50
+```
+
+#### خطأ في قاعدة البيانات
+
+```sql
+-- تحقق من اتصال قاعدة البيانات
+SELECT @@SERVERNAME AS ServerName, DB_NAME() AS CurrentDB, GETDATE() AS ServerTime;
+```
+
+---
+
+## 📚 الملحق: الدروس المستفادة (Lessons Learned)
+
+### 🔴 الدرس 1: الفشل الصامت (Silent Failure)
+
+**القصة:** كانت عمليات الحفظ في صفحة التعديل على سيرفر الـ Test تفشل بدون أي رسالة خطأ.
+
+**السبب الجذري:** مزيج من 3 عوامل:
+1. دوال `GetAsync` و `PostAsync` تعيد `null` بصمت عند الفشل
+2. `appsettings.Test.json` يشير إلى الـ API الخطأ (Live بدلاً من UAT)
+3. نشر كود الـ Web الجديد بينما الـ API المستهدف هو النسخة القديمة
+
+**الدرس:**
+> ⭐ **لا تبتلع الاستثناءات أبداً.** ارمِ `Exception` واضحاً عند فشل أي طلب.
+> ⭐ **تحقق من ملف البيئة قبل كل نشر.**
+
+---
+
+### 🔴 الدرس 2: نشر PWA — الأسماء المُجزّأة (Hashed Filenames)
+
+**القصة:** بعد نشر الـ PWA، ظهرت شاشة زرقاء مع خطأ `SRI integrity checks failed`.
+
+**السبب الجذري:** ملفات الـ Blazor لها أسماء مُجزّأة تتغير مع كل نشر. نسخ الملفات الجديدة فوق القديمة دون مسح المجلد ترك ملفات بـ hash قديم.
+
+**الدرس:**
+> ⭐ **امسح مجلد النشر دائماً قبل نسخ الملفات الجديدة** (مع الاحتفاظ بـ `web.config`).
+
+---
+
+### 🔴 الدرس 3: المسار الفيزيائي للـ PWA
+
+**القصة:** ملفات الـ framework ترجع 404 رغم وجودها على السيرفر.
+
+**السبب الجذري:** المسار الفيزيائي كان يشير إلى `wwwroot`، مما جعل قاعدة `Serve subdir` في `web.config` تبحث في `wwwroot\wwwroot\...`.
+
+**الدرس:**
+> ⭐ **المسار الفيزيائي للـ PWA يجب أن يكون الجذر**، وليس `wwwroot`.
+
+---
+
+## 📋 قائمة المراجعة الشاملة للنشر (Master Checklist)
+
+### قبل أي نشر
+
+- [ ] هل تم حفظ جميع التعديلات في الكود؟
+- [ ] هل تم اختبار التطبيق محلياً؟
+- [ ] هل تم أخذ نسخة احتياطية من قاعدة البيانات؟
+- [ ] هل ملفات البيئة (`appsettings.{Environment}.json`) تشير إلى الروابط الصحيحة؟
+
+### أثناء النشر
+
+- [ ] هل تم إيقاف الـ App Pool قبل نسخ الملفات؟
+- [ ] هل تم حفظ نسخة احتياطية من `web.config` و `appsettings`؟
+- [ ] هل تم نسخ الملفات بنجاح؟
+
+### بعد النشر
+
+- [ ] هل تم تشغيل الـ App Pool؟
+- [ ] هل الـ Health Check يعيد `200`؟
+- [ ] هل تم الاختبار من نافذة InPrivate (للـ PWA)؟
+- [ ] هل السجلات خالية من الأخطاء؟
+- [ ] هل العمليات الرئيسية تعمل (تسجيل الدخول، الحفظ، القراءة)؟
+
+---
+
+## 🔗 روابط ذات صلة
+
+- [00 - الهيكل المعماري](00-architecture-overview.md)
+- [01 - Program.cs والتسجيلات الأساسية](01-program-cs-foundation.md)
+- [02 - نظام الهوية والمصادقة](02-identity-system.md)
+- [03 - دليل الأنماط](03-style-guide.md)
+- [14 - نظام الكاش الموحد](14-caching-system.md)
+- [الملحق ب - فهرس الخدمات](appendix-b-service-index.md)
+
+---
+
+**آخر تحديث:** 29 أغسطس 2026 | **الملف:** `12-deployment-guide.md`
+
