@@ -301,5 +301,3 @@ C:\Windows\System32\inetsrv\appcmd recycle apppool "PU_RubicCareStage"
   5. أوامر التشخيص السريع
   6. الدروس المستفادة من نشر PWA
   7. المحاذير الحرجة
-
-**هل تريد أن أحفظ هذه الوثيقة في ملف فعلي على النظام؟** 🚀
