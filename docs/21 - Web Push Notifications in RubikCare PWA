@@ -1,0 +1,242 @@
+# 📘 الوثيقة الشاملة: نظام Web Push Notifications في RubikCare PWA
+
+**آخر تحديث:** 16 سبتمبر 2026
+**الحالة:** ✅ الإشعارات تعمل بنجاح على اللابتوب والموبايل (Android)
+**الحالة المتبقية:** 🟡 مشكلة علامات الاستفهام في النص العربي لسه قيد الفحص
+
+هذه الوثيقة تلخّص رحلة تشخيص وحل مشكلة عدم وصول Web Push Notifications للموبايل في مشروع RubikCare PWA (Blazor WebAssembly)، وتشرح معمارية النظام بالتفصيل لأي عملية تطوير أو تشخيص مستقبلية.
+
+---
+
+## 🗺️ الخريطة الزمنية الكاملة للمشكلة
+
+### المرحلة 1: نظاما إشعارات منفصلان
+```
+❌ الأصل: الـ Controller كان ينادي INotificationService (FCM) فقط
+❌ WebPushSenderService كان مسجّل في DI لكن Dead Code — محدش يناديه
+✅ الحل: مناداة النظامين معاً (FCM + WebPush) في try/catch منفصلين
+```
+**النتيجة:** الإشعارات بدأت تصل على اللابتوب (Desktop Chrome) بنجاح.
+
+### المرحلة 2: السيرفر الخطأ (uat.rubikcare.com كان متوقف)
+```
+❌ الـ PWA المنشور دايماً بيتصل بـ https://uat.rubikcare.com (مش localhost)
+❌ موقع IIS الخاص بـ uat.rubikcare.com كان Stopped
+✅ الحل: تشغيل الموقع + فحص Idle Timeout بتاع الـ Application Pool
+```
+**درس مهم:** أي اختبار لازم يتم بالرابط الكامل الصحيح (`https://uat.rubikcare.com/...`)، مش مسار نسبي (`/api/...`)، لأن الـ PWA والـ API منشورين على **دومينين مختلفين تماماً**.
+
+### المرحلة 3: الإرسال ناجح من السيرفر لكن مفيش إشعار على الموبايل
+تم التأكد عبر الـ stdout logs إن الطلب بيوصل للـ API الصحيح وبينجح فعلياً (FCM + Web Push الاتنين بيرجعوا نجاح)، لكن الموبايل لسه مفيش إشعار. هنا بدأ التشخيص الأعمق.
+
+### المرحلة 4: 🔑 الاكتشاف الأهم — ملفين Service Worker مش ملف واحد
+
+**السبب الجذري الحقيقي للمشكلة كلها:**
+
+مشاريع Blazor WebAssembly PWA فيها **ملفين** Service Worker:
+
+| الملف | الاستخدام |
+|-------|-----------|
+| `wwwroot/service-worker.js` | يُستخدم في وضع **Development** فقط |
+| `wwwroot/service-worker.published.js` | القالب المصدري اللي بيحل محل `service-worker.js` وقت `dotnet publish` |
+
+**السلوك الحقيقي وقت الـ publish:**
+عند تشغيل `dotnet publish`، أداة البناء بتاخد **محتوى** `service-worker.published.js`، بتحقنله الـ assets manifest، وبتكتب الناتج في ملف اسمه **`service-worker.js`** في مجلد النشر (`publish/wwwroot/`) — يعني بيستبدل تماماً أي كود كان موجود في `service-worker.js` الأصلي (بتاع الـ Dev).
+
+**النتيجة:** كل تعديلاتنا الأولى (كود push notifications، الـ logging) كانت بتتعمل في `wwwroot/service-worker.js` — الملف الغلط بالنسبة للإنتاج! أي `dotnet publish` كان بيمسحها ويحط مكانها القالب الافتراضي من مايكروسوفت (اللي بيعمل offline caching بس، ومفيهوش أي push handler خالص).
+
+**علامة التشخيص:** الفرق بين:
+```javascript
+console.log('[SW] Activating new service worker...');   // ✅ كودنا (dev فقط)
+console.info('Service worker: Activate');                 // ⚠️ القالب الافتراضي (بيوصل للإنتاج)
+```
+
+### المرحلة 5: نقل الملف لوحده مش كفاية — لازم المجلد كله
+
+بعد نقل تعديلات الـ push handler لـ `service-worker.published.js` الصح، وعمل publish، طلع إن نسخ ملف `service-worker.js` **لوحده** على السيرفر مش كفاية.
+
+**السبب:**
+```javascript
+const assetsRequests = self.assetsManifest.assets
+    .map(asset => new Request(asset.url, { integrity: asset.hash, cache: 'no-cache' }));
+await caches.open(cacheName).then(cache => cache.addAll(assetsRequests));
+```
+الـ `onInstall` بيعمل fetch لكل الملفات (`.dll`, `.wasm`, إلخ) **مع تحقق integrity hash صارم** من `service-worker-assets.js` (ملف مربوط بنفس نسخة الـ build). لو نقلت `service-worker.js` بس من غير باقي ملفات نفس الـ build، بيحصل **integrity mismatch**، فـ `onInstall` بيفشل صامت، والـ SW الجديد بيفضل "waiting" ومش بيتفعّل خالص.
+
+**القاعدة الذهبية:** أي تحديث لـ Service Worker لازم ينتقل **مع كل مجلد `wwwroot` الناتج من نفس عملية الـ publish**، مش ملف لوحده أبداً.
+
+### المرحلة 6: skipWaiting و clients.claim مفقودين
+
+القالب الافتراضي من مايكروسوفت (`service-worker.published.js`) **مفيهوش** `self.skipWaiting()` ولا `self.clients.claim()`. ده معناه إن أي SW جديد بيفضل "waiting" لحد ما **كل التابات المفتوحة على الموقع تتقفل تماماً** (مش refresh عادي)، خصوصاً على الموبايل. تمت إضافتهم لضمان إن أي تحديث مستقبلي ياخد أثره أسرع.
+
+### المرحلة 7 (مفتوحة): الإشعار الافتراضي "This site has been updated in the background"
+
+لو الـ push event وصل للـ Service Worker لكن الـ SW مانداش `showNotification()` (لأنه لسه قديم أو بيفشل صامت)، **Chrome بيجبر نفسه** يعرض إشعار افتراضي عام بدل الموقع (userVisibleOnly contract). لو شفت الرسالة دي، معناها **الموبايل لسه شغال بنسخة SW قديمة** — الحل: قفل Chrome بالكامل من الـ recent apps (مش بس التاب)، أو مسح بيانات الموقع بالكامل من إعدادات Chrome.
+
+---
+
+## 🏗️ معمارية النظام الكاملة (مرجع تقني)
+
+### مسار الإشعار الكامل (End-to-End)
+```
+1. المستخدم يفتح الـ PWA → MainLayout.razor → InitializePushSafelyAsync()
+2. push-notifications.js → subscribeToPush(vapidPublicKey)
+3. POST /api/notifications/register-web-push → يُحفظ في UserWebPushSubscriptions
+   ══════════════ (انتهى التسجيل) ══════════════
+4. Trigger (send-test / حدث حقيقي في التطبيق)
+5. NotificationsController → يحفظ Notification في DB (للعرض داخل التطبيق)
+6. _pushNotificationService.SendToUserAsync()  → FCM (DeviceTokens، لتطبيق الموبايل الأصلي MAUI)
+7. _webPushSenderService.SendToUserAsync()     → Web Push (UserWebPushSubscriptions، للـ PWA)
+8. WebPushClient.SendNotificationAsync() مع VAPID → fcm.googleapis.com (Push Service)
+9. service-worker.js (النسخة المنشورة الفعلية) → addEventListener('push')
+10. self.registration.showNotification() → 🔔 الإشعار يظهر فعلياً
+```
+
+### نظاما الإشعارات المنفصلان (لازم الاتنين يفضلوا موجودين)
+
+| النظام | الجدول | الاستخدام | ملاحظة |
+|--------|--------|-----------|--------|
+| **FCM Native** | `DeviceTokens` | تطبيق الموبايل الأصلي (MAUI) | عبر `FirebaseNotificationService` |
+| **Web Push** | `UserWebPushSubscriptions` | متصفحات الويب / الـ PWA | عبر `WebPushSenderService` + VAPID |
+
+⚠️ **لا تستبدل نظام بالتاني** — كل واحد بيخدم منصة مختلفة تماماً.
+
+⚠️ **دَين تقني معروف:** يوجد كلاسان بنفس الاسم `FirebaseNotificationService`:
+- `Api.Web\Services\FirebaseNotificationService.cs` — المُستخدم فعلياً
+- `RubikCare.Infrastructure\Services\FirebaseNotificationService.cs` — دالة `SendToUserAsync` فيه **فارغة تماماً** (stub خطر)
+
+يتم حل التعارض حالياً بـ `using` alias صريح في `Program.cs`. يُفضّل تنظيف ده لاحقاً بحذف النسخة الفارغة أو دمج الاتنين.
+
+### المسارات الكاملة للملفات المهمة
+
+```
+RubikCare.PWA\
+├── wwwroot\
+│   ├── service-worker.js              ← Dev فقط! لا يصل للإنتاج أبداً
+│   ├── service-worker.published.js    ← ⭐⭐⭐ هذا هو الملف الفعلي في الإنتاج
+│   ├── service-worker-assets.js       ← يتولد تلقائياً كل build (asset hashes)
+│   ├── manifest.webmanifest
+│   ├── js\push-notifications.js       ← subscribeToPush()
+│   └── index.html
+├── Layout\MainLayout.razor            ← InitializePushSafelyAsync + VAPID Public Key
+└── Program.cs                         ← تحديد رابط الـ API (uat.rubikcare.com في الإنتاج)
+
+Api.Web\
+├── Services\
+│   ├── WebPushSenderService.cs        ← إرسال Web Push (VAPID)
+│   └── FirebaseNotificationService.cs ← إرسال FCM (DeviceTokens)
+├── Controllers\NotificationsController.cs ← نقطة الدخول لكل الإشعارات
+└── Program.cs                         ← DI registration
+
+RubikCare.Domain\Entities\UserWebPushSubscription.cs
+```
+
+### خريطة السيرفرات (IIS Sites) على الـ VPS
+
+| الموقع | الدومين | الدور |
+|--------|---------|-------|
+| PU_RubicCareStage | `stagepu.rubikcare.com` | الـ PWA قيد الاختبار |
+| **RubikCareUat** | `uat.rubikcare.com` | **API الصحيح** اللي الـ PWA بيتصل بيه في الإنتاج |
+| RubicCareApi | `api.rubikcare.com` | API الإنتاج الحقيقي (لا تستخدمه للاختبار) |
+
+⚠️ افحص دايماً حالة تشغيل الموقع (`Get-Website -Name "RubikCareUat"`) قبل أي جلسة تشخيص جديدة — ممكن يكون متوقف بسبب Idle Timeout بتاع الـ Application Pool.
+
+---
+
+## 🧪 أدوات ووصفات التشخيص الجاهزة (Playbook)
+
+### 1. فحص محتوى SW الفعلي المنشور (مش الملف المحلي)
+```
+https://stagepu.rubikcare.com/service-worker.js
+```
+دور جوه المحتوى عن الكود المتوقع. لو لقيت `Service worker: Activate` بس (من غير أي push handler)، يبقى النسخة المنشورة قديمة/افتراضية.
+
+### 2. تفعيل stdout logging على API الـ UAT
+```powershell
+$webConfigPath = "C:\WebSite\RubikCareUat\web.config"
+$content = Get-Content $webConfigPath -Raw
+$content = $content -replace 'stdoutLogEnabled="false"', 'stdoutLogEnabled="true"'
+Set-Content -Path $webConfigPath -Value $content -Encoding UTF8
+Restart-WebAppPool -Name "RubikCareUat"
+```
+
+### 3. فلترة اللوج لأهم الأسطر بس (بدل عرض ملف ضخم)
+```powershell
+Select-String -Path "C:\WebSite\RubikCareUat\logs\stdout_XXXXX.log" `
+  -Pattern "send-test|FCM Push|Web Push|Failed to send|WebPushSenderService"
+```
+
+### 4. فحص هل الاشتراك اتسجل فعلاً من جهاز معيّن
+```sql
+SELECT * FROM UserWebPushSubscriptions ORDER BY CreatedAt DESC;
+```
+
+### 5. اختبار الإرسال من Browser Console (لازم الرابط الكامل الصحيح)
+```javascript
+const token = localStorage.getItem('auth_token');
+fetch('https://uat.rubikcare.com/api/notifications/send-test', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+}).then(r => r.json()).then(d => console.log('نتيجة:', d)).catch(e => console.error('خطأ:', e));
+```
+⚠️ لازم يتنفذ من **نفس أصل (origin)** الموقع اللي بتختبر عليه (`stagepu.rubikcare.com`)، مش من `localhost`، عشان تتفادى أخطاء CORS، ولازم الرابط يكون كامل لدومين الـ API الصحيح.
+
+### 6. مراقبة الموبايل عن بُعد
+`chrome://inspect#devices` من اللابتوب مع تفعيل USB Debugging على الموبايل، عشان تشوف الـ Console والـ Network بتاعة صفحة الموبايل مباشرة.
+
+### 7. فرض تحديث Service Worker فوراً على المتصفح
+من تاب **Application → Service Workers**:
+- **Unregister** ثم إعادة تحميل كامل، أو
+- فعّل **"Update on reload"** أثناء التطوير
+
+---
+
+## ⚠️ أخطاء شائعة وقعنا فيها — تجنبها مستقبلاً
+
+1. **لا تعدّل `service-worker.js` وتفترض إنه هيوصل للإنتاج** — عدّل `service-worker.published.js` دايماً لأي منطق لازم يشتغل في production/stage.
+
+2. **لا تنقل ملف الـ Service Worker لوحده بعد أي publish** — انقل مجلد `wwwroot` بالكامل من نفس عملية الـ publish، عشان تفادي integrity hash mismatch.
+
+3. **لا تفترض إن `{success: true}` من الـ API معناها الإشعار وصل فعلاً** — الإرسال بيحصل جوه try/catch منفصل عن الحفظ في DB، فممكن يرجع نجاح حتى لو الإرسال الفعلي فشل. اعتمد دايماً على الـ logs الحقيقية (stdout أو Application Insights).
+
+4. **لا تختبر بمسار نسبي (`/api/...`) من دومين الـ PWA** — الـ PWA والـ API على دومينين منفصلين تماماً؛ استخدم الرابط الكامل دايماً.
+
+5. **لا تفترض نجاح اللابتوب = نجاح الموبايل** — الإذن والاشتراك (subscription) منفصلان تماماً لكل جهاز/متصفح على حدة.
+
+6. **لو شفت "This site has been updated in the background" على أندرويد** — ده مش خطأ من الباك إند، ده Chrome بيعوّض لأن الـ Service Worker الحالي (غالباً نسخة قديمة) مش بينادي `showNotification()`. الحل: تحديث الـ SW فعلياً + إعادة تشغيل Chrome بالكامل.
+
+7. **احذر ترميز الملفات** — استخدم `-Encoding UTF8` عند القراءة بـ PowerShell، واحفظ أي ملف فيه نص عربي مباشر بترميز UTF-8 with BOM. (ملحوظة: في حالتنا BOM كان سليم بالفعل والمشكلة لسه قيد الفحص في مكان تاني بالـ pipeline).
+
+---
+
+## 🔴 المشكلة المفتوحة حالياً: علامات الاستفهام في النص العربي
+
+**الأعراض:**
+```json
+{"success": true, "message": "? ?? ????? ??????? ?????!"}
+```
+
+**ما تم استبعاده:**
+- ✅ ترميز `NotificationsController.cs` — عليه UTF-8 BOM سليم
+- ✅ منطق `WebPushSenderService.cs` — بيستخدم `System.Text.Json.JsonSerializer.Serialize` بشكل صحيح، من غير أي تحويل ترميز يدوي
+
+**الاتجاه القادم للتحقيق:**
+علامات الاستفهام الحرفية (`?`) بدل الرموز التالفة (`Ø§Ù„`) بتدل تحديداً على **تحويل صريح عبر Encoding.ASCII** في مكان ما من الـ pipeline (مش مجرد قراءة بترميز غلط). المشتبه فيهم:
+- الكود اللي بيبني الـ `message` string نفسها جوه action الـ `send-test` في `NotificationsController.cs` (لسه محتاجين نشوفه كامل)
+- أي middleware مخصص بيتعامل مع الـ response body
+- إعدادات الـ Content-Type / charset على الـ response
+
+**الخطوة التالية:** فحص كود الـ `send-test` action كامل.
+
+---
+
+## ✅ خطة العمل القادمة
+
+1. حل مشكلة الترميز العربي نهائياً (قيد التحقيق)
+2. ربط الإشعارات بالأنشطة الحقيقية في التطبيق (مواعيد، تذكير أدوية، رسائل، إلخ) بدل الاختبار التجريبي فقط
+3. (اختياري) تنظيف الدَين التقني: توحيد/حذف `FirebaseNotificationService` المكرر والفارغ، ونقل الـ internal API key المكتوب مباشرة في الكود لـ `appsettings.Secrets.json`
+4. (اختياري) نسخ `icon-72.png` (حالياً غير موجود، الإشعارات بتستخدم fallback)
+
+---
+
+**نهاية الوثيقة.**
