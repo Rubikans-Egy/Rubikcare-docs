@@ -1,6 +1,3 @@
-
----
-
 # 🚀 RubikCare — وثيقة بدء الجلسة
 
 **ترسل هذه الرسالة في بداية كل شات جديد مع أي مساعد تقني**
@@ -48,6 +45,7 @@ RubikCare.Tests           ← Architecture Tests (33 اختبار)
 ❌ لا تعدل جداول قاعدة البيانات مباشرة (SQL)
 ✅ أي تغيير في الكيانات ← Migration جديدة عبر Package Manager Console
 ✅ أي SQL خام للاستعلام فقط (Read-Only) وليس للتعديل
+✅ قاعدة البيانات: RubikCare_Dev_V2
 ```
 
 ### ⛔ Clean Architecture
@@ -62,7 +60,6 @@ RubikCare.Tests           ← Architecture Tests (33 اختبار)
 ```
 ❌ لا تخمن أسماء الحقول — اطلب ملف Entity أو نفذ SELECT TOP 1 * FROM Table
 ✅ استخدم MERGE بدلاً من INSERT/UPDATE لتجنب التكرار
-✅ قاعدة البيانات اسمها: RubikCare_Dev_V2
 ✅ كل النصوص العربية في SQL تحتاج N'' prefix
 ✅ أي تسجيل خدمة جديد ← في InfrastructureExtensions.cs فقط
 ✅ علامات التنصيص في Blazor @onclick: استخدم المفردة ''
@@ -121,13 +118,13 @@ cd C:\Users\shady\source\repos\Rubikans-Egy\Rubikcare.Full.Migration\
 Get-ChildItem -Directory | Format-Table Name
 
 # عرض هيكل مشروع API
-Get-ChildItem -Path "RubikCare.Api.Web\Controllers" -Recurse -Name
+Get-ChildItem -Path "Api.Web\Controllers" -Recurse -Name
 
 # عرض كل Controllers
-Get-ChildItem -Path "RubikCare.Api.Web\Controllers" -Recurse -Filter "*.cs" | Select-Object FullName
+Get-ChildItem -Path "Api.Web\Controllers" -Recurse -Filter "*.cs" | Select-Object FullName
 
 # عرض صفحات الموبايل
-Get-ChildItem -Path "RubikCare.Mobile\Features" -Recurse -Directory -Depth 2 | Select-Object FullName
+Get-ChildItem -Path "Mobile\Features" -Recurse -Directory -Depth 2 | Select-Object FullName
 
 # عرض مكونات Shared.UI
 Get-ChildItem -Path "Shared.UI\Components" -Recurse -Directory | Select-Object FullName
@@ -153,17 +150,11 @@ git status
 # الملفات اللي اتغيرت في آخر commit
 git diff --name-only HEAD~1 HEAD
 
-# الملفات اللي اتغيرت في آخر 3 commits
-git log --name-only --pretty=format:"--- %h %s ---" -3
-
 # عدد الـ commits الكلي
 git rev-list --count HEAD
 
 # معرفة الفروع
 git branch -a
-
-# آخر شخص عدل كل ملف (للتوثيق)
-git ls-files | ForEach-Object { $file = $_; $log = git log -1 --format="%ad | %an" -- $file; if($log) { "$log | $file" } } | Sort-Object
 ```
 
 ---
@@ -171,33 +162,22 @@ git ls-files | ForEach-Object { $file = $_; $log = git log -1 --format="%ad | %a
 ### 3. قاعدة البيانات — استعلامات سريعة
 
 ```sql
--- عدد الجداول في قاعدة البيانات
-SELECT COUNT(*) AS TotalTables FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE'
-
--- كل الجداول مرتبة
+-- كل الجداول
 SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE' ORDER BY TABLE_NAME
 
 -- عدد الصفوف في كل جدول
-SELECT 
-    t.NAME AS TableName,
-    SUM(p.rows) AS RowCounts
+SELECT t.NAME AS TableName, SUM(p.rows) AS RowCounts
 FROM sys.tables t
 INNER JOIN sys.partitions p ON t.object_id = p.object_id
 WHERE p.index_id IN (0,1)
 GROUP BY t.NAME
 ORDER BY RowCounts DESC
 
--- آخر Migration منفذة (جدول __EFMigrationsHistory)
+-- آخر Migration منفذة
 SELECT TOP 1 MigrationId, ProductVersion FROM [RubikCare_Dev_V2].[dbo].[__EFMigrationsHistory] ORDER BY MigrationId DESC
 
 -- كل الـ Migrations
 SELECT MigrationId, ProductVersion FROM [RubikCare_Dev_V2].[dbo].[__EFMigrationsHistory] ORDER BY MigrationId
-
--- عدد الـ Migrations الكلي
-SELECT COUNT(*) AS TotalMigrations FROM [RubikCare_Dev_V2].[dbo].[__EFMigrationsHistory]
-
--- عرض كل مفاتيح الترجمة (أول 50)
-SELECT TOP 50 ResourceKey, ResourceValueAr, Module FROM Resources ORDER BY ResourceKey
 
 -- البحث عن مفتاح ترجمة معين
 SELECT ResourceKey, ResourceValueAr, ResourceValueEn FROM Resources WHERE ResourceKey LIKE '%الكلمة%'
@@ -212,10 +192,13 @@ SELECT Module, COUNT(*) AS Count FROM Resources GROUP BY Module ORDER BY Count D
 
 ```powershell
 # تجربة Build للمشروع كله
-dotnet build --no-restore 2>&1 | Select-String -Pattern "error|warning|Build succeeded|Build failed"
+dotnet build --no-restore 2>&1 | Select-String -Pattern "error|Build succeeded|Build failed"
 
 # تجربة Build لمشروع API فقط
-dotnet build RubikCare.Api.Web\RubikCare.Api.Web.csproj --no-restore
+dotnet build "Api.Web\RubikCare.Api.Web.csproj" --no-restore
+
+# تجربة Build لمشروع Web فقط
+dotnet build "Rubikcare.Web\Rubikcare.Web.csproj" --no-restore
 
 # عرض الـ Target Framework لكل مشروع
 Get-ChildItem -Recurse -Filter "*.csproj" | ForEach-Object { 
@@ -223,51 +206,6 @@ Get-ChildItem -Recurse -Filter "*.csproj" | ForEach-Object {
     $tf = $csproj.Project.PropertyGroup.TargetFramework
     "$($_.Directory.Name) → $tf"
 }
-
-# عرض عدد الملفات والأسطر في كل مشروع
-Get-ChildItem -Recurse -Filter "*.cs" | Group-Object { $_.Directory.Name } | ForEach-Object { 
-    $lines = ($_.Group | ForEach-Object { (Get-Content $_.FullName).Count } | Measure-Object -Sum).Sum
-    "$($_.Name): $($_.Count) ملف — $lines سطر"
-} | Sort-Object
-```
-
----
-
-### 5. استعلامات متقدمة عن PSP والأعمال
-
-```sql
--- إحصائيات برامج PSP
-SELECT COUNT(*) AS TotalPrograms FROM PSPPrograms
-SELECT COUNT(*) AS TotalPatients FROM PSPPatients
-SELECT COUNT(*) AS TotalDispensations FROM PSPDispensations
-
--- عدد المرضى حسب الحالة
-SELECT Status, COUNT(*) AS Count FROM PSPPatients GROUP BY Status
-
--- عدد الرموز حسب الحالة
-SELECT 
-    CASE 
-        WHEN TokenUsed = 1 THEN 'Used'
-        WHEN TokenExpiryDate < GETDATE() THEN 'Expired'
-        ELSE 'Active'
-    END AS TokenStatus,
-    COUNT(*) AS Count
-FROM PSPDispensations
-GROUP BY 
-    CASE 
-        WHEN TokenUsed = 1 THEN 'Used'
-        WHEN TokenExpiryDate < GETDATE() THEN 'Expired'
-        ELSE 'Active'
-    END
-
--- عدد المستخدمين
-SELECT COUNT(*) AS TotalUsers FROM AspNetUsers
-
--- المنظمات حسب النوع
-SELECT o.OrganizationTypeID, ot.OrganizationTypeNameAr, COUNT(*) AS Count
-FROM Organizations o
-JOIN OrganizationTypes ot ON o.OrganizationTypeID = ot.OrganizationTypeID
-GROUP BY o.OrganizationTypeID, ot.OrganizationTypeNameAr
 ```
 
 ---
@@ -285,6 +223,35 @@ SQL: MERGE Resources (INSERT لو مش موجود، UPDATE لو موجود)
 دايماً: N'' prefix للعربية
 ```
 
+### ⚠️ ملاحظة مهمة عن الـ Cache:
+
+```
+✅ مفاتيح الترجمة بتتحفظ في DB (جدول Resources)
+✅ لكن الكاش في الذاكرة (In-Memory)
+⚠️ عند إضافة مفاتيح ترجمة جديدة:
+   1. المفاتيح بتتحفظ في DB صح
+   2. لكن الكاش في الذاكرة مش بيتحدث تلقائياً
+   3. لازم Restart للتطبيق
+   4. أو Hard Refresh في المتصفح (Ctrl + Shift + R)
+```
+
+---
+
+## ⚙️ إعدادات اللغة الافتراضية
+
+```
+✅ Default Language = "en" (English)
+✅ موحّد في 5 أماكن:
+   1. App.razor (JS) — fallback × 2
+   2. TranslationStateService.CurrentLanguage
+   3. TranslationStateService.InitializeAsync
+   4. MainLayout.razor — CurrentLang
+   5. Program.cs — SetDefaultCulture
+✅ Fallback Order: localStorage → Cookie → "en"
+✅ Cookie Name: .RubikCare.Language
+✅ localStorage Key: RubikCare:Language
+```
+
 ---
 
 ## ✅ قائمة تحقق سريعة عند أي تعديل
@@ -296,16 +263,81 @@ SQL: MERGE Resources (INSERT لو مش موجود، UPDATE لو موجود)
 - هل SQL يستخدم `N''` prefix؟
 - هل تم اختبار Architecture Tests؟
 - هل Mobile لا يعتمد على أي مشروع آخر؟
+- هل Default Language = "en" في كل الأماكن؟
 
 ---
 
-**🔗 الملفات على GitHub:** `https://github.com/Rubikans-Egy/Rubikcare-docs/`
+## 🎯 حالة المشروع الحالية
 
-**📅 تاريخ الجلسة:** `[يُكتب هنا]`
+### ✅ ما تم إنجازه (Sprint سبتمبر 2026):
 
-**🎯 الهدف من الجلسة:** `[يُكتب هنا]`
+| # | المهمة | الحالة |
+|---|--------|--------|
+| 1 | مراحل خطة الصرف (Multi-Stage Dispensation) | ✅ مكتمل |
+| 2 | إصلاح مشاكل PSP Budget | ✅ مكتمل |
+| 3 | إصلاح `companyId` في `RepController` | ✅ مكتمل |
+| 4 | ربط `MyInvitations` و `MyNetwork` بـ `companyId` | ✅ مكتمل |
+| 5 | `PharmaCompanyDashboard` — تبديل الشركة | ✅ مكتمل |
+| 6 | صفحة الروابط (ترجمة + CSS) | ✅ مكتمل |
+| 7 | Default Language = "en" | ✅ مكتمل |
 
-**🐛 المشكلات الحالية:** `[يُكتب هنا]`
+### 🔴 المشاكل الحالية:
+
+| # | المشكلة | الحالة |
+|---|---------|--------|
+| 1 | Toast Notification في آخر الصفحة | ⏳ في شات منفصل |
+| 2 | `_homepage.css` 404 (warning) | ⏸️ مؤجل |
+| 3 | `default-avatar.png` 404 | ✅ اتحل |
+
+### 🎯 المهام القادمة:
+
+| # | المهمة | الأولوية | التقدير |
+|---|--------|----------|---------|
+| 1 | **تحديد التحاليل الطبية من شركة الدواء** (Required Tests) | 🔴 حرجة | ~6-8 ساعات |
+| 2 | رفع التحاليل (PDF) + التذكيرات | 🟡 متوسطة | ~10-12 ساعة |
+| 3 | إظهار التحاليل مع مراعاة الخصوصية | 🟡 متوسطة | ~4-6 ساعات |
+
+---
+
+## 📚 تفاصيل المهمة المنجزة: مراحل خطة الصرف
+
+### 🎯 الهدف:
+- المستخدم يحدد **عدد المراحل** في خطة الصرف
+- كل مرحلة ليها: مدة زمنية + أدوية خاصة + تفاصيل (كام علبة/شهر، التقسيمة، الخصم)
+
+### 🏗️ الكيانات الجديدة:
+
+| الكيان | المسار |
+|--------|--------|
+| `PSPDispensationPlanPhase` | `RubikCare.Domain\Entities\PSP\Core\` |
+| `PSPDispensationPlanPhaseMedication` | `RubikCare.Domain\Entities\PSP\Core\` |
+
+### 🔗 العلاقات:
+```
+PSPDispensationPlan
+  └── PSPDispensationPlanPhase (CASCADE)
+        └── PSPDispensationPlanPhaseMedication (CASCADE)
+              └── PSPProgramMedication (NO_ACTION)
+```
+
+### 📊 الـ Migration:
+- **ID:** `20260923150028_AddPSPDispensationPlanPhases`
+- **الحالة:** ✅ مطبقة على `RubikCare_Dev_V2`
+
+### 🎨 الـ UI:
+- **الملف:** `Rubikcare.Web\Components\Pages\Professional\PSPSteps\PSPStep2_DispensationPlans.razor`
+- **النمط:** Inline Forms (مش Modals)
+- **الحجم:** ~1349 سطر
+
+### 📚 الـ DTOs:
+- `DispensationPlanPhaseDto`
+- `DispensationPlanPhaseMedicationDto`
+- `CreateDispensationPlanPhaseDto`
+- `CreateDispensationPlanPhaseMedicationDto`
+
+### 🌐 الـ API:
+- **الملف:** `Api.Web\Controllers\PSP\PspController.DispensationPlans.cs`
+- **الـ Endpoints:** 6 endpoints
 
 ---
 
@@ -318,11 +350,45 @@ SQL: MERGE Resources (INSERT لو مش موجود، UPDATE لو موجود)
 قاعدة البيانات: RubikCare_Dev_V2
 إدارة الـ Migrations: Package Manager Console
 مسار المشروع: C:\Users\shady\source\repos\Rubikans-Egy\Rubikcare.Full.Migration\
+Default Language: English (en)
+Cookie Name: .RubikCare.Language
+localStorage Key: RubikCare:Language
 ```
+
+---
+
+## 🔗 الملفات على GitHub
+
+**Repository:** `https://github.com/Rubikans-Egy/Rubikcare-docs/`
+
+**Branch:** `main`
+
+**Path:** `docs/`
+
+---
+
+**📅 تاريخ الجلسة:** `[يُكتب هنا]`
+
+**🎯 الهدف من الجلسة:** `[يُكتب هنا]`
+
+**🐛 المشكلات الحالية:** `[يُكتب هنا]`
 
 ---
 
 **نهاية وثيقة بدء الجلسة 🚀**
 
 ---
-شاكل الجديدة اللي عايز تشتغل عليها؟ 🫡
+
+## 📞 للتواصل السريع
+
+**لو الشات الجديد محتاج معلومات إضافية:**
+
+1. **اسأل يوسف عن:** آخر Migration، حالة الـ Build، المشاكل الحالية
+2. **اطلب منه:** تشغيل أوامر PowerShell للحصول على معلومات مباشرة
+3. **اطلب منه:** Screenshot للصفحات عند الحاجة
+
+**قواعد سريعة:**
+- كل رد يبدأ بـ `[#رقم]`
+- خطوة واحدة لكل رد
+- مناقشة قبل التنفيذ
+- لا `Set-Content` لملفات razor/cshtml
