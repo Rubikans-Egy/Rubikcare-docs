@@ -1,454 +1,434 @@
-# 07 - نظام برامج دعم المرضى (Patient Support Programs - PSP)
+## 📄 وثيقة `07-psp-system.md` المحدّثة
 
-**آخر تحديث: 17 مايو 2026**
+**انسخ الكود ده كامل والصقه في الملف:**
+
+```markdown
+# 07 — نظام PSP (Patient Support Programs)
+
+## 📌 نظرة عامة
+
+نظام **PSP** هو القلب الأساسي لمنصة RubikCare — بيدير **برامج دعم المرضى** اللي بتقدمها شركات الأدوية.
+
+**المكونات الأساسية:**
+- **Program** — البرنامج (علاج السكري، علاج الأنيميا...)
+- **ProgramMedication** — الأدوية المرتبطة بالبرنامج
+- **DispensationPlan** — خطة الصرف
+- **DispensationPlanPhase** — ⭐ مراحل خطة الصرف
+- **Dispensation** — عمليات الصرف الفعلية
+- **Patient** — المرضى المشاركين
+- **Invitation** — الدعوات
+- **Participation** — المشاركات
+- **eRX** — الروشتات الإلكترونية
 
 ---
 
-## مقدمة
+## 🧱 هيكل الكيانات (Domain Entities)
 
-نظام PSP في RubikCare هو **قلب المنصة**، حيث يتفاعل فيه:
-- **شركات الأدوية** (تنشئ برامج الدعم)
-- **الأطباء** (يشتركون في البرامج ويدعون المرضى)
-- **المرضى** (يستفيدون من الدعم ويصرفون الأدوية)
-- **الصيادلة** (يؤكدون الصرف ويسجلون العمليات)
-
-هذا المرجع يوثق **كل شيء** عن نظام PSP.
-
----
-
-## الدورة الكاملة
-
-```mermaid
-sequenceDiagram
-    actor Pharma as شركة أدوية
-    actor Doctor as طبيب
-    actor Patient as مريض
-    actor Pharmacist as صيدلي
-    participant API
-    participant DB
-
-    Pharma->>API: إنشاء برنامج دعم (PSPProgram)
-    Doctor->>API: الاشتراك في البرنامج (PSPParticipation)
-    Doctor->>API: إنشاء دعوة لمريض
-    API->>DB: حفظ PSPInvitation
-    API-->>Doctor: رمز الدعوة (QR Code)
-    Doctor->>Patient: مشاركة رمز الدعوة
-    Patient->>API: إدخال رمز الدعوة
-    API->>DB: تسجيل المريض وإنشاء وصفة
-    API-->>Patient: رمز الصرف (TokenCode)
-    Patient->>Pharmacist: إظهار رمز الصرف
-    Pharmacist->>API: التحقق من الرمز
-    API-->>Pharmacist: تأكيد الصلاحية
-    Pharmacist->>API: تأكيد الصرف
-    API-->>Pharmacist: نجاح العملية
+### 📂 المسار:
+```
+RubikCare.Domain\Entities\PSP\
+├── Config\          ← إعدادات
+│   ├── PSPRequiredDataEntry.cs
+│   ├── PSPRequiredFollowUp.cs
+│   └── PSPRequiredTest.cs
+│
+├── Core\            ← القلب
+│   ├── LinkTargetAudience.cs
+│   ├── PSPDispensation.cs
+│   ├── PSPDispensationPlan.cs
+│   ├── PSPDispensationPlanMedication.cs
+│   ├── PSPDispensationPlanPhase.cs               ⭐ جديد
+│   ├── PSPDispensationPlanPhaseMedication.cs     ⭐ جديد
+│   ├── PSPeRX.cs
+│   ├── PSPInvitation.cs
+│   ├── PSPParticipation.cs
+│   ├── PSPPatient.cs
+│   ├── PSPProgram.cs
+│   ├── PSPProgramLink.cs
+│   ├── PSPProgramMedication.cs
+│   └── PSPProgramSpeciality.cs
+│
+├── Doctor\
+│   └── DoctorNote.cs
+│
+├── Execution\
+│   ├── PSPFollowUpRecord.cs
+│   └── PSPTestResult.cs
+│
+└── Patient\
+    └── PSPAdverseEvent.cs
 ```
 
 ---
 
-## جداول قاعدة البيانات (هيكل PSP الكامل)
+## 🔗 خريطة العلاقات
 
-### مخطط العلاقات
-
-```mermaid
-erDiagram
-    PSPPrograms ||--o{ PSPProgramMedications : "One-to-Many"
-    PSPPrograms ||--o{ PSPParticipations : "One-to-Many"
-    PSPPrograms ||--o{ PSPDispensationPlans : "One-to-Many"
-    PSPParticipations ||--o{ PSPPatients : "One-to-Many"
-    PSPPatients ||--o{ PSPeRX : "One-to-Many"
-    PSPeRX ||--o{ PSPDispensations : "One-to-Many"
-    PSPDispensationPlans ||--o{ PSPDispensationPlanMedications : "One-to-Many"
-    Organizations ||--o{ PSPPrograms : "One-to-Many"
-    Organizations ||--o{ PSPParticipations : "One-to-Many"
-    UserProfiles ||--o{ PSPInvitations : "One-to-Many (InvitedBy)"
-    UserProfiles ||--o{ PSPPatients : "One-to-Many"
+```
+PSPProgram (البرنامج)
+    │
+    ├── ProgramID ──┬──> PSPProgramMedications (أدوية البرنامج)
+    │               │         │
+    │               │         └── ProgramMedicationID ──┐
+    │               │                                   │
+    │               └──> PSPDispensationPlans (خطط الصرف)
+    │                         │
+    │                         └── PlanID ──┐
+    │                                      │
+    │                                      ▼
+    │                          PSPDispensationPlanMedications
+    │                          (Legacy — دواء في الخطة مباشرة)
+    │
+    └── ProgramID ──> PSPRequiredTests / PSPRequiredFollowUps / PSPRequiredDataEntries
 ```
 
-### PSPPrograms (برامج الدعم)
+### ⭐ مع Phase System الجديد:
 
-| العمود | النوع | الوصف |
-|--------|-------|-------|
-| ProgramID | INT PK | المفتاح الأساسي |
-| ProgramNameAr | NVARCHAR(200) | اسم البرنامج بالعربية |
-| ProgramNameEn | NVARCHAR(200) | اسم البرنامج بالإنجليزية |
-| ProgramCode | NVARCHAR(50) | رمز البرنامج (مثل INF، ANF، HCP) |
-| DescriptionAr | NVARCHAR(MAX) | وصف البرنامج بالعربية |
-| DescriptionEn | NVARCHAR(MAX) | وصف البرنامج بالإنجليزية |
-| CompanyID | INT FK | الشركة المالكة (Organizations) |
-| MaxDiscountPercentage | DECIMAL(18,2) | أقصى نسبة خصم |
-| IsActive | BIT | هل البرنامج نشط؟ |
-| StartDate | DATETIME2 | تاريخ بدء البرنامج |
-| EndDate | DATETIME2 | تاريخ انتهاء البرنامج |
-| CreatedDate | DATETIME2 | تاريخ الإنشاء |
-
-### PSPProgramMedications (أدوية البرامج)
-
-| العمود | النوع | الوصف |
-|--------|-------|-------|
-| ProgramMedicationID | INT PK | المفتاح الأساسي |
-| ProgramID | INT FK | معرف البرنامج |
-| MedicationID | INT FK | معرف الدواء |
-| DefaultQuantity | INT | الكمية الافتراضية |
-| DefaultDaysSupply | INT | عدد الأيام الافتراضي |
-| DiscountPercentage | DECIMAL(18,2) | نسبة الخصم |
-| IsActive | BIT | نشط؟ |
-
-### PSPParticipations (مشاركة العيادات في البرامج)
-
-| العمود | النوع | الوصف |
-|--------|-------|-------|
-| ParticipationID | INT PK | المفتاح الأساسي |
-| ProgramID | INT FK | معرف البرنامج |
-| OrganizationID | INT FK | معرف العيادة/المؤسسة |
-| UserProfileID | INT FK | معرف الطبيب المشترك |
-| Status | NVARCHAR(20) | ACTIVE, INACTIVE, PENDING |
-| EnrollmentDate | DATETIME2 | تاريخ الاشتراك |
-| EndDate | DATETIME2 | تاريخ انتهاء الاشتراك |
-| IsActive | BIT | نشط؟ |
-
-### PSPInvitations (الدعوات) - ⭐ القلب
-
-| العمود | النوع | الوصف |
-|--------|-------|-------|
-| InvitationID | INT PK | المفتاح الأساسي |
-| ProgramID | INT FK | معرف البرنامج |
-| InvitedByUserID | INT FK | معرف الطبيب الداعي |
-| InvitedOrganizationID | INT FK | معرف العيادة الداعية |
-| ReferralUserID | INT FK | معرف المندوب المحيل (اختياري) |
-| Status | NVARCHAR(20) | PENDING, ACCEPTED, EXPIRED, USED |
-| InvitationToken | NVARCHAR(50) | رمز الدعوة الفريد (مثل INV-5CWEFHEJ) |
-| SourceType | NVARCHAR(20) | QR, SMS, EMAIL, DIRECT, REP_TO_DOCTOR |
-| InvitationMessage | NVARCHAR(500) | نص الدعوة |
-| InvitationDate | DATETIME2 | تاريخ الإرسال |
-| ResponseDate | DATETIME2 | تاريخ الرد |
-| ExpiryDate | DATETIME2 | تاريخ انتهاء الصلاحية |
-| UsedByUserID | INT FK | المريض الذي استخدم الدعوة |
-| UsedDate | DATETIME2 | تاريخ الاستخدام |
-| ResultingParticipationID | INT FK | رابط إلى PSPPatients بعد القبول |
-| IsActive | BIT | نشط؟ |
-
-### PSPPatients (المرضى المسجلين)
-
-| العمود | النوع | الوصف |
-|--------|-------|-------|
-| PatientID | INT PK | المفتاح الأساسي |
-| ParticipationID | INT FK | مشاركة العيادة في البرنامج |
-| PatientProfileID | INT FK | معرف المريض (UserProfile) |
-| InvitedByUserID | INT FK | الطبيب الداعي |
-| InvitedByOrganizationID | INT FK | العيادة الداعية |
-| EnrollmentDate | DATETIME2 | تاريخ التسجيل |
-| Status | NVARCHAR(20) | ACTIVE, INACTIVE, COMPLETED |
-| IsActive | BIT | نشط؟ |
-
-### PSPeRX (الوصفات الإلكترونية)
-
-| العمود | النوع | الوصف |
-|--------|-------|-------|
-| ERxID | INT PK | المفتاح الأساسي |
-| PatientID | INT FK | معرف المريض |
-| DoctorID | INT FK | معرف الطبيب |
-| ProgramID | INT FK | معرف البرنامج |
-| ProgramMedicationID | INT FK | معرف الدواء في البرنامج |
-| QuantityPerDispense | INT | الكمية لكل صرف |
-| TotalDispensesAllowed | INT | إجمالي عدد مرات الصرف |
-| DispensesRemaining | INT | عدد مرات الصرف المتبقية |
-| Status | NVARCHAR(20) | ACTIVE, COMPLETED, EXPIRED |
-| PrescriptionDate | DATETIME2 | تاريخ الوصفة |
-| ExpiryDate | DATETIME2 | تاريخ انتهاء الوصفة |
-
-### PSPDispensationPlans (خطط الصرف)
-
-| العمود | النوع | الوصف |
-|--------|-------|-------|
-| PlanID | INT PK | المفتاح الأساسي |
-| ProgramID | INT FK | معرف البرنامج |
-| PlanNameAr | NVARCHAR(200) | اسم الخطة بالعربية |
-| PlanNameEn | NVARCHAR(200) | اسم الخطة بالإنجليزية |
-| TotalDurationDays | INT | المدة الإجمالية بالأيام |
-| IsActive | BIT | نشط؟ |
-
-### PSPDispensationPlanMedications (تفاصيل الأدوية في خطة الصرف)
-
-| العمود | النوع | الوصف |
-|--------|-------|-------|
-| PlanMedicationID | INT PK | المفتاح الأساسي |
-| PlanID | INT FK | معرف خطة الصرف |
-| ProgramMedicationID | INT FK | معرف الدواء في البرنامج |
-| NumberOfTokens | INT | عدد رموز الصرف |
-| DaysBetweenDispense | INT | عدد الأيام بين كل صرف |
-| QuantityPerDispense | INT | الكمية لكل صرف |
-| DiscountPercentage | DECIMAL(18,2) | نسبة الخصم |
-| IsActive | BIT | نشط؟ |
-
-### PSPDispensations (رموز الصرف) - ⭐ نقطة التقاء المريض والصيدلي
-
-| العمود | النوع | الوصف |
-|--------|-------|-------|
-| DispensationID | INT PK | المفتاح الأساسي |
-| ERxID | INT FK | معرف الوصفة |
-| TokenCode | NVARCHAR(50) | رمز الصرف (مثل RC-20260323-XXXX) |
-| TokenType | NVARCHAR(20) | INITIAL, RENEWAL |
-| TokenStatus | NVARCHAR(20) | ACTIVE, USED, EXPIRED |
-| TokenExpiryDate | DATETIME2 | تاريخ انتهاء صلاحية الرمز |
-| TokenUsed | BIT | هل تم استخدامه؟ |
-| TokenUsedBy | NVARCHAR(50) | من استخدمه (معرف الصيدلي) |
-| TokenUsedDate | DATETIME2 | تاريخ الاستخدام |
-| PharmacyID | INT FK | الصيدلية التي صرفت الدواء |
-| DispensedQuantity | INT | الكمية التي تم صرفها |
-| CreatedDate | DATETIME2 | تاريخ إنشاء الرمز |
+```
+PSPProgram
+  └── PSPDispensationPlan
+        ├── PSPDispensationPlanMedication (Legacy — للتوافق)
+        └── PSPDispensationPlanPhase ⭐ جديد
+              └── PSPDispensationPlanPhaseMedication ⭐ جديد
+                    └── PSPProgramMedication
+```
 
 ---
 
-## APIs الخاصة بنظام PSP
+## 🎯 نظام مراحل خطة الصرف (Phase System) ⭐ جديد
 
-### create-invitation (إنشاء دعوة)
+### 📌 الهدف
 
-**Endpoint:** `POST /api/psp/create-invitation`
+كل **خطة صرف** ممكن تحتوي على **مراحل متعددة** — كل مرحلة ليها:
+- **مدة زمنية** (3 شهور، 6 شهور...)
+- **تبدأ بعد كام شهر** من بداية البرنامج
+- **أدوية خاصة بيها**
+- **تفاصيل كاملة**: كام علبة/شهر، التقسيمة، الخصم
 
-**Request:**
-```json
+### 🎬 السيناريو
+
+```
+برنامج: علاج السكري
+  └── خطة الصرف: "الخطة الأساسية"
+        ├── المرحلة الأولى (0-3 شهور)
+        │     ├── Metformin — 2 علبة/شهر — 3 مرات يومياً
+        │     └── Insulin — 1 علبة/شهر — 2 مرات يومياً
+        └── المرحلة الثانية (3-6 شهور)
+              ├── Metformin — 3 علبة/شهر — 4 مرات يومياً
+              └── Glimepiride — 1 علبة/شهر — 1 مرة يومياً
+```
+
+### 🏗️ الكيانات
+
+#### 1️⃣ `PSPDispensationPlanPhase`
+
+**المسار:** `RubikCare.Domain\Entities\PSP\Core\PSPDispensationPlanPhase.cs`
+
+```csharp
+[Table("PSPDispensationPlanPhases")]
+public class PSPDispensationPlanPhase
 {
-    "programId": 2,
-    "clinicId": 1245
-}
-```
-
-**Response:**
-```json
-{
-    "success": true,
-    "invitationId": 12,
-    "invitationToken": "INV-5CWEFHEJ",
-    "message": "تم إنشاء الدعوة بنجاح"
-}
-```
-
-**المنطق:**
-1. التحقق من أن الطبيب مشترك في البرنامج
-2. توليد رمز فريد (INV-XXXXXX)
-3. إنشاء سجل في `PSPInvitations` (Status = PENDING)
-4. إرجاع الرمز للطبيب
-
----
-## 🟡 دعوات المندوب (REP Invitations)
-
-### أنواع الدعوات
-
-| SourceType | المعنى |
-|------------|--------|
-| `REP_TO_DOCTOR` | مندوب يدعو عيادة (طبيب) |
-| `REP_TO_PHARMACY` | مندوب يدعو صيدلية |
-
-### تدفق دعوة المندوب
-
-1. المندوب يختار برنامج دعم
-2. ينشئ دعوة (PENDING) عبر `POST api/rep/invitations/create`
-3. الطبيب/الصيدلي يستقبل الكود
-4. بعد إنشاء الحساب والمؤسسة، يستخدم الكود في `POST api/psp/entry`
-5. يتم إنشاء `PSPParticipation` وربطها بالدعوة عبر `InvitationID`
-6. تحديث الدعوة إلى `ACCEPTED` أو `USED`
-
-### العلاقة بين الجداول
-
-PSPInvitations (الدعوة)
-    ├── InvitedByUserID → المندوب
-    ├── InvitedOrganizationID → العيادة/الصيدلية المدعوة
-    └── ResultingParticipation → PSPParticipations
-
-PSPParticipations (المشاركة)
-    ├── ParticipantOrganizationID → العيادة/الصيدلية المشاركة
-    └── InvitationID → رابط عكسي إلى PSPInvitations
+    [Key]
+    public int PhaseID { get; set; }
     
-### entry (نقطة دخول المريض)
-
-**Endpoint:** `POST /api/psp/entry`
-
-**Request:**
-```json
-{
-    "invitationCode": "INV-5CWEFHEJ"
+    public int PlanID { get; set; }  // FK → PSPDispensationPlans (CASCADE)
+    
+    public string PhaseName { get; set; }   // "المرحلة الأولى"
+    public int PhaseOrder { get; set; }     // 1, 2, 3...
+    public int DurationMonths { get; set; } // 3, 6...
+    public int StartAfterMonths { get; set; } // 0 = من بداية البرنامج
+    public string? Description { get; set; }
+    
+    public bool IsActive { get; set; } = true;
+    public DateTime CreatedDate { get; set; }
+    public DateTime? LastModifiedDate { get; set; }
+    
+    // Navigation
+    public virtual PSPDispensationPlan? Plan { get; set; }
+    public virtual ICollection<PSPDispensationPlanPhaseMedication> PhaseMedications { get; set; }
 }
 ```
 
-**Response (حالات مختلفة):**
+#### 2️⃣ `PSPDispensationPlanPhaseMedication`
 
-**حالة 1: مستخدم ليس لديه برامج نشطة ويدخل كود صالح**
-```json
+**المسار:** `RubikCare.Domain\Entities\PSP\Core\PSPDispensationPlanPhaseMedication.cs`
+
+```csharp
+[Table("PSPDispensationPlanPhaseMedications")]
+public class PSPDispensationPlanPhaseMedication
 {
-    "status": "NEW_ENROLLMENT",
-    "message": "تم الاشتراك بنجاح في البرنامج",
-    "newProgram": {
-        "programId": 2,
-        "programName": "Infertility Support Program",
-        "tokenCode": "RC-20260323-1234",
-        "tokenExpiryDate": "2026-04-22T...",
-        "patientId": 7,
-        "eRxId": 5
-    }
+    [Key]
+    public int PhaseMedicationID { get; set; }
+    
+    public int PhaseID { get; set; }              // FK → PSPDispensationPlanPhases (CASCADE)
+    public int ProgramMedicationID { get; set; }  // FK → PSPProgramMedications (NO_ACTION)
+    
+    public int QuantityPerMonth { get; set; }     // كام علبة/شهر
+    public int? TimesPerDay { get; set; }         // 3 = ثلاث مرات يومياً
+    public int? HoursBetweenDoses { get; set; }   // 8 = كل 8 ساعات
+    public decimal DiscountPercentage { get; set; } // نسبة الخصم
+    
+    public bool IsActive { get; set; } = true;
+    public DateTime CreatedDate { get; set; }
+    public DateTime? LastModifiedDate { get; set; }
+    
+    // Navigation
+    public virtual PSPDispensationPlanPhase? Phase { get; set; }
+    public virtual PSPProgramMedication? ProgramMedication { get; set; }
 }
 ```
 
-**حالة 2: مستخدم لديه برامج نشطة**
-```json
-{
-    "status": "ACTIVE_PROGRAMS",
-    "message": "لديك برنامج نشط",
-    "activePrograms": [...]
-}
+### ⚠️ قواعد الـ Foreign Keys
+
+| العلاقة | OnDelete | السبب |
+|---------|----------|-------|
+| `Phase.PlanID → Plan` | **CASCADE** | لو الخطة اتمسحت، المراحل تتمسح |
+| `PhaseMedication.PhaseID → Phase` | **CASCADE** | لو المرحلة اتمسحت، الأدوية تتمسح |
+| `PhaseMedication.ProgramMedicationID → ProgramMedication` | **NO_ACTION** | يمنع مسح الدواء لو فيه مراحل بتشير ليه |
+
+**السبب:** `ProgramMedication` هو **بيانات مرجعية** (Master Data)، مش **بيانات تشغيلية**.
+
+### 📊 الـ Migration
+
+**ID:** `20260923150028_AddPSPDispensationPlanPhases`
+
+**الـ Tables الجديدة:**
+- `PSPDispensationPlanPhases`
+- `PSPDispensationPlanPhaseMedications`
+
+**الـ Columns الجديدة:**
+- `PSPDispensationPlanMedications.PhaseID` (nullable) — للتوافق
+
+---
+
+## 📚 الـ DTOs
+
+### المسار: `RubikCare.Application\DTOs\PSP\`
+
+| # | الملف | الاستخدام |
+|---|-------|-----------|
+| 1 | `DispensationPlanPhaseDto.cs` | Read |
+| 2 | `DispensationPlanPhaseMedicationDto.cs` | Read |
+| 3 | `CreateDispensationPlanPhaseDto.cs` | Write |
+| 4 | `CreateDispensationPlanPhaseMedicationDto.cs` | Write |
+
+**تعديل على:** `DispensationPlanDto.cs` — إضافة `List<DispensationPlanPhaseDto> Phases`
+
+---
+
+## 🌐 الـ API Endpoints
+
+### المسار: `Api.Web\Controllers\PSP\PspController.DispensationPlans.cs`
+
+| # | Method | Route | الوظيفة |
+|---|--------|-------|---------|
+| 1 | `GET` | `api/psp/plans/{planId}/phases` | جلب كل مراحل خطة |
+| 2 | `GET` | `api/psp/phases/{phaseId}` | جلب مرحلة واحدة |
+| 3 | `POST` | `api/psp/plans/{planId}/phases` | إضافة مرحلة |
+| 4 | `PUT` | `api/psp/phases/{phaseId}` | تعديل مرحلة |
+| 5 | `DELETE` | `api/psp/phases/{phaseId}` | حذف مرحلة |
+| 6 | `GET` | `api/psp/plans/{planId}/available-medications` | جلب الأدوية المتاحة |
+
+---
+
+## 🎨 الـ UI
+
+### 1️⃣ صفحة تعديل البرنامج
+
+**الملف:** `Rubikcare.Web\Components\Pages\Professional\PSPSteps\PSPStep2_DispensationPlans.razor`
+
+**النمط:** **Inline Forms** (مش Modals)
+
+**البنية:**
+```
+قائمة الخطط
+    └── [+ إضافة خطة]
+            └── Inline Form (تابين):
+                ├── تاب 1: الإعدادات
+                └── تاب 2: المراحل
+                    ├── [+ إضافة مرحلة]
+                    │       └── Inline Form (فرعي)
+                    │           ├── بيانات المرحلة
+                    │           └── قسم الأدوية
+                    │               ├── [+ إضافة دواء]
+                    │               │       └── Inline Form (فرعي فرعي)
+                    │               └── قائمة الأدوية
+                    └── قائمة المراحل
 ```
 
-**حالة 3: مستخدم مسجل بالفعل في هذا البرنامج**
-```json
-{
-    "status": "ALREADY_ENROLLED",
-    "message": "أنت مسجل بالفعل في هذا البرنامج"
-}
-```
+**الحجم:** ~1349 سطر
 
-**حالة 4: كود غير صالح**
-```json
-{
-    "status": "CODE_INVALID",
-    "message": "كود الدعوة غير صالح أو منتهي الصلاحية"
-}
-```
+### 2️⃣ صفحة تفاصيل البرنامج
 
-**حالة 5: كود منتهي الصلاحية**
-```json
-{
-    "status": "CODE_EXPIRED",
-    "message": "انتهت صلاحية كود الدعوة"
-}
+**الملف:** `Rubikcare.Web\Components\Pages\Professional\PharmaCompany\PSP\PSPProgramsDetails.razor`
+
+**التحديث:** عرض المراحل تحت كل خطة صرف
+
+**النمط:** Phases Mini (بطاقات صغيرة)
+
+---
+
+## 🎨 الـ CSS
+
+### الملفات:
+
+| # | الملف | الحجم |
+|---|-------|-------|
+| 1 | `Shared.UI\wwwroot\css\_pages\Organization\PSP\PSPEditSteps\PSPStep2_DispensationPlans.css` | ~1213 سطر |
+
+### الـ Classes الأساسية:
+
+| # | القسم | Classes |
+|---|-------|---------|
+| 1 | **Inline Form** | `.s2dp-inline-form`, `.s2dp-inline-hdr`, `.s2dp-inline-body`, `.s2dp-inline-footer` |
+| 2 | **Variants** | `.s2dp-inline-form--nested`, `.s2dp-inline-form--deep` |
+| 3 | **Tabs** | `.s2dp-inline-tabs`, `.s2dp-inline-tab` |
+| 4 | **Buttons** | `.s2dp-btn-outline`, `.s2dp-btn-primary` |
+| 5 | **Phases** | `.s2dp-phase-card`, `.s2dp-phase-info` |
+| 6 | **Meds** | `.s2dp-med-card`, `.s2dp-med-details` |
+
+---
+
+## 🌐 مفاتيح الترجمة
+
+### Module: `PSP`
+
+**المفاتيح الجديدة** (~41 مفتاح):
+
+| البادئة | الوصف |
+|---------|-------|
+| `PSP.DP.MODAL.TAB_*` | تابين الـ Modal |
+| `PSP.DP.PHASES.*` | قسم المراحل |
+| `PSP.DP.PHASE_MODAL.*` | Modal المرحلة |
+| `PSP.DP.MED_MODAL.*` | Modal الدواء |
+| `PSP.DP.MSG.*` | رسائل |
+| `PSP.DP.UNIT.*` | وحدات |
+
+---
+
+## 🎯 الخطوات المنجزة
+
+| # | الخطوة | الحالة |
+|---|--------|--------|
+| 1 | إنشاء `PSPDispensationPlanPhase` + `PhaseMedication` | ✅ |
+| 2 | تعديل `PSPDispensationPlan` + `PlanMedication` | ✅ |
+| 3 | Migration جديدة | ✅ |
+| 4 | DTOs + Endpoints في الـ API | ✅ |
+| 5 | إعادة بناء `PSPStep2_DispensationPlans.razor` | ✅ |
+| 6 | اختبار + ربط | ✅ |
+| 7 | صفحة تفاصيل البرنامج | ✅ |
+| 8 | مفاتيح الترجمة | ✅ |
+
+---
+
+## 🔍 ملاحظات مهمة
+
+### 1️⃣ الفرق بين Phase والـ Plan:
+
+| العنصر | الوصف | مثال |
+|--------|-------|------|
+| **Plan** | خطة الصرف الكاملة | "خطة العلاج الأساسية" |
+| **Phase** | مرحلة داخل الخطة | "المرحلة الأولى — 3 شهور" |
+| **PhaseMedication** | دواء داخل المرحلة | "Dispirin 100mg — علبة/شهر — 3 مرات يومياً" |
+
+### 2️⃣ Legacy Support:
+
+**`PSPDispensationPlanMedication`** لسه موجود للتوافق مع:
+- الخطط القديمة
+- الخطط بدون Phases
+
+**`PSPDispensationPlanMedication.PhaseID`** ← nullable للربط بالمراحل
+
+### 3️⃣ Inline Forms vs Modals:
+
+**السبب في التحويل لـ Inline Forms:**
+- مساحة أكبر
+- تفاصيل أوضح
+- مش محتاج Modals فوق بعض
+- Deep Linking (URL مباشر)
+
+---
+
+## 🎯 الملفات المتأثرة
+
+### Domain:
+| الملف | الإجراء |
+|-------|---------|
+| `PSPDispensationPlanPhase.cs` | ⭐ جديد |
+| `PSPDispensationPlanPhaseMedication.cs` | ⭐ جديد |
+| `PSPDispensationPlan.cs` | ✏️ إضافة `Phases` |
+| `PSPDispensationPlanMedication.cs` | ✏️ إضافة `PhaseID?` |
+
+### Application:
+| الملف | الإجراء |
+|-------|---------|
+| `DispensationPlanPhaseDto.cs` | ⭐ جديد |
+| `DispensationPlanPhaseMedicationDto.cs` | ⭐ جديد |
+| `CreateDispensationPlanPhaseDto.cs` | ⭐ جديد |
+| `CreateDispensationPlanPhaseMedicationDto.cs` | ⭐ جديد |
+| `DispensationPlanDto.cs` | ✏️ إضافة `Phases` |
+
+### Infrastructure:
+| الملف | الإجراء |
+|-------|---------|
+| Migrations | ⭐ `AddPSPDispensationPlanPhases` |
+
+### API:
+| الملف | الإجراء |
+|-------|---------|
+| `PspController.DispensationPlans.cs` | ⭐ جديد |
+
+### Web:
+| الملف | الإجراء |
+|-------|---------|
+| `PSPStep2_DispensationPlans.razor` | ✏️ إعادة بناء |
+| `PSPStep2_DispensationPlans.css` | ✏️ تحديث |
+| `PSPProgramsDetails.razor` | ✏️ إضافة قسم المراحل |
+
+---
+
+**نهاية الوثيقة 🚀**
 ```
 
 ---
 
-### patient-details (تفاصيل برنامج المريض)
+## 🎯 خطوات التنفيذ
 
-**Endpoint:** `GET /api/psp/patient-details?patientId={patientId}`
+### 1️⃣ **انسخ الكود كامل**
 
-**Response:**
-```json
-{
-    "programId": 2,
-    "programName": "Infertility Support Program",
-    "programDescription": "برنامج دعم لمرضى العقم...",
-    "tokenCode": "RC-20260323-1234",
-    "tokenExpiryDate": "2026-04-22T00:00:00",
-    "medications": [
-        {
-            "medicationName": "Oxy Free",
-            "quantity": 20,
-            "instructions": "مرتين يومياً"
-        }
-    ],
-    "dispensesRemaining": 3,
-    "totalDispenses": 4
-}
+### 2️⃣ **افتح الملف على GitHub:**
+
+```
+https://github.com/Rubikans-Egy/Rubikcare-docs/blob/main/docs/07-psp-system.md
+```
+
+### 3️⃣ **اضغط Edit (قلم)**
+
+### 4️⃣ **الصق الكود الجديد كامل**
+
+### 5️⃣ **Commit changes**
+
+**Commit message:**
+```
+docs: add Phase System section to PSP docs
 ```
 
 ---
 
-### validate-token (التحقق من صحة رمز الصرف - للصيدلي)
+## 📋 ملخص التحديثات
 
-**Endpoint:** `POST /api/dispense/validate-token`
-
-**Request:**
-```json
-{
-    "tokenCode": "RC-20260323-1234"
-}
-```
-
-**Response (حالة صالحة):**
-```json
-{
-    "isValid": true,
-    "tokenStatus": "ACTIVE",
-    "patientName": "أحمد محمد",
-    "programName": "Infertility Support Program",
-    "medicationName": "Oxy Free",
-    "quantity": 20,
-    "expiryDate": "2026-04-22T00:00:00",
-    "dispensationId": 42
-}
-```
-
-**Response (حالة غير صالحة):**
-```json
-{
-    "isValid": false,
-    "message": "الرمز غير صالح أو منتهي الصلاحية"
-}
-```
+| # | القسم | الوصف |
+|---|-------|-------|
+| 1 | **نظرة عامة** | محدّثة بالكيانات الجديدة |
+| 2 | **هيكل الكيانات** | إضافة Phase + PhaseMedication |
+| 3 | **خريطة العلاقات** | محدّثة |
+| 4 | **Phase System** ⭐ | قسم كامل جديد |
+| 5 | **الـ DTOs** | 4 ملفات جديدة |
+| 6 | **الـ API Endpoints** | 6 endpoints |
+| 7 | **الـ UI** | Inline Forms |
+| 8 | **الـ CSS** | Classes جديدة |
+| 9 | **مفاتيح الترجمة** | 41 مفتاح |
+| 10 | **الخطوات المنجزة** | محدّثة |
+| 11 | **ملاحظات مهمة** | إضافات |
+| 12 | **الملفات المتأثرة** | محدّثة |
 
 ---
-
-### confirm-dispense (تأكيد صرف الدواء)
-
-**Endpoint:** `POST /api/dispense/confirm`
-
-**Request:**
-```json
-{
-    "dispensationId": 42,
-    "pharmacyId": 1260
-}
-```
-
-**Response:**
-```json
-{
-    "success": true,
-    "message": "تم صرف الدواء بنجاح",
-    "dispensedQuantity": 20,
-    "remainingDispenses": 2
-}
-```
-
----
-
-## التدفق في تطبيق الموبايل
-
-### صفحات الطبيب
-
-| الصفحة | المسار | الوظائف |
-|--------|--------|---------|
-| `InvitePatientPage` | `Mobile/Features/PSP/Doctor/Views/` | عرض رمز الدعوة، QR Code، مشاركة عبر واتساب |
-
-### صفحات المريض
-
-| الصفحة | المسار | الوظائف |
-|--------|--------|---------|
-| `PspEntryPage` | `Mobile/Features/PSP/Patient/Views/` | إدخال كود الدعوة، مسح QR، عرض البرامج النشطة |
-| `PspDetailPage` | `Mobile/Features/PSP/Patient/Views/` | عرض رمز الصرف، تاريخ الانتهاء، شريط التقدم |
-
-### صفحات الصيدلي
-
-| الصفحة | المسار | الوظائف |
-|--------|--------|---------|
-| `ScanTokenPage` | `Mobile/Features/Pharmacist/Views/` | مسح QR Code، إدخال رمز يدوياً |
-| `VerifyTokenPage` | `Mobile/Features/Pharmacist/Views/` | عرض بيانات المريض، تأكيد الصرف |
-
----
-
-## ملخص حالات الـ API (entry)
-
-| الحالة | الكود | الرسالة |
-|--------|-------|---------|
-| مستخدم جديد، كود صالح | `NEW_ENROLLMENT` | تم الاشتراك بنجاح |
-| مستخدم لديه برنامج نشط | `ACTIVE_PROGRAMS` | لديك برنامج نشط |
-| مستخدم مسجل مسبقاً | `ALREADY_ENROLLED` | أنت مسجل بالفعل |
-| كود غير صالح | `CODE_INVALID` | كود الدعوة غير صالح |
-| كود منتهي الصلاحية | `CODE_EXPIRED` | انتهت صلاحية الكود |
-| لم يدخل كوداً | `NO_CODE` | الرجاء إدخال الكود |
-
----
-
-## 🔗 روابط ذات صلة
-
-- [00 - الهيكل المعماري](00-architecture-overview.md)
-- [02 - نظام الهوية والمصادقة](02-identity-system.md)
-- [09 - دليل API](09-api-guide.md)
-- [10 - دليل تطوير MAUI](10-maui-development-guide.md)
-```
