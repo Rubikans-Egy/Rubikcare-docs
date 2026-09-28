@@ -366,6 +366,331 @@ Get-Content "C:\WebSite\RubikCareNew\web.config" | Select-String "ASPNETCORE_ENV
 ```
 
 ---
+**ممتاز — سأحدّث وثيقة النشر بإضافة قسم كامل عن هذه المشكلة + السكربت الصحيح.**
+
+---
+
+## 📄 التحديثات المطلوبة في `12-deployment-guide.md`
+
+### 1. إضافة قسم جديد بعد "القسم 4: نشر Web (Blazor Server)"
+
+**أضف هذا القسم:**
+
+```markdown
+---
+
+## 🔴 القسم 4.5: نشر Web — تحديث حرج (28 سبتمبر 2026)
+
+### ⚠️ مشكلة "الصفحة فارغة + تحميل بطيء" — Root Cause
+
+**التاريخ:** 28 سبتمبر 2026  
+**البيئة:** `test.rubikcare.com` (RubikCare.Web)  
+**الأعراض:** 
+- صفحة Dashboard والتقارير تفتح ببطء شديد (> دقيقتين)
+- ثم تفتح فارغة (بدون KPIs، Charts، Quick Access Data)
+- الأزرار تعمل، لكن لا تُحمَّل أي بيانات من API
+
+### 🎯 الأسباب الجذرية (3 مشاكل متتالية)
+
+| # | السبب | التفصيل |
+|---|-------|---------|
+| 1 | **`ASPNETCORE_ENVIRONMENT` غير محدد** | `web.config` لا يحتوي على `<environmentVariables>` → التطبيق يعمل بـ `Production` افتراضياً → يقرأ `appsettings.Production.json` (BaseUrl خاطئ) بدلاً من `appsettings.Test.json` |
+| 2 | **`appcmd recycle` لا يُعيد تحميل `web.config`** | `recycle` يعيد تشغيل عملية `w3wp` **بدون** قطع الاتصالات النشطة → الإعدادات القديمة تبقى |
+| 3 | **`IUserSessionService` يُخزّن الجلسة في `IMemoryCache`** | `IMemoryCache` يبدأ فارغاً عند restart، لكن **الجلسة القديمة** تبقى في الكاش حتى Logout → `CurrentOrganizationId = null` |
+
+### 🔧 الحل الكامل
+
+#### الخطوة 1: تعديل `web.config` (إضافة `ASPNETCORE_ENVIRONMENT`)
+
+**القالب الصحيح لـ `web.config`:**
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+  <location path="." inheritInChildApplications="false">
+    <system.webServer>
+      <handlers>
+        <add name="aspNetCore" path="*" verb="*" modules="AspNetCoreModuleV2" resourceType="Unspecified" />
+      </handlers>
+      <aspNetCore processPath="dotnet" 
+                  arguments=".\Rubikcare.Web.dll" 
+                  stdoutLogEnabled="true" 
+                  stdoutLogFile=".\logs\stdout" 
+                  hostingModel="inprocess">
+        <environmentVariables>
+          <environmentVariable name="ASPNETCORE_ENVIRONMENT" value="Test" />
+        </environmentVariables>
+      </aspNetCore>
+    </system.webServer>
+  </location>
+</configuration>
+```
+
+**⚠️ القيم المسموحة لـ `value`:**
+- `Test` → لبيئة `test.rubikcare.com`
+- `Production` → لبيئة `rubikcare.com`
+- `Development` → للتطوير المحلي فقط
+
+#### الخطوة 2: إعادة تشغيل نظيفة (Stop + Start)
+
+**❌ خطأ:**
+```powershell
+C:\Windows\System32\inetsrv\appcmd recycle apppool "rubikcarenew"
+```
+
+**✅ صحيح:**
+```powershell
+C:\Windows\System32\inetsrv\appcmd stop apppool "rubikcarenew"
+Start-Sleep -Seconds 5
+C:\Windows\System32\inetsrv\appcmd start apppool "rubikcarenew"
+```
+
+**السبب:** `recycle` لا يُطبّق `web.config` الجديد بشكل موثوق.
+
+#### الخطوة 3: مسح الجلسة القديمة
+
+**بعد إعادة التشغيل:**
+1. افتح المتصفح على `https://test.rubikcare.com`
+2. **سجّل خروج** (Logout) — لمسح `IMemoryCache` للجلسة القديمة
+3. **سجّل دخول** من جديد — لبناء جلسة جديدة بالـ `BaseUrl` الصحيح
+4. اختبر صفحة التقارير
+
+### 📋 Checklist النشر الآمن للـ Web
+
+```
+قبل النشر:
+  [ ] appsettings.Test.json يحتوي BaseUrl = "https://uat.rubikcare.com"
+  [ ] web.config يحتوي ASPNETCORE_ENVIRONMENT = "Test"
+
+أثناء النشر:
+  [ ] appcmd stop apppool "rubikcarenew"
+  [ ] نسخ الملفات (باستثناء web.config و appsettings.*.json)
+  [ ] appcmd start apppool "rubikcarenew"
+
+بعد النشر:
+  [ ] افتح المتصفح وتأكد أن التطبيق يقرأ appsettings.Test.json
+  [ ] سجّل خروج ودخول
+  [ ] اختبر صفحة Dashboard (يجب أن تُحمَّل KPIs)
+  [ ] اختبر صفحة Reports (يجب أن تُحمَّل البيانات)
+```
+
+### 🚀 سكربت النشر الصحيح (`deploy-web-test.ps1`)
+
+```powershell
+# deploy-web-test.ps1 — النشر الآمن لـ RubikCare.Web إلى Test
+param(
+    [string]$ProjectPath = "C:\RC\Rubikcare.Full.Migration",
+    [string]$PublishPath = "E:\rubikans\Publish\WebTest",
+    [string]$IISPath = "C:\WebSite\RubikCareNew",
+    [string]$AppPoolName = "rubikcarenew",
+    [string]$SiteUrl = "https://test.rubikcare.com"
+)
+
+Write-Host "================================================" -ForegroundColor Cyan
+Write-Host "  RubikCare Web - نشر آمن إلى Test" -ForegroundColor Cyan
+Write-Host "================================================`n" -ForegroundColor Cyan
+
+# ─── 1. إيقاف كامل (وليس recycle) ───
+Write-Host "⏸️  الخطوة 1: إيقاف App Pool (Stop كامل)..." -ForegroundColor Yellow
+C:\Windows\System32\inetsrv\appcmd stop apppool $AppPoolName
+Start-Sleep -Seconds 5
+Write-Host "✅ تم الإيقاف" -ForegroundColor Green
+
+# ─── 2. التحقق من الإعدادات ───
+Write-Host "`n🔍 الخطوة 2: التحقق من appsettings.Test.json..." -ForegroundColor Yellow
+$testSettings = Get-Content "$IISPath\appsettings.Test.json" -Raw | ConvertFrom-Json
+$baseUrl = $testSettings.ApiSettings.BaseUrl
+if ($baseUrl -ne "https://uat.rubikcare.com") {
+    Write-Host "❌ BaseUrl خاطئ: $baseUrl" -ForegroundColor Red
+    Write-Host "⚠️  يجب أن يكون: https://uat.rubikcare.com" -ForegroundColor Yellow
+    C:\Windows\System32\inetsrv\appcmd start apppool $AppPoolName
+    exit 1
+}
+Write-Host "✅ BaseUrl = $baseUrl" -ForegroundColor Green
+
+# ─── 3. التحقق من ASPNETCORE_ENVIRONMENT ───
+Write-Host "`n🔍 الخطوة 3: التحقق من ASPNETCORE_ENVIRONMENT..." -ForegroundColor Yellow
+$webConfig = Get-Content "$IISPath\web.config" -Raw
+if ($webConfig -notmatch 'value="Test"') {
+    Write-Host "❌ ASPNETCORE_ENVIRONMENT غير محدد أو ليس Test" -ForegroundColor Red
+    C:\Windows\System32\inetsrv\appcmd start apppool $AppPoolName
+    exit 1
+}
+Write-Host "✅ ASPNETCORE_ENVIRONMENT = Test" -ForegroundColor Green
+
+# ─── 4. النشر ───
+Write-Host "`n📦 الخطوة 4: نشر المشروع..." -ForegroundColor Yellow
+Set-Location $ProjectPath
+dotnet publish RubikCare.Web -c Release -o $PublishPath
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "❌ فشل النشر!" -ForegroundColor Red
+    C:\Windows\System32\inetsrv\appcmd start apppool $AppPoolName
+    exit 1
+}
+Write-Host "✅ النشر نجح" -ForegroundColor Green
+
+# ─── 5. نسخ الملفات (باستثناء web.config و appsettings) ───
+Write-Host "`n📋 الخطوة 5: نسخ الملفات إلى IIS..." -ForegroundColor Yellow
+Get-ChildItem $PublishPath -Exclude "web.config","appsettings.*.json" | 
+    Copy-Item -Destination $IISPath -Recurse -Force
+Write-Host "✅ تم النسخ (بدون المساس بـ web.config و appsettings)" -ForegroundColor Green
+
+# ─── 6. تشغيل App Pool ───
+Write-Host "`n▶️  الخطوة 6: تشغيل App Pool (Start نظيف)..." -ForegroundColor Yellow
+C:\Windows\System32\inetsrv\appcmd start apppool $AppPoolName
+Write-Host "✅ تم التشغيل" -ForegroundColor Green
+
+# ─── 7. اختبار Health Check ───
+Write-Host "`n🧪 الخطوة 7: اختبار الموقع..." -ForegroundColor Yellow
+Start-Sleep -Seconds 8
+try {
+    $r = Invoke-WebRequest -Uri "$SiteUrl" -UseBasicParsing -TimeoutSec 20
+    Write-Host "✅ الموقع يعمل: $($r.StatusCode)" -ForegroundColor Green
+} catch {
+    Write-Host "❌ الموقع لا يعمل: $($_.Exception.Message)" -ForegroundColor Red
+}
+
+# ─── 8. اختبار API ───
+Write-Host "`n🧪 الخطوة 8: اختبار الاتصال بـ API..." -ForegroundColor Yellow
+try {
+    $r = Invoke-WebRequest -Uri "https://uat.rubikcare.com/api/ping" -UseBasicParsing -TimeoutSec 15
+    Write-Host "✅ API يعمل: $($r.StatusCode)" -ForegroundColor Green
+} catch {
+    Write-Host "❌ API لا يعمل: $($_.Exception.Message)" -ForegroundColor Red
+}
+
+# ─── النتيجة النهائية ───
+Write-Host "`n================================================" -ForegroundColor Cyan
+Write-Host "  🎉 تم النشر بنجاح!" -ForegroundColor Green
+Write-Host "  🔗 الرابط: $SiteUrl" -ForegroundColor Green
+Write-Host "" -ForegroundColor White
+Write-Host "  ⚠️  تذكير:" -ForegroundColor Yellow
+Write-Host "  1. سجّل خروج ثم دخول في المتصفح (لمسح IMemoryCache)" -ForegroundColor Yellow
+Write-Host "  2. اختبر صفحة Dashboard والتقارير" -ForegroundColor Yellow
+Write-Host "================================================`n" -ForegroundColor Cyan
+```
+
+### 🎯 القاعدة الذهبية الجديدة
+
+> **بعد أي تعديل في `web.config` أو `appsettings.*.json`:**
+> 1. **`appcmd stop`** (وليس `recycle`)
+> 2. **`Start-Sleep -Seconds 5`**
+> 3. **`appcmd start`**
+> 4. **تسجيل خروج ودخول** في المتصفح
+>
+> **بدون هذه الخطوات:** التعديلات **لن تُطبَّق**، وستستمر الصفحات فارغة.
+
+---
+```
+
+---
+
+### 2. إضافة تحذير في قسم "الأخطاء الشائعة" (4.4 أو 5.7)
+
+**أضف تحت `❌ الخطأ 4`:**
+
+```markdown
+#### ❌ الخطأ 5: الصفحة تفتح فارغة + تحميل بطيء (Test/UAT)
+
+**الأعراض:**
+- الصفحة تستغرق > دقيقتين للفتح
+- تفتح بدون بيانات (KPIs، Charts، Tables فارغة)
+- الأزرار تعمل (Quick Access) لكن لا تُحمَّل البيانات
+
+**السبب:**
+1. `ASPNETCORE_ENVIRONMENT` غير محدد في `web.config`
+2. `appcmd recycle` بدل `stop` + `start`
+3. الجلسة القديمة في `IMemoryCache` لم تُمسح
+
+**الحل السريع:**
+```powershell
+# 1. تحقق من البيئة
+Get-Content "C:\WebSite\RubikCareNew\web.config" | Select-String "ASPNETCORE_ENVIRONMENT"
+
+# 2. تحقق من BaseUrl
+Get-Content "C:\WebSite\RubikCareNew\appsettings.Test.json" | Select-String "BaseUrl"
+# يجب أن يكون: https://uat.rubikcare.com
+
+# 3. إعادة تشغيل نظيفة
+C:\Windows\System32\inetsrv\appcmd stop apppool "rubikcarenew"
+Start-Sleep -Seconds 5
+C:\Windows\System32\inetsrv\appcmd start apppool "rubikcarenew"
+
+# 4. في المتصفح: سجّل خروج ثم دخول
+```
+```
+
+---
+
+### 3. إضافة قسم كامل في نهاية الوثيقة
+
+**أضف قبل "Lessons Learned" (القسم 11):**
+
+```markdown
+---
+
+## 🔬 القسم 10.5: تشخيص متقدم — صفحة فارغة في Test
+
+### 🔍 خطوات التشخيص السريع (5 دقائق)
+
+```powershell
+# ═══════════════════════════════════════════════════════
+# 1. هل البيئة محددة؟
+# ═══════════════════════════════════════════════════════
+Get-Content "C:\WebSite\RubikCareNew\web.config" | Select-String "ASPNETCORE_ENVIRONMENT"
+# النتيجة المتوقعة: value="Test"
+
+# ═══════════════════════════════════════════════════════
+# 2. ما هو BaseUrl الفعلي المستخدم؟
+# ═══════════════════════════════════════════════════════
+Get-Content "C:\WebSite\RubikCareNew\appsettings.Test.json" | Select-String "BaseUrl"
+# النتيجة المتوقعة: "BaseUrl": "https://uat.rubikcare.com"
+
+# ═══════════════════════════════════════════════════════
+# 3. هل كل ملفات appsettings لها نفس BaseUrl؟
+# ═══════════════════════════════════════════════════════
+Get-ChildItem "C:\WebSite\RubikCareNew\appsettings*.json" | ForEach-Object { 
+    "--- $($_.Name) ---"
+    (Get-Content $_.FullName -Raw) -split "`n" | Select-String "BaseUrl"
+}
+
+# ═══════════════════════════════════════════════════════
+# 4. هل API يعمل؟
+# ═══════════════════════════════════════════════════════
+Invoke-WebRequest -Uri "https://uat.rubikcare.com/api/ping" -UseBasicParsing
+# النتيجة المتوقعة: {"success":true,...}
+
+# ═══════════════════════════════════════════════════════
+# 5. هل App Pool يعمل؟
+# ═══════════════════════════════════════════════════════
+Get-IISAppPool | Where-Object { $_.Name -eq "rubikcarenew" } | Select-Object Name, State, ProcessId
+# State يجب أن تكون Started
+```
+
+### 🎯 شجرة القرار
+
+```
+الصفحة فارغة؟
+│
+├── هل ASPNETCORE_ENVIRONMENT = Test?
+│   ├── لا → عدّل web.config + stop/start
+│   └── نعم → 
+│       │
+│       ├── هل BaseUrl في appsettings.Test.json = https://uat.rubikcare.com?
+│       │   ├── لا → عدّل الملف + stop/start
+│       │   └── نعم → 
+│       │       │
+│       │       ├── هل API يعمل؟ (api/ping)
+│       │       │   ├── لا → افحص App Pool + Event Log
+│       │       │   └── نعم → 
+│       │       │       │
+│       │       │       └── ✅ المشكلة في IMemoryCache
+│       │       │           → سجّل خروج ودخول
+```
+
+---
+```
+
 
 ## 📱 القسم 5: نشر PWA (Blazor WebAssembly) ⭐
 
