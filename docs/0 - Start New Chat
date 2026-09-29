@@ -23,6 +23,7 @@ RubikCare.Application     ← DTOs + Interfaces + Use Cases — يعتمد عل�
 RubikCare.Infrastructure  ← EF Core + Repositories + Migrations — يعتمد على Application + Domain
 RubikCare.Api.Web         ← ASP.NET Core Web API — يعتمد على Application + Infrastructure
 RubikCare.Web             ← Blazor Server — يعتمد على Api.Web
+RubikCare.PWA             ← Blazor PWA — يعتمد على Api.Web بديلا لتطبيق Iphone
 RubikCare.Mobile          ← .NET MAUI — لا يعتمد على أي مشروع آخر (HTTP فقط)
 RubikCare.Shared.UI       ← Razor Class Library — مكونات مشتركة
 RubikCare.Tests           ← Architecture Tests (33 اختبار)
