@@ -308,7 +308,30 @@ else
 ```
 
 ---
+## ⚠️ قاعدة ذهبية: `dir` لا يُضاف يدوياً
 
+### 🚫 ممنوع:
+- إضافة `dir="rtl"` أو `dir="ltr"` على أي عنصر HTML
+- إضافة `dir` على `<aside>`، `<div>`، `<main>`، إلخ
+- استخدام `LayoutComponentBase` مع `dir` ثابت
+
+### ✅ الصحيح:
+- `<html dir="@CurrentDir">` في `App.razor` (Server-Side)
+- `TranslationState.CurrentLanguage` هو المصدر الوحيد
+- CSS يعتمد على `html[dir="rtl"]` فقط
+- `direction-protector.js` كـ **fallback فقط**
+
+### 📌 السبب:
+إضافة `dir` على عنصر يُنشئ **Directional Context** جديد — يتعارض مع `<html>` — يُسبب قفزات عند التنقل.
+
+### 🧪 الاختبار عند إضافة صفحة جديدة:
+1. افتح الصفحة في العربية
+2. اضغط على أي عنصر داخلها
+3. لا قفزة → ✅
+4. قفزة → ❌ ابحث عن `dir` ثابت
+   ```
+
+---
 ## 🌐 الجزء الثالث: Marketing Site (Blazor Server)
 
 ### 3.1 الفرق عن Dashboard
