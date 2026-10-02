@@ -432,6 +432,17 @@ System.ArgumentException: Ambiguous routes matched for:
 **الوقاية:** عند إضافة أي صفحة جديدة، اسأل نفسك: "هل هي صفحة رئيسية (Root)؟" إذا كانت الإجابة لا، سجلها في `AppShell.xaml.cs` فقط ولا تستخدم `//` للتنقل إليها.
 
 ---
+## حل مشكلة "TypeError: Failed to execute 'query' on 'Permissions'"
+
+**السبب:** dotnet.js يستدعي permissions.query داخلياً، والخطأ يُلتقط في try/catch.
+
+**الحل:** 
+Debug → Windows → Exception Settings (Ctrl+Alt+E)
+→ JavaScript Exceptions → إلغاء "Thrown"
+
+**النتيجة:** لا يتوقف VS عند First-Chance Exceptions لـ JavaScript.
+
+**ملاحظة:** هذا لا يعطل أدوات اكتشاف الأخطاء — بل يصفّيها.
 
 ## 🔗 روابط ذات صلة
 
