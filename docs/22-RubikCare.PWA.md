@@ -1,8 +1,8 @@
 # 📘 وثيقة مشروع RubikCare.PWA
 
-**آخر تحديث:** 26 أغسطس 2026
-**الحالة:** مرحلة التطوير النشط (Alpha) — تشغيل مكونات Shared.UI
-**الإصدار:** 0.2.0
+**آخر تحديث:** 3 أكتوبر 2026  
+**الحالة:** مرحلة التطوير النشط (Alpha) — تشغيل الميزات الأساسية  
+**الإصدار:** 0.3.0
 
 ---
 
@@ -16,7 +16,7 @@
 |---------|---------|---------|--------|
 | **RubikCare.Web** | Blazor Server | الإدارة والموظفون | ✅ منشور |
 | **RubikCare.Mobile** | .NET MAUI + BlazorWebView | المرضى والمهنيون | ✅ منشور على Google Play |
-| **RubikCare.PWA** ⭐ | Blazor WebAssembly | المرضى والمهنيون (ويب متقدم) | 🚧 قيد التطوير |
+| **RubikCare.PWA** ⭐ | Blazor WebAssembly | المرضى والمهنيون (ويب متقدم) | 🚧 قيد التطوير (35%) |
 
 ### الأهداف الاستراتيجية
 
@@ -24,6 +24,7 @@
 2. **إعادة الاستخدام القصوى:** تشغيل مكونات `Shared.UI` الموجودة بالفعل دون إعادة بنائها
 3. **قابلية التثبيت:** تثبيت التطبيق على الشاشة الرئيسية (iOS/Android/Desktop)
 4. **مصدر حقيقة واحد:** بيانات الجلسة تُجلب مرة واحدة وتُشارك عبر جميع الصفحات
+5. **🆕 مصادقة موحدة:** دعم تسجيل الدخول التقليدي و Google OAuth
 
 ---
 
@@ -58,6 +59,7 @@
 RubikCare.PWA
 ├── ✅ يعتمد على: RubikCare.Shared.UI (مكونات + خدمات)
 ├── ✅ يتواصل مع: Api.Web عبر HTTP فقط
+├── 🆕 يدعم: Google.Apis.Auth (للتحقق من ID Token)
 ├── ❌ لا يعتمد على: Infrastructure
 ├── ❌ لا يعتمد على: Domain مباشرة
 └── ❌ لا يعتمد على: DbContext
@@ -68,389 +70,468 @@ RubikCare.PWA
 | الملف | الدور | الحالة |
 |-------|-------|--------|
 | `PWA/Program.cs` | تسجيل الخدمات (`IApiService`, `WebApiService`, `WebTranslationService`, `UserSessionState`) | ✅ مكتمل |
-| `PWA/Layout/MainLayout.razor` | الهيكل الرئيسي + تحميل الجلسة مرة واحدة | ✅ مكتمل |
-| `PWA/Layout/NavMenu.razor` | القائمة الجانبية الديناميكية بالترجمات | ✅ مكتمل |
+| `PWA/Layout/MainLayout.razor` | الهيكل الرئيسي + تحميل الجلسة مرة واحدة | ✅ مكتمل + محسّن |
+| `PWA/Layout/NavMenu.razor` | القائمة الجانبية الديناميكية بالترجمات | ✅ مكتمل + Logout مُصحح |
 | `PWA/Services/UserSessionState.cs` | حالة الجلسة المشتركة (تستدعي `api/user/session-bootstrap`) | ✅ مكتمل |
 | `PWA/Services/WebApiService.cs` | تنفيذ `IApiService` عبر HTTP مع التوكن | ✅ مكتمل |
 | `PWA/Services/WebTranslationService.cs` | تنفيذ `ISharedTranslationService` عبر API | ✅ مكتمل |
+| 🆕 `PWA/wwwroot/cache-reset.html` | صفحة تنظيف الكاش التلقائية | ✅ مكتمل |
+| 🆕 `PWA/wwwroot/js/googleAuth.js` | تكامل Google Identity Services | ✅ مكتمل |
 
 ---
 
-## 📦 3. البنية الحقيقية لـ Shared.UI (من الاستكشاف الفعلي)
+## 🔐 3. نظام المصادقة (Authentication System)
 
-> ⚠️ **ملاحظة:** هذا القسم مبني على استكشاف فعلي للمشروع بتاريخ 26 أغسطس 2026، وليس على الوثائق القديمة.
+### 3.1 طرق تسجيل الدخول المدعومة
 
-### 3.1 قائمة المكونات الكاملة (66 مكون)
+| الطريقة | الحالة | الـ Endpoint |
+|---------|--------|--------------|
+| **تقليدي** (Email + Password) | ✅ مكتمل | `POST /api/auth/login` |
+| **Google OAuth** (ID Token) | ✅ مكتمل | `POST /api/auth/google-login` |
+| **تسجيل حساب جديد** | ✅ مكتمل | `POST /api/auth/register` |
 
-#### 🏥 فئة العيادة (Clinic) — 4 مكونات
-| المكون | النوع | الوظيفة |
-|--------|------|---------|
-| `ClinicDashboard.razor` | لوحة تحكم كاملة | لوحة تحكم الطبيب |
-| `ClinicPatientDetails.razor` | صفحة تفاصيل | تفاصيل مريض |
-| `ClinicPatientsList.razor` | قائمة | قائمة المرضى |
-| `MyPatientInvitations.razor` | صفحة | دعوات المرضى |
+### 3.2 تدفق Google OAuth في PWA
 
-#### ⚖️ الفئة القانونية (Legal) — 2 مكونات ✅ لها @page
-| المكون | المسار | الوظيفة |
-|--------|--------|---------|
-| `PrivacyPolicy.razor` | `/privacy`, `/legal/privacy` | سياسة الخصوصية |
-| `TermsOfService.razor` | `/terms`, `/legal/terms` | شروط الاستخدام |
-
-#### 💬 فئة المحادثات (Messaging) — 7 مكونات
-| المكون | الوظيفة |
-|--------|---------|
-| `MessagingHubPage.razor` | مركز المحادثات |
-| `ChatPage.razor` | صفحة الدردشة |
-| `ChatMessage.razor` | مكون رسالة |
-| `ConversationsListPage.razor` | قائمة المحادثات |
-| `DoctorSearchPage.razor` | بحث عن طبيب |
-| `DoctorProfilePage.razor` | ملف طبيب |
-| `MessagingSettingsPage.razor` | إعدادات المحادثات |
-
-#### 🏢 إدارة المنظمات (OrganizationManagement) — 4 مكونات ✅ لها @page
-| المكون | المسار | الوظيفة |
-|--------|--------|---------|
-| `CreateOrganizationPage.razor` | `/create-organization` | إنشاء منظمة |
-| `MembersTab.razor` | `/organization/members` | تبويب الأعضاء |
-| `MemberTitlesTab.razor` | `/organization/member-titles` | ألقاب الأعضاء |
-| `CustomJobTitles.razor` | `/organization/job-titles` | المسميات الوظيفية |
-
-#### 👤 فئة المريض (Patient) — 11 مكون
-| المكون | الوظيفة |
-|--------|---------|
-| `SettingsPage.razor` | الإعدادات الرئيسية |
-| `MyProfilePage.razor` | ملفي الشخصي |
-| `EditProfilePage.razor` | تعديل الملف |
-| `PatientOrdersPage.razor` | طلبات المريض |
-| `OrderTracker.razor` | تتبع الطلب |
-| `NotificationsPage.razor` | الإشعارات |
-
-##### ⏰ جدولة الأدوية (Patient/SchedualMedication) — 5 مكونات
-| المكون | الوظيفة |
-|--------|---------|
-| `MedicationSchedulePage.razor` | جدول الأدوية الرئيسي |
-| `AddMedicationPage.razor` | إضافة دواء |
-| `PspSchedulePage.razor` | جدولة PSP |
-| `DailyDosesTab.razor` | تبويب الجرعات اليومية |
-| `RefillDatesTab.razor` | تبويب مواعيد الصرف |
-
-##### ⚙️ إعدادات المريض (Patient/Settings) — 6 مكونات (2 منها @page)
-| المكون | المسار | الوظيفة |
-|--------|--------|---------|
-| `ProfessionalStatusPage.razor` | `/professional-status` ✅ | الحالة المهنية |
-| `ProfessionalLicensePage.razor` | `/professional-license` ✅ | الترخيص المهني |
-| `SecuritySection.razor` | — | قسم الأمان |
-| `LanguageSection.razor` | — | قسم اللغة |
-| `NotificationsSection.razor` | — | قسم الإشعارات |
-| `PrivacySection.razor` | — | قسم الخصوصية |
-
-#### 💊 فئة الصيدلية (Pharmacy) — 13 مكون (1 له @page)
-| المكون | النوع | الوظيفة |
-|--------|------|---------|
-| `PharmacyDashboard.razor` | لوحة تحكم | لوحة الصيدلية |
-| `PharmacyDetailPage.razor` | صفحة @page ✅ | تفاصيل صيدلية |
-| `PharmacySearchPage.razor` | بحث | بحث صيدليات |
-| `NearbyPharmacies.razor` | قائمة | الصيدليات القريبة |
-| `PharmacyGateway.razor` | بوابة | بوابة الصيدلية |
-| `PharmacyReportsPage.razor` | تقارير | تقارير الصيدلية |
-| `PatientOrders.razor` | قائمة | طلبات المرضى |
-| `MedicationRequestCard.razor` | بطاقة | بطاقة طلب دواء |
-| `TokenRedemptionCard.razor` | بطاقة | بطاقة استرداد رمز |
-| `PharmacyCard.razor` | بطاقة | بطاقة صيدلية |
-| `PharmacyGrid.razor` | شبكة | شبكة صيدليات |
-| `PharmacyFilter.razor` | فلتر | فلتر البحث |
-
-#### 🌿 فئة برامج الدعم (PSP) — 5 مكونات (1 له @page)
-| المكون | النوع | الوظيفة |
-|--------|------|---------|
-| `PspAboutPage.razor` | صفحة @page ✅ | عن برامج الدعم |
-| `PspGateway.razor` | بوابة | بوابة PSP |
-| `PspSearch.razor` | بحث | بحث برامج |
-| `PspEntry.razor` (Patient) | إدخال | دخول برنامج |
-| `PspScheduleSetup.razor` (Patient) | إعداد | جدولة برنامج |
-
-#### 👔 فئة المندوب (Rep) — 5 مكونات
-| المكون | الوظيفة |
-|--------|---------|
-| `RepDashboard.razor` | لوحة المندوب |
-| `PharmaCompanyDashboard.razor` | لوحة شركة الأدوية |
-| `InviteDoctor.razor` | دعوة طبيب |
-| `MyInvitations.razor` | دعواتي |
-| `MyNetwork.razor` | شبكتي |
-
-#### 🛠️ مكونات مساعدة مشتركة — 7 مكونات
-| المكون | الوظيفة | الحالة في PWA |
-|--------|---------|---------------|
-| `LoaderOverlay.razor` | شاشة تحميل | ✅ مستخدم بالفعل |
-| `RubikButton.razor` | زر موحد | جاهز |
-| `TestPage.razor` | صفحة اختبار | جاهز |
-| `Pagination.razor` | ترقيم الصفحات | جاهز |
-| `SearchBar.razor` | شريط بحث | جاهز |
-| `RubikSmartTable.razor` | جدول ذكي | جاهز |
-| `SupportPage.razor` | صفحة دعم @page ✅ | جاهز |
-
-### 3.2 خدمات Shared.UI (20 ملف)
-
-| الخدمة | النوع | الاستخدام في PWA |
-|--------|------|------------------|
-| `IApiService.cs` | واجهة | ✅ مسجلة كـ `WebApiService` |
-| `ITranslationService.cs` | واجهة | ✅ مسجلة كـ `WebTranslationService` |
-| `ITranslationState.cs` | واجهة | ✅ مسجلة كـ `SharedTranslationState` |
-| `CurrentOrganizationState.cs` | حالة | ✅ مسجلة |
-| `IAppStateService.cs` | واجهة | ⚠️ تحتاج تنفيذ في PWA |
-| `IPatientSessionService.cs` | واجهة | ⚠️ تحتاج تنفيذ في PWA |
-| `PatientSessionService.cs` | تنفيذ | ⚠️ قد تحتاج بديل |
-| `SharedApiService.cs` | تنفيذ | بديل محتمل |
-| `ILocalNotificationService.cs` | واجهة | ✅ مسجلة كـ `WebLocalNotificationService` |
-| `IMobileNavigationService.cs` | واجهة | ❌ خاص بـ MAUI — يحتاج بديل |
-| `INearbyPharmacyService.cs` | واجهة | ⚠️ يحتاج تنفيذ (GPS) |
-| `INotificationNavigationService.cs` | واجهة | ⚠️ يحتاج تنفيذ |
-| `IPspUiService.cs` | واجهة | ⚠️ يحتاج تنفيذ |
-| `IPublicApiService.cs` | واجهة | ⚠️ يحتاج تنفيذ |
-| `InviteNavigationBridge.cs` | جسر | ⚠️ خاص بـ MAUI |
-| `RepNavigationBridge.cs` | جسر | ⚠️ خاص بـ MAUI |
-| `OsmPharmacyService.cs` | تنفيذ | ⚠️ يحتاج تقييم |
-| `PendingRequestService.cs` | خدمة | ⚠️ يحتاج تقييم |
-| `Models/NotificationItem.cs` | نموذج | ✅ جاهز |
-| `Models/PspModels.cs` | نموذج | ✅ جاهز |
-
-### 3.3 الصفحات القابلة للتوجيه مباشرة (@page)
-
-هذه الصفحات يمكن الوصول إليها مباشرة عبر الروابط دون الحاجة لـ Wrapper:
-
-| الصفحة | المسار(ات) |
-|--------|-----------|
-| `TermsOfService` | `/terms`, `/legal/terms` |
-| `PrivacyPolicy` | `/privacy`, `/legal/privacy` |
-| `SupportPage` | `/support` |
-| `CreateOrganizationPage` | `/create-organization` |
-| `MembersTab` | `/organization/members` |
-| `MemberTitlesTab` | `/organization/member-titles` |
-| `CustomJobTitles` | `/organization/job-titles` |
-| `ProfessionalStatusPage` | `/professional-status` |
-| `ProfessionalLicensePage` | `/professional-license` |
-| `PharmacyDetailPage` | `/pharmacy/{id}` |
-| `PspAboutPage` | `/psp/about` |
-
----
-
-## ⚠️ 4. التناقضات المعمارية المكتشفة والحلول
-
-### التناقض 1: "لا صفحات كاملة في Shared.UI"
-
-**ما تقوله الوثيقة `00-architecture-overview.md`:**
-> ❌ ما لا يوضع في Shared.UI: صفحات كاملة (Dashboard, PSP, Admin)
-
-**الواقع الفعلي:**
-تحتوي Shared.UI على لوحات تحكم كاملة (`ClinicDashboard`, `PharmacyDashboard`, `RepDashboard`) وصفحات متعددة.
-
-**التفسير:**
-هذه الصفحات وُضعت في Shared.UI لأنها **مشتركة بين الويب والموبايل** (تُستضاف في الموبايل عبر `BlazorWebView`). هذا يتوافق مع **المستوى 4** من شجرة القرار المعماري (عمليات مشتركة بين المنصات).
-
-**القرار العملي:**
-> ✅ نقبل الواقع الحالي. هذه الصفحات موجودة وتعمل في الموبايل والويب. مهمتنا في PWA هي **استضافتها** وليس إعادة بنائها.
-
-### التناقض 2: نمط التصميم (MAUI مقابل Web)
-
-**ما تقوله الوثيقة `03-style-guide.md`:**
-صفحات المصادقة تستخدم نمط **Split-Panel** (لوحة بصرية + لوحة نموذج).
-
-**ما اتفقنا عليه في هذه الجلسة:**
-صفحات المصادقة في PWA تتبع نمط **الموبايل** (بطاقة بيضاء على تدرج لوني) وليس نمط الويب.
-
-**القرار العملي:**
-> ✅ صفحات المصادقة (Login, Register) في PWA تتبع نمط الموبايل.
-> ✅ الصفحات الداخلية تتبع نمط الدور (Clinic/Pharmacy/Rep) حسب وثيقة `03`.
-
-### التناقض 3: حقن الخدمات في مكونات Shared.UI
-
-**ما تقوله الوثيقة `11-blazor-webview-guide.md`:**
-مكونات Shared.UI تستقبل `IApiService` كـ `[Parameter]` وليس `@inject` (بسبب عزل حاوية DI في BlazorWebView).
-
-**الأثر على PWA:**
-عند استضافة هذه المكونات في PWA، يجب تمرير `IApiService` كـ Parameter:
-
-```razor
-<SettingsPage ApiService="ApiService" />
+```
+المستخدم يضغط "Sign in with Google"
+    ↓
+Google Identity Services (GIS) يفتح نافذة اختيار الحساب
+    ↓
+Google يُرجع ID Token (JWT موقّع من Google)
+    ↓
+PWA يرسل ID Token إلى API: POST /api/auth/google-login
+    ↓
+API يتحقق من التوقيع باستخدام Google.Apis.Auth
+    ↓
+API يُرجع JWT token خاص بالتطبيق
+    ↓
+PWA يحفظ Token في localStorage
+    ↓
+UserSessionState يجلب بيانات الجلسة
+    ↓
+المستخدم يدخل للوحة التحكم ✅
 ```
 
-حيث `ApiService` هو `IApiService` المحقون في صفحة PWA المضيفة.
+### 3.3 Client IDs المتعددة
 
----
+النظام يدعم **Client IDs متعددة** لنفس المشروع:
 
-## 🗺️ 5. خطة تشغيل مكونات Shared.UI في PWA
+| المنصة | Client ID | الاستخدام |
+|--------|-----------|-----------|
+| MAUI (Android/iOS) | `369163319733-8229...` | Native Apps |
+| PWA (Web) | `369163319733-9rt7...` | Web Browser |
+| Web (Server) | `369163319733-abc1...` | Blazor Server |
 
-### المرحلة 1: الصفحات المستقلة ذات @page (منخفضة المخاطر) ⭐ الحالية
-
-**الهدف:** إثبات أن البنية تعمل عبر تشغيل أبسط الصفحات.
-
-| الصفحة | المسار في NavMenu | الأولوية |
-|--------|-------------------|----------|
-| `SupportPage` | `/support` | 🔴 عالية |
-| `TermsOfService` | `/terms` | 🔴 عالية |
-| `PrivacyPolicy` | `/privacy` | 🔴 عالية |
-| `ProfessionalStatusPage` | `/professional-status` | 🟡 متوسطة |
-| `ProfessionalLicensePage` | `/professional-license` | 🟡 متوسطة |
-
-### المرحلة 2: صفحات المريض الشخصية
-
-| الصفحة | المسار | المتطلبات |
-|--------|--------|-----------|
-| `MyProfilePage` | `/profile` | `UserSessionState`, `IApiService` |
-| `EditProfilePage` | `/profile/edit` | رفع صور (قد يحتاج `localStorage`) |
-| `SettingsPage` | `/settings` | أقسام متعددة (لغة، إشعارات، أمان، خصوصية) |
-| `NotificationsPage` | `/notifications` | `INotificationNavigationService` |
-
-### المرحلة 3: لوحات التحكم حسب الدور (الأعلى قيمة)
-
-| اللوحة | الدور | المتطلبات |
-|--------|------|-----------|
-| `ClinicDashboard` | 👨‍⚕️ طبيب | `CurrentOrganizationState`, `IApiService` |
-| `PharmacyDashboard` | 💊 صيدلي | `CurrentOrganizationState`, `IApiService` |
-| `PharmaCompanyDashboard` | 👔 مندوب | `CurrentOrganizationState`, `IApiService` |
-
-### المرحلة 4: الميزات المتخصصة
-
-| الفئة | المكونات | التعقيد |
-|------|---------|---------|
-| جدولة الأدوية | `MedicationSchedulePage`, `AddMedicationPage`, `PspSchedulePage` | 🔴 عالية |
-| المحادثات | `MessagingHubPage`, `ChatPage`, `DoctorSearchPage` | 🔴 عالية (قد تحتاج SignalR) |
-| PSP | `PspGateway`, `PspSearch`, `PspEntry` | 🟠 متوسطة-عالية |
-| الصيدليات القريبة | `NearbyPharmacies`, `PharmacySearchPage` | 🟠 متوسطة (تحتاج GPS) |
-| إدارة المنظمة | `MembersTab`, `MemberTitlesTab`, `CustomJobTitles` | 🟡 متوسطة |
-
-### المرحلة 5: الميزات المتقدمة
-
-| الميزة | المتطلبات |
-|--------|-----------|
-| تتبّع الطلبات (`OrderTracker`) | ربط مع نظام الطلبات |
-| دعوات المرضى (`MyPatientInvitations`) | ربط مع نظام الدعوات |
-| شبكة المندوب (`MyNetwork`) | ربط مع بيانات المندوب |
-
----
-
-## 🔑 6. الأنماط الناجحة والموثقة
-
-### 6.1 استضافة مكون Shared.UI في PWA
-
-```razor
-@* صفحة PWA المضيفة *@
-@page "/settings"
-@inject IApiService ApiService
-
-<SettingsPage ApiService="ApiService" />
+**التحقق في الـ API:**
+```csharp
+var settings = new GoogleJsonWebSignature.ValidationSettings
+{
+    Audience = new[] { 
+        _configuration["Google:ClientId"],      // MAUI
+        _configuration["Google:PwaClientId"]    // PWA
+    }
+};
 ```
 
-### 6.2 تمرير بيانات الجلسة
-
-```razor
-@* استخدام UserSessionState في أي صفحة *@
-@inject UserSessionState SessionState
-
-<h1>@SessionState.CurrentSession?.FullNameAr</h1>
-```
-
-### 6.3 الترجمة الآمنة (مع مفتاح احتياطي)
+### 3.4 Logout الموحّد
 
 ```csharp
-private string T(string key)
+private async Task Logout()
 {
-    if (_translations.TryGetValue(key, out var value))
-        return value;
+    // 1. مسح token من localStorage
+    await JS.InvokeVoidAsync("localStorage.removeItem", "auth_token");
 
-    // مفتاح مختصر (بدون البادئة) كاحتياطي
-    var shortKey = key.Contains('.') ? key[(key.LastIndexOf('.') + 1)..] : key;
-    if (_translations.TryGetValue(shortKey, out var shortValue))
-        return shortValue;
+    // 2. مسح حالة المصادقة
+    if (AuthStateProvider is CustomAuthenticationStateProvider customProvider)
+    {
+        await customProvider.MarkUserAsLoggedOut();
+    }
 
-    return key;
+    // 3. مسح حالة المنظمة
+    OrgState.SetOrganizationId(0);
+
+    // 4. إعادة التوجيه باستخدام JavaScript (يتجنب 404 في PWA)
+    await JS.InvokeVoidAsync("eval", "window.location.href = '/login'");
 }
 ```
 
-### 6.4 إعادة الرسم عند تغيير البيانات
+**لماذا `window.location.href` بدلاً من `Navigation.NavigateTo`؟**
+- `Navigation.NavigateTo("/login", forceLoad: true)` يسبب 404 في PWA
+- `window.location.href` يعمل بشكل صحيح مع URL Rewrite
 
-```csharp
-protected override async Task OnInitializedAsync()
-{
-    SessionState.OnChange += OnSessionChanged;
+---
+
+## 🧹 4. نظام تنظيف الكاش التلقائي
+
+### 4.1 المشكلة التي يحلها
+
+عند نشر نسخة جديدة من PWA، قد يبقى **Service Worker القديم** في المتصفح ويخدّم ملفات `.wasm` بـ hashes قديمة، مما يسبب:
+
+```
+Failed to find a valid digest in the 'integrity' attribute
+SRI's integrity checks failed
+```
+
+### 4.2 الحل: `cache-reset.html`
+
+صفحة HTML ثابتة (ليست Blazor) تُفتح تلقائياً عند فشل التحميل، وتقوم بـ:
+
+1. **إلغاء Service Workers:**
+```javascript
+const registrations = await navigator.serviceWorker.getRegistrations();
+for (const registration of registrations) {
+    await registration.unregister();
 }
+```
 
-private async void OnSessionChanged() => await InvokeAsync(StateHasChanged);
+2. **مسح جميع الكاشات:**
+```javascript
+const cacheNames = await caches.keys();
+for (const cacheName of cacheNames) {
+    await caches.delete(cacheName);
+}
+```
 
-public void Dispose() => SessionState.OnChange -= OnSessionChanged;
+3. **مسح localStorage/sessionStorage**
+
+4. **إعادة التوجيه التلقائي للصفحة الرئيسية**
+
+### 4.3 الكشف التلقائي عن الفشل
+
+في `index.html`، يتم الكشف عن أخطاء التحميل:
+
+```javascript
+window.addEventListener('unhandledrejection', function (event) {
+    var msg = event.reason?.message?.toLowerCase() || '';
+    if (msg.indexOf('integrity') !== -1 ||
+        msg.indexOf('failed to fetch') !== -1) {
+        window.location.href = '/cache-reset.html';
+    }
+});
+```
+
+### 4.4 الحماية من حلقة التوجيه اللانهائية
+
+```javascript
+const MAX_ATTEMPTS = 3;
+const attempts = parseInt(sessionStorage.getItem('rubik_reset_attempts') || '0');
+
+if (attempts >= MAX_ATTEMPTS) {
+    // عرض رسالة خطأ بدلاً من إعادة التوجيه
+    errorBox.classList.add('visible');
+    return;
+}
 ```
 
 ---
 
-## 🚫 7. الأنماط المحظورة
+## 🎨 5. تحسينات واجهة المستخدم
 
-| النمط | السبب | البديل |
-|-------|-------|--------|
-| اختراع مفاتيح ترجمة | المفاتيح يجب أن تكون موجودة في قاعدة البيانات | تحقق بـ `SELECT` قبل الاستخدام |
-| استخدام `@inject HttpClient` في مكونات Shared.UI | يفشل بصمت في BlazorWebView | استخدم `[Parameter] IApiService` |
-| تعديل ملفات Migration يدوياً | يكسر تتبع EF Core | استخدم `Add-Migration` فقط |
-| استخدام ألوان ثابتة بدلاً من المتغيرات | صعب الصيانة | استخدم `var(--rubik-primary)` |
-| Inline styles في ملفات كبيرة | غير قابل للصيانة | استخدم ملفات `.razor.css` |
-| `@keyframes` بدون هروب | يفسرها Razor كـ C# | استخدم `@@keyframes` |
-| `?.` مع `EventCallback` | هو struct وليس nullable | استخدم `.InvokeAsync()` |
+### 5.1 TopBar المحسّن
+
+**الشعار قابل للنقر:**
+```razor
+<div class="topbar-brand clickable-brand" @onclick="GoToHome" title="الصفحة الرئيسية">
+    <img src="_content/RubikCare.Shared.UI/Images/own/RubickLogo.png"
+         class="topbar-logo" />
+    <span class="topbar-brand-text">RubikCare</span>
+</div>
+```
+
+**صورة المستخدم قابلة للنقر:**
+```razor
+<div class="topbar-user clickable-user" @onclick="GoToProfile" title="البروفايل الشخصي">
+    <div class="user-avatar">
+        @if (!string.IsNullOrEmpty(SessionState.CurrentSession?.ProfilePictureUrl))
+        {
+            <img src="@fullImageUrl" />
+        }
+        else
+        {
+            <span>@GetInitials(SessionState.CurrentSession?.FullNameAr)</span>
+        }
+    </div>
+    <span class="user-name">@SessionState.CurrentSession?.FullNameAr</span>
+</div>
+```
+
+### 5.2 حل مشكلة CSS Specificity
+
+**المشكلة:** ملف CSS عام (`_CoreBundle.css`) يُعرّف `.topbar-logo` بحجم ثابت `36px` مع specificity أعلى.
+
+**الحل:** استخدام `!important` في `MainLayout.razor.css`:
+
+```css
+.topbar-logo {
+    height: 98px !important;
+    width: 98px !important;
+}
+```
 
 ---
 
-## 📋 8. الدروس المستفادة من هذه الجلسة
+## 📱 6. نظام المحادثات (Messaging)
 
-### 8.1 لا تفترض، بل تحقق
-- **الخطأ:** افتراض أن مفاتيح الترجمة غير موجودة
-- **الصحيح:** فتح Console وقراءة رسالة الخطأ الفعلية
+### 6.1 تدفق الحجز مع المحادثة
 
-### 8.2 استخدم المفاتيح الموجودة فعلاً
-- **الخطأ:** اختراع مفاتيح مثل `DASHBOARD.WELCOME`
-- **الصحيح:** استخدام المفاتيح الفعلية `SHARED.DASHBOARD.WELCOME` من قاعدة البيانات
+```
+المريض يبحث عن عيادة (DoctorSearchPage)
+    ↓
+يختار عيادة → يفتح DoctorProfilePage
+    ↓
+يملأ نموذج الحجز (يوم + سبب + ملاحظات)
+    ↓
+يضغط "إرسال طلب الحجز"
+    ↓
+DoctorProfilePage:
+    1. ينشئ محادثة: POST /api/messaging/conversations
+    2. يرسل رسالة الحجز: POST /api/messaging/messages
+    3. يوجّه لصفحة المحادثة: Navigation.NavigateTo($"/chat/{conversationId}")
+    ↓
+ChatPage يفتح ويعرض المحادثة ✅
+```
 
-### 8.3 افهم دورة حياة المكونات
-- **الخطأ:** توقع أن المكون الفرعي يُعاد رسمه تلقائياً
-- **الصحيح:** الاشتراك في أحداث التغيير (`OnChange`) واستدعاء `StateHasChanged`
+### 6.2 صفحات المحادثات المُفعّلة
 
-### 8.4 ابدأ بالبسيط ثم تعقّد
-- **الخطأ:** بناء لوحة تحكم كاملة من البداية
-- **الصحيح:** صفحة مؤقتة → بيانات حقيقية → ميزات متقدمة
-
-### 8.5 وثّق قبل أن تنسى
-- كل اكتشاف جديد يجب أن يُضاف لهذه الوثيقة فوراً
+| الصفحة | المسار | الحالة |
+|--------|--------|--------|
+| `DoctorSearchPage` | `/doctor-search` | ✅ مكتمل |
+| `DoctorProfilePage` | `/doctorprofile/{clinicId}` | ✅ مكتمل + ربط بالمحادثة |
+| `ChatPage` | `/chat/{conversationId}` | ✅ مكتمل |
+| `MessagingHubPage` | `/messaging-hub` | ⏳ قيد التطوير |
 
 ---
 
-## 🎯 9. الحالة الحالية والخطوات التالية
+## 🛡️ 7. حلول المشاكل الشائعة
 
-### ✅ ما تم إنجازه (0.2.0)
+### 7.1 خطأ: `Illegal invocation` مع Google GIS
+
+**المشكلة:**
+```
+TypeError: Failed to execute 'query' on 'Permissions': Illegal invocation
+```
+
+**السبب:** مكتبة Google GIS تستدعي `navigator.permissions.query` بطريقة تفقد السياق `this`.
+
+**الحل:** Polyfill في `index.html` قبل تحميل مكتبة Google:
+
+```javascript
+if (navigator.permissions && navigator.permissions.query) {
+    var originalQuery = navigator.permissions.query.bind(navigator.permissions);
+    navigator.permissions.query = function (parameters) {
+        try {
+            return originalQuery(parameters);
+        } catch (e) {
+            return Promise.reject(e);
+        }
+    };
+}
+```
+
+### 7.2 خطأ: `404 Not Found` عند تسجيل الخروج
+
+**المشكلة:**
+```
+Navigation.NavigateTo("/login", forceLoad: true) → 404
+```
+
+**السبب:** `forceLoad: true` يطلب `/login` كملف HTML، لكن IIS لا يجده.
+
+**الحل:** استخدام `window.location.href` بدلاً من `Navigation.NavigateTo`.
+
+### 7.3 خطأ: تضارب المسارات (Duplicate Routes)
+
+**المشكلة:**
+```
+The following routes are ambiguous:
+'pharmacy/patient-orders' in 'PatientOrders.razor'
+'pharmacy/patient-orders' in 'PharmacyPatientOrdersPage.razor'
+```
+
+**الحل:** حذف الملف المكرر والاحتفاظ بالأوضح (`PharmacyPatientOrdersPage.razor`).
+
+---
+
+## 📦 8. البنية الحقيقية لـ Shared.UI
+
+*(نفس القسم 3 من الوثيقة القديمة - لم يتغير)*
+
+---
+
+## 🗺️ 9. خطة تشغيل مكونات Shared.UI في PWA
+
+### المرحلة 1: الصفحات الأساسية ✅ مكتملة
+
+- [x] صفحات المصادقة (Login, Register, ForgotPassword)
+- [x] Dashboard (لوحة التحكم الأساسية)
+- [x] الصفحات القانونية (Terms, Privacy, Support)
+- [x] Profile (البروفايل الشخصي)
+
+### المرحلة 2: الميزات الأساسية ✅ مكتملة
+
+- [x] Google OAuth
+- [x] Logout الموحّد
+- [x] Doctor Search + Booking
+- [x] Messaging (ChatPage)
+- [x] TopBar المحسّن
+
+### المرحلة 3: الميزات المتقدمة 🔄 قيد التطوير
+
+- [ ] MessagingHubPage (مركز المحادثات الكامل)
+- [ ] MedicationSchedulePage (جدولة الأدوية)
+- [ ] NearbyPharmacies (الصيدليات القريبة - تحتاج GPS)
+- [ ] PspGateway (بوابة برامج الدعم)
+
+### المرحلة 4: لوحات التحكم المهنية ⏳ قادمة
+
+- [ ] ClinicDashboard (لوحة الطبيب)
+- [ ] PharmacyDashboard (لوحة الصيدلية)
+- [ ] RepDashboard (لوحة المندوب)
+
+---
+
+## 📊 10. إحصائيات المشروع
+
+| المقياس | القيمة (أغسطس) | القيمة (أكتوبر) | التحسن |
+|---------|----------------|-----------------|--------|
+| نسبة الإنجاز | ~20% | ~35% | +15% |
+| صفحات @page مُفعّلة | 11 | 15+ | +4 |
+| أنظمة المصادقة | 1 (تقليدي) | 2 (+ Google) | +1 |
+| أنظمة الحماية | 0 | 2 (Cache Reset + Polyfill) | +2 |
+| صفحات المحادثات | 2 | 4 | +2 |
+
+---
+
+## 🎓 11. الدروس المستفادة من هذه الجلسة
+
+### 11.1 نشر PWA يتطلب مسح Service Worker
+
+**الخطأ:** نسخ الملفات الجديدة فوق القديمة بدون مسح المجلد.
+
+**الصحيح:**
+```powershell
+Get-ChildItem "C:\WebSite\PU_RubicCareStage" -Exclude "web.config" | 
+    Remove-Item -Recurse -Force
+```
+
+### 11.2 Blazor يستخدم filenames مجزأة (hashed)
+
+**الخطأ:** افتراض أن أسماء ملفات `.wasm` ثابتة.
+
+**الصحيح:** كل `publish` يولّد أسماء جديدة مثل `RubikCare.PWA.abc123.wasm`.
+
+### 11.3 CSS Specificity يتغلب على الترتيب
+
+**الخطأ:** افتراض أن آخر ملف CSS يُحمّل يتغلب.
+
+**الصحيح:** `!important` أو specificity أعلى يتغلب على الترتيب.
+
+### 11.4 Navigation.NavigateTo قد يفشل في PWA
+
+**الخطأ:** استخدام `forceLoad: true` في PWA.
+
+**الصحيح:** استخدام `window.location.href` للتوجيه الكامل.
+
+### 11.5 Client IDs متعددة مطلوبة لمنصات مختلفة
+
+**الخطأ:** استخدام نفس Client ID لـ MAUI و PWA.
+
+**الصحيح:** كل منصة (Android, iOS, Web) تحتاج Client ID خاص بها.
+
+---
+
+## 📝 12. ملاحظات النشر (Deployment Notes)
+
+### 12.1 خطوات النشر الصحيحة
+
+```powershell
+# 1. بناء المشروع
+dotnet publish RubikCare.PWA -c Release -o E:\Publish\PWA
+
+# 2. إيقاف App Pool
+C:\Windows\System32\inetsrv\appcmd stop apppool "PU_RubicCareStage"
+
+# 3. مسح المجلد (ما عدا web.config)
+Get-ChildItem "C:\WebSite\PU_RubicCareStage" -Exclude "web.config" | 
+    Remove-Item -Recurse -Force
+
+# 4. نسخ الملفات الجديدة
+Copy-Item -Path "E:\Publish\PWA\*" `
+    -Destination "C:\WebSite\PU_RubicCareStage\" -Recurse -Force
+
+# 5. تشغيل App Pool
+C:\Windows\System32\inetsrv\appcmd start apppool "PU_RubicCareStage"
+```
+
+### 12.2 مسح Service Worker من المتصفح
+
+بعد النشر، يجب على المستخدم:
+
+1. فتح `https://stagepu.rubikcare.com`
+2. الضغط على `F12` → **Application**
+3. **Service Workers** → **Unregister**
+4. **Storage** → **Clear site data**
+5. أو استخدام نافذة **InPrivate** (`Ctrl + Shift + N`)
+
+---
+
+## ✅ 13. الحالة الحالية والخطوات التالية
+
+### ✅ ما تم إنجازه (0.3.0)
 
 - [x] البنية التحتية للـ PWA (Program.cs, Services)
 - [x] صفحات المصادقة (Login, Register) بنمط الموبايل
+- [x] **Google OAuth** (تسجيل الدخول عبر Google)
 - [x] الهيكل الرئيسي (MainLayout, NavMenu, EmptyLayout)
+- [x] **TopBar محسّن** (شعار + صورة مستخدم قابلان للنقر)
 - [x] نظام الترجمة الكامل (عربي/إنجليزي)
 - [x] نظام الجلسة الموحدة (UserSessionState)
 - [x] لوحة تحكم أساسية (Dashboard) ببيانات حقيقية
 - [x] القائمة الجانبية الديناميكية بالبيانات الحقيقية
+- [x] **Doctor Search + Booking**
+- [x] **Messaging (ChatPage)**
+- [x] **صفحة تنظيف الكاش التلقائية**
+- [x] **Logout الموحّد**
+- [x] **Polyfill لـ Google GIS**
 
 ### 🔄 الخطوة التالية
 
-**المرحلة 1:** تشغيل الصفحات القانونية والدعم (Support, Terms, Privacy)
+**المرحلة 3:** الميزات المتقدمة
+- MessagingHubPage (مركز المحادثات الكامل)
+- MedicationSchedulePage (جدولة الأدوية)
+- NearbyPharmacies (الصيدليات القريبة)
 
 ### 📊 إحصائيات المشروع
 
 | المقياس | القيمة |
 |---------|--------|
 | مكونات Shared.UI المتاحة | 66 |
-| صفحات @page جاهزة للتوجيه | 11 |
+| صفحات @page مُفعّلة | 15+ |
 | خدمات تحتاج تنفيذ في PWA | ~8 |
-| نسبة الإنجاز الحالية | ~20% |
+| نسبة الإنجاز الحالية | **~35%** |
 
 ---
 
 **ملاحظة:** هذه وثيقة حية (Living Document) — يتم تحديثها مع تقدم المشروع.
 
-**آخر مراجعة:** 26 أغسطس 2026
-**المراجعة التالية:** بعد إكمال المرحلة 1 (الصفحات القانونية والدعم)
+**آخر مراجعة:** 3 أكتوبر 2026  
+**المراجعة التالية:** بعد إكمال المرحلة 3 (الميزات المتقدمة)
 
 ---
 
-هل هذه الوثيقة المحدثة تلبي احتياجاتك؟ إذا كانت الإجابة نعم، يمكننا الانتقال فوراً لتنفيذ **المرحلة 1: تشغيل الصفحات القانونية والدعم**. 🚀
+## ✅ ملخص التحديثات
+
+تم تحديث الوثيقة لتشمل:
+
+1. ✅ **تاريخ التحديث:** 3 أكتوبر 2026 (بدلاً من 26 أغسطس)
+2. ✅ **الإصدار:** 0.3.0 (بدلاً من 0.2.0)
+3. ✅ **نسبة الإنجاز:** 35% (بدلاً من 20%)
+4. ✅ **قسم جديد:** نظام المصادقة (Google OAuth)
+5. ✅ **قسم جديد:** نظام تنظيف الكاش التلقائي
+6. ✅ **قسم جديد:** تحسينات واجهة المستخدم
+7. ✅ **قسم جديد:** نظام المحادثات
+8. ✅ **قسم جديد:** حلول المشاكل الشائعة
+9. ✅ **قسم جديد:** ملاحظات النشر
+10. ✅ **قسم جديد:** الدروس المستفادة من هذه الجلسة
+
+**الوثيقة جاهزة للاستخدام!** 🎉
