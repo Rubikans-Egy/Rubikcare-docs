@@ -1,9 +1,9 @@
 # 🏛️ 00 - الهيكل المعماري الشامل لنظام RubikCare
 
 **لمحة سريعة**: وثيقة مرجعية للبنية التحتية للمشروع.
-**آخر تحديث**: 29 أغسطس 2026
+**آخر تحديث**: 3 أكتوبر 2026
 **المؤلف**: فريق RubikCare
-**الحالة**: ✅ محدثة لتشمل جميع المشاريع التسعة (بما فيها PWA)
+**الحالة**: ✅ محدثة لتشمل جميع المشاريع التسعة (بما فيها PWA) + نظام النقاط
 
 ---
 
@@ -16,18 +16,6 @@
 ---
 
 ## 🗺️ الخريطة المعمارية للمشاريع التسعة
-
-Absolutely! The error you encountered is due to a syntax issue in the Mermaid `graph TD` definition, specifically with the use of parentheses `()` and special characters within node labels.
-
-GitHub's Mermaid parser is very strict. To fix this, we need to:
-
-1.  **Remove parentheses** `()` from node labels.
-2.  **Use quotes** `" "` around labels that contain special characters like `/` or `&`.
-3.  **Simplify subgraph titles** to avoid problematic characters.
-
-Here is the corrected and enhanced version of the architecture diagram. It's been rewritten to be fully compatible with GitHub's Mermaid rendering engine while maintaining a professional and clear structure.
-
-### 🏛️ Corrected Architecture Diagram (Mermaid v10+ Compatible)
 
 ```mermaid
 graph TD
@@ -52,62 +40,17 @@ graph TD
         Tests["RubikCare.Tests<br/>Unit & Integration Tests"]
     end
 
-    %% Core Dependencies
     App --> Domain
     Infra --> App & Domain
     Api --> App & Infra
 
-    %% Client Dependencies
     Web -- "SignalR / HTTP" --> Api
     PWA -- "HTTP / REST" --> Api
     Mobile -- "HTTP / REST" --> Api
 
-    %% Shared UI Dependencies
     SharedUI -.-> Web & PWA & Mobile
     Tests -.-> Api & App & Infra & Domain & Web & PWA & Mobile & SharedUI
 ```
-
----
-
-### ✅ Explanation of Fixes
-
-| Issue in Original | Correction Applied |
-| :--- | :--- |
-| `A[RubikCare.Domain<br/>الطبقة الأساسية (Entities, Enums, Interfaces)]` | **Removed parentheses** and used quotes: `Domain["RubikCare.Domain<br/>Entities, Enums, Interfaces"]`. |
-| `B[RubikCare.Application<br/>طبقة التطبيق (Use Cases, DTOs, Services)]` | **Removed parentheses** and used quotes: `App["RubikCare.Application<br/>Use Cases, DTOs, Services"]`. |
-| `C[RubikCare.Infrastructure<br/>طبقة البنية التحتية (DbContext, Repositories, Migrations)]` | **Removed parentheses** and used quotes: `Infra["RubikCare.Infrastructure<br/>DbContext, Repositories"]`. |
-| `D[RubikCare.Api.Web<br/>نقطة الدخول المركزية (REST API)]` | **Removed parentheses** and used quotes: `Api["RubikCare.Api.Web<br/>Central REST API Gateway"]`. |
-| **Subgraph Titles** with Arabic text and symbols | Simplified and placed within quotes, e.g., `subgraph "Core Layers"`. |
-| **Node IDs** | Changed from single letters (A, B, C) to descriptive names (`Domain`, `App`, `Infra`) for better readability and maintenance. |
-
----
-
-### 📊 Alternative: Simplified Dependency Table (If Diagrams Continue to Fail)
-
-If you continue to face rendering issues, a clear table can be an excellent and foolproof alternative to convey the same information.
-
-| **Project** | **Primary Responsibility** | **Directly Depends On** |
-| :--- | :--- | :--- |
-| **Domain** | Core Entities, Enums, and Domain Interfaces. | None |
-| **Application** | Business Logic, Use Cases, and DTOs. | `Domain` |
-| **Infrastructure** | Data Access (EF Core), Repositories, Migrations. | `Application`, `Domain` |
-| **Api.Web** | Central REST API Gateway for all clients. | `Application`, `Infrastructure` |
-| **Web** | Blazor Server Application (Interactive UI). | `Api.Web` (via HTTP/SignalR), `Shared.UI` |
-| **PWA** | Blazor WebAssembly Application (Client-side). | `Api.Web` (via HTTP/REST), `Shared.UI` |
-| **Mobile** | .NET MAUI Application (Android & iOS). | `Api.Web` (via HTTP/REST), `Shared.UI` |
-| **Shared.UI** | Reusable Razor Components (RCL). | None (used by Web, PWA, Mobile) |
-| **Tests** | Unit, Integration, and Architecture Tests. | Any project as needed |
-
----
-
-### 🛠️ How to Test the Fix
-
-1.  Copy the corrected Mermaid code block above.
-2.  Go to your repository's Markdown file (e.g., `00-architecture-overview.md`) on GitHub.
-3.  Replace the old diagram code with the new one.
-4.  Commit the changes and view the rendered file on GitHub.
-
-This version is now fully compliant with GitHub's Mermaid parser and will render correctly without errors.
 
 ---
 
@@ -120,9 +63,9 @@ This version is now fully compliant with GitHub's Mermaid parser and will render
 | **Infrastructure** | .NET 10, EF Core 10, SQL Server | تنفيذ واجهات الـ `Application`، الوصول للبيانات، الترحيلات (Migrations). | `Application` و `Domain`. |
 | **Api.Web** | ASP.NET Core 10 | نقطة النهاية الموحدة (REST API) لجميع العملاء. | `Application` و `Infrastructure`. |
 | **Web** | Blazor Server 10 | تطبيق الويب الرئيسي (تفاعلي مع SignalR). | `Api.Web` (ضمنياً) و `Shared.UI`. |
-| **PWA** | Blazor WebAssembly 10 | تطبيق ويب تقدمي يعمل في المتصفح (بديل لـ Web على أجهزة معينة). | `Api.Web` (عبر HTTP) و `Shared.UI`. |
+| **PWA** | Blazor WebAssembly 10 | تطبيق ويب تقدمي (نسخة كربونية من Mobile). | `Api.Web` (عبر HTTP) و `Shared.UI`. |
 | **Mobile** | .NET MAUI 10 | تطبيق الهواتف الذكية (Android, iOS). | `Api.Web` (عبر HTTP) و `Shared.UI`. |
-| **Shared.UI** | Razor Class Library (RCL) | مكونات Razor قابلة لإعادة الاستخدام (جداول، أزرار، تخطيطات). | لا يعتمد على تطبيقات محددة. |
+| **Shared.UI** | Razor Class Library (RCL) | مكونات Razor قابلة لإعادة الاستخدام + خدمات مشتركة. | لا يعتمد على تطبيقات محددة. |
 | **Tests** | xUnit, Moq | اختبارات الوحدة والتكامل والمعمارية. | جميع المشاريع (حسب الحاجة). |
 
 ---
@@ -130,59 +73,182 @@ This version is now fully compliant with GitHub's Mermaid parser and will render
 ## 🧩 مسؤوليات كل مشروع بالتفصيل
 
 ### 1. `RubikCare.Domain` - القلب النابض 🫀
+
 **أكثر طبقة استقراراً ونقاءً.**
+
 لا تعرف هذه الطبقة شيئاً عن قواعد البيانات، أو واجهات المستخدم، أو حتى كيفية نقل البيانات. همها الوحيد هو تمثيل مفاهيم العمل (Business Concepts).
-*   **المحتويات**: الكيانات (Entities) مثل `ApplicationUser`, `Patient`, `Medication`، التعدادات (Enums)، كائنات القيمة (Value Objects) كـ `Address`، وأحداث النطاق (Domain Events).
-*   **قاعدة ذهبية**: **ممنوع** إضافة أي مرجعيات لـ Entity Framework أو مكتبات خارجية متعلقة بالبيانات.
+
+- **المحتويات**: الكيانات (Entities) مثل `ApplicationUser`, `Patient`, `Medication`، التعدادات (Enums)، كائنات القيمة (Value Objects) كـ `Address`، وأحداث النطاق (Domain Events).
+- **إضافة حديثة**: كيانات نظام النقاط (`PSPProgramPointScheme`, `PSPProgramPointRule`, إلخ).
+- **قاعدة ذهبية**: **ممنوع** إضافة أي مرجعيات لـ Entity Framework أو مكتبات خارجية متعلقة بالبيانات.
 
 ### 2. `RubikCare.Application` - عقل النظام 🧠
+
 **هنا يُتخذ القرار.**
+
 تحتوي على حالات الاستخدام (Use Cases) التي تمثل متطلبات المستخدم الفعلية (مثل: `EnrollPatientInPspUseCase`). تقوم بتنسيق تدفق البيانات بين الـ `Api.Web` والـ `Infrastructure`، وتطبق منطق الأعمال.
-*   **المحتويات**: الخدمات (Services)، واجهات للبنية التحتية (Interfaces)، كائنات نقل البيانات (DTOs)، محولات (Mappers)، ومُحققّات (Validators) باستخدام FluentValidation.
-*   **قاعدة ذهبية**: لا تعتمد إلا على `Domain` ولا تعرف كيف أو من أين تأتي البيانات (مستودع، خدمة خارجية، إلخ).
+
+- **المحتويات**: الخدمات (Services)، واجهات للبنية التحتية (Interfaces)، كائنات نقل البيانات (DTOs)، محولات (Mappers)، ومُحققّات (Validators) باستخدام FluentValidation.
+- **إضافات حديثة**:
+  - `PSPEnrollmentService` — تسجيل المرضى في برامج الدعم.
+  - `PSPPointSchemeService` — قراءة نظام النقاط.
+- **قاعدة ذهبية**: لا تعتمد إلا على `Domain` ولا تعرف كيف أو من أين تأتي البيانات (مستودع، خدمة خارجية، إلخ).
 
 ### 3. `RubikCare.Infrastructure` - الجسر إلى العالم الخارجي 🌉
+
 **التفاصيل التقنية هنا.**
+
 هذا هو مكان تنفيذ الواجهات المجردة التي عرّفها الـ `Application`. مسؤول عن التواصل مع قواعد البيانات، وإرسال البريد الإلكتروني، والخدمات السحابية.
-*   **المحتويات**: `BusinessDbContext` (EF Core)، تنفيذ المستودعات (Repositories)، ملفات الترحيل (Migrations)، وخدمات خارجية (مثل `EmailService`).
-*   **قاعدة ذهبية**: يُسمح لها بالاعتماد على `Application` و `Domain` فقط، ولا يُستدعى مباشرة من قبل التطبيقات العميلة (Web, PWA, Mobile).
+
+- **المحتويات**: `BusinessDbContext` (EF Core)، تنفيذ المستودعات (Repositories)، ملفات الترحيل (Migrations)، وخدمات خارجية (مثل `EmailService`).
+- **إضافات حديثة**:
+  - **19 Handler** لنظام النقاط في `UseCases/PSP/Points/`.
+  - **`PSPEnrollmentService`** في `Services/PSP/` (يستخدم `IGenericService<T>`).
+- **قاعدة ذهبية**: يُسمح لها بالاعتماد على `Application` و `Domain` فقط، ولا يُستدعى مباشرة من قبل التطبيقات العميلة (Web, PWA, Mobile).
 
 ### 4. `RubikCare.Api.Web` - بوابة النظام الموحدة 🚪
+
 **نقطة الدخول الوحيدة للبيانات.**
+
 هي واجهة برمجية (REST API) مركزية تخدم جميع العملاء (Web, PWA, Mobile). تتولى المصادقة (JWT)، والتحقق من الصلاحيات، وتنسيق الطلبات.
-*   **المحتويات**: وحدات التحكم (Controllers)، `Program.cs`، وMiddleware (معالجة الأخطاء، التسجيل).
-*   **قاعدة ذهبية**: وحدات التحكم يجب أن تكون **رفيعة جداً** (Thin Controllers)؛ كل المنطق يُفوض إلى الخدمات في طبقة `Application`.
+
+- **المحتويات**: وحدات التحكم (Controllers)، `Program.cs`، وMiddleware (معالجة الأخطاء، التسجيل).
+- **Controllers حديثة**:
+  - `PointSchemesController` (4 endpoints)
+  - `PointRulesController` (5 endpoints)
+  - `PointBalancesController` (3 endpoints)
+  - `PointEarningController` (1 endpoint)
+  - `PointRedeemController` (5 endpoints)
+- **قاعدة ذهبية**: وحدات التحكم يجب أن تكون **رفيعة جداً** (Thin Controllers)؛ كل المنطق يُفوض إلى الخدمات في طبقة `Application` أو إلى Handlers في `Infrastructure`.
 
 ### 5. `RubikCare.Web` - التطبيق التفاعلي الغني 💻
+
 **تطبيق Blazor Server.**
+
 يُستخدم في بيئات الإدارة واللوحات التي تتطلب تفاعلاً فورياً. يحافظ على اتصال مستمر (SignalR) مع الخادم، مما يوفر تجربة مستخدم سلسة.
-*   **المحتويات**: صفحات (Pages)، مكونات خاصة بالويب، وخدمات محلية لإدارة الحالة.
-*   **قاعدة ذهبية**: يتواصل مع الـ `Api.Web`، ولا يتفاعل مباشرة مع قواعد البيانات.
+
+- **المحتويات**: صفحات (Pages)، مكونات خاصة بالويب، وخدمات محلية لإدارة الحالة.
+- **إضافات حديثة**:
+  - **`PSPStep2b_PointScheme.razor`** — واجهة إدارة نظام النقاط للشركة.
+  - **قسم "نظام النقاط"** في `PSPProgramsDetails.razor`.
+- **قاعدة ذهبية**: يتواصل مع الـ `Api.Web` عبر HTTP، ولا يتفاعل مباشرة مع قواعد البيانات.
 
 ### 6. `RubikCare.PWA` - التطبيق الخفيف متعدد المنصات 📱
-**تطبيق Blazor WebAssembly (التطبيق الأحدث).**
-تمت إضافته ليكون بديلاً لتطبيق الويب (Blazor Server) على الأجهزة التي لا تتعامل بكفاءة مع SignalR (مثل أجهزة iPhone)، وأيضاً ليكون حلّاً سريعاً ومستقراً للوصول إلى النظام من أي متصفح.
-*   **طبيعة التشغيل**: يعمل كلياً داخل متصفح المستخدم بعد تحميل ملفات `WebAssembly`. يُنشر كملفات **ثابتة** (Static Files) على خادم ويب (مثل IIS).
-*   **المحتويات**: صفحات Razor مكافئة لـ `RubikCare.Web`، وخدمات للتواصل مع الـ API (مثل `WebApiService`).
-*   **الحالة**: قيد التطوير النشط، مع خارطة طريق واضحة لنقل المكونات من `Shared.UI`.
-*   **الرابط المرجعي**: [دليل PWA](https://github.com/Rubikans-Egy/Rubikcare-docs/blob/main/docs/22-RubikCare.PWA.md).
+
+**تطبيق Blazor WebAssembly — نسخة كربونية من MAUI.**
+
+تمت إضافته ليكون بديلاً لتطبيق الويب (Blazor Server) على الأجهزة التي لا تتعامل بكفاءة مع SignalR (مثل أجهزة iPhone)، وأيضاً ليكون حلاً سريعاً ومستقراً للوصول إلى النظام من أي متصفح.
+
+- **طبيعة التشغيل**: يعمل كلياً داخل متصفح المستخدم بعد تحميل ملفات `WebAssembly`. يُنشر كملفات **ثابتة** (Static Files) على خادم ويب (مثل IIS).
+- **المحتويات**:
+  - صفحات Razor مكافئة لـ `RubikCare.Mobile`.
+  - خدمات للتواصل مع الـ API (مثل `WebApiService`).
+  - `googleAuth.js` — تكامل Google Identity Services.
+  - `cache-reset.html` — لتنظيف Service Worker تلقائياً.
+- **إضافات حديثة**:
+  - **`PointDashboard.razor`** — محفظة النقاط.
+- **الرابط المرجعي**: [دليل PWA](./22-RubikCare.PWA.md).
 
 ### 7. `RubikCare.Mobile` - تجربة الهواتف الذكية 📲
+
 **تطبيق MAUI الأصلي.**
+
 يستخدم `BlazorWebView` لعرض مكونات `Shared.UI`، مما يسمح بإعادة استخدام كبير للكود مع تطبيقات الويب. يوفر إمكانية الوصول إلى ميزات الجهاز (الكاميرا، GPS، الإشعارات المحلية).
-*   **المحتويات**: صفحات XAML، ViewModels، وخدمات خاصة بالمنصة (مثل `MauiLocalNotificationService`).
-*   **قاعدة ذهبية**: لا يعتمد على أي مشروع آخر باستثناء `Shared.UI`؛ يتواصل مع النظام حصراً عبر `Api.Web` باستخدام HTTP.
+
+- **المحتويات**: صفحات XAML، ViewModels، وخدمات خاصة بالمنصة (مثل `MauiLocalNotificationService`).
+- **إضافات حديثة**:
+  - **`PointsDashboardPage.xaml`** — Container لعرض `PointDashboard.razor`.
+- **قاعدة ذهبية**: لا يعتمد على أي مشروع آخر باستثناء `Shared.UI`؛ يتواصل مع النظام حصراً عبر `Api.Web` باستخدام HTTP.
 
 ### 8. `RubikCare.Shared.UI` - مستودع المكونات المشتركة 🧩
+
 **اللبنة الأساسية لواجهات المستخدم.**
+
 مكتبة تحتوي على كل المكونات البصرية والخدمات المساعدة التي تستخدمها التطبيقات العميلة الثلاثة (Web, PWA, Mobile)، مما يضمن توحيد الشكل والأداء.
-*   **المحتويات**: 66+ مكون Razor (مثل `RubikSmartTable`، `RubikButton`)، أكثر من 120 ملف CSS، و23 خدمة/واجهة مشتركة (مثل `ITranslationService`).
-*   **قاعدة ذهبية**: تحتوي على **مكونات** قابلة لإعادة الاستخدام، وليس صفحات كاملة، لتجنب تعقيد التبعيات.
+
+- **المحتويات**:
+  - 66+ مكون Razor (مثل `RubikSmartTable`, `RubikButton`).
+  - 120+ ملف CSS منظم.
+  - 23+ خدمة/واجهة مشتركة (مثل `ITranslationService`).
+- **إضافات حديثة**:
+  - **`PointDashboard.razor`** + `PointDashboardNavigationBridge.cs` + `PointModels.cs`.
+  - **`point-dashboard.css`**.
+- **قاعدة ذهبية**: تحتوي على **مكونات** قابلة لإعادة الاستخدام، وليس صفحات كاملة، لتجنب تعقيد التبعيات.
 
 ### 9. `RubikCare.Tests` - شبكة الأمان الجودة 🛡️
+
 **ضمان استقرار المعمارية.**
+
 يحتوي على اختبارات الوحدة (Unit Tests) لكل طبقة، واختبارات تكامل (Integration Tests) بين الطبقات، بالإضافة إلى اختبارات معماريّة باستخدام `NetArchTest` للتأكد من عدم كسر قواعد التبعية.
-*   **قاعدة ذهبية**: جزء لا يتجزأ من عملية التطوير.
+
+- **عدد الاختبارات**: 33 اختبار ناجح (حتى الآن).
+- **قاعدة ذهبية**: جزء لا يتجزأ من عملية التطوير.
+
+---
+
+## 🎯 نظام نقاط برامج الدعم (PSP Program Points) — نظرة معمارية
+
+### الموقع في Clean Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    RubikCare.Domain                          │
+│  ┌───────────────────────────────────────────────────────┐  │
+│  │ 8 كيانات في Entities/PSP/Points/                     │  │
+│  │ 3 ملفات Constants في Constants/PSP/Points/           │  │
+│  └───────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────┐
+│                  Infrastructure Layer                        │
+│  ┌───────────────────────────────────────────────────────┐  │
+│  │ 19 Handler في UseCases/PSP/Points/                   │  │
+│  │ (Schemes, Rules, Balances, Earning, Redeem)          │  │
+│  └───────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────┐
+│                    Api.Web Layer                             │
+│  ┌───────────────────────────────────────────────────────┐  │
+│  │ 5 Controllers (18 Endpoints)                          │  │
+│  └───────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────┐
+│                   Client Layer                               │
+│  ┌───────────────────────────────────────────────────────┐  │
+│  │  Web: PSPStep2b_PointScheme.razor                     │  │
+│  │  PWA: PointsDashboardPage.razor                       │  │
+│  │  MAUI: PointsDashboardPage.xaml                       │  │
+│  │  Shared: PointDashboard.razor                         │  │
+│  └───────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### المكونات الأساسية
+
+| # | المكوّن | العدد | الموقع |
+|---|---------|:-----:|--------|
+| 1 | **كيانات Domain** | 8 | `Domain/Entities/PSP/Points/` |
+| 2 | **Constants** | 3 | `Domain/Constants/PSP/Points/` |
+| 3 | **Handlers** | 19 | `Infrastructure/UseCases/PSP/Points/` |
+| 4 | **Controllers** | 5 | `Api.Web/Controllers/PSP/Points/` |
+| 5 | **Application Services** | 2 | `Application/Services/PSP/` |
+| 6 | **Shared UI Components** | 2 | `Shared.UI/Components/PSP/Points/` |
+| 7 | **جداول قاعدة البيانات** | 8 | — |
+| 8 | **API Endpoints** | 18 | — |
+
+### قاعدة ذهبية (جديدة)
+
+```
+❌ تعديل IDs في PSPActivityTypes
+✅ استخدام PointActivityTypeIds
+
+❌ استدعاء EarnPointsHandler من External
+✅ استدعاؤه من Handlers أخرى
+
+✅ IsTokenValid قبل إرسال التوكن
+```
 
 ---
 
@@ -211,10 +277,10 @@ This version is now fully compliant with GitHub's Mermaid parser and will render
 
 ### ⚠️ تحذيرات معمارية صارمة
 
-*   **لا تكسر تبعية الطبقات**: ممنوع استدعاء `Infrastructure` أو `DbContext` مباشرة من `Web` أو `PWA` أو `Mobile`.
-*   **الـ `API` للجميع**: تطبيقات `Mobile` و `PWA` **لا تعتمد** على أي مشروع آخر (`Domain`, `Application`...)، وتتواصل فقط مع `Api.Web` عبر HTTP.
-*   **`Shared.UI` للمكونات**: لا تضع صفحات كاملة (مثل `Dashboard.razor`) في `Shared.UI`، بل ضعها في المشاريع العميلة نفسها (`Web`, `PWA`, `Mobile`).
-*   **استخدم DTOs**: لا تُرجع كائنات `Domain` (Entities) مباشرة من الـ `API`، استخدم DTOs لمنع تسرب تفاصيل النطاق وتقليل حجم البيانات.
+- **لا تكسر تبعية الطبقات**: ممنوع استدعاء `Infrastructure` أو `DbContext` مباشرة من `Web` أو `PWA` أو `Mobile`.
+- **الـ `API` للجميع**: تطبيقات `Mobile` و `PWA` **لا تعتمد** على أي مشروع آخر (`Domain`, `Application`...)، وتتواصل فقط مع `Api.Web` عبر HTTP.
+- **`Shared.UI` للمكونات**: لا تضع صفحات كاملة (مثل `Dashboard.razor`) في `Shared.UI`، بل ضعها في المشاريع العميلة نفسها (`Web`, `PWA`, `Mobile`).
+- **استخدم DTOs**: لا تُرجع كائنات `Domain` (Entities) مباشرة من الـ `API`، استخدم DTOs لمنع تسرب تفاصيل النطاق وتقليل حجم البيانات.
 
 ---
 
@@ -247,13 +313,19 @@ flowchart LR
 
 للتعمق في جوانب محددة، راجع الوثائق التالية:
 
-*   **[01 - Program.cs والتسجيلات الأساسية](./01-program-cs-foundation.md)**: لفهم كيفية تسجيل الخدمات والحقن.
-*   **[02 - نظام الهوية والمصادقة](./02-identity-system.md)**: لإدارة المستخدمين والأدوار.
-*   **[09 - دليل الـ API](./09-api-guide.md)**: لمعرفة كيفية استخدام وبناء نقاط النهاية.
-*   **[10 - دليل تطوير MAUI](./10-maui-development-guide.md)**: لنشر وتطوير تطبيق الموبايل.
-*   **[12 - دليل النشر الشامل](./12%20-%20%D8%AF%D9%84%D9%8A%D9%84%20%D8%A7%D9%84%D9%86%D8%B4%D8%B1%20%D9%88%D8%A7%D9%84%D8%A5%D9%86%D8%AA%D8%A7%D8%AC%20%D8%A7%D9%84%D8%B4%D8%A7%D9%85%D9%84%20(Deployment%20Guide).md)**: لإعداد البيئات والنشر على IIS.
-*   **[22 - دليل RubikCare.PWA](./22-RubikCare.PWA.md)**: للنشر وحالة التطوير الخاصة بـ PWA.
-*   **[24 - جرد هيكلة المشاريع وحالة PWA](./24-Project%20Structure%20Inventory%20%26%20PWA%20Migration%20Status.md)**: لمعرفة المكونات المنقولة والمتبقية في PWA.
+- **[01 - Program.cs والتسجيلات الأساسية](./01-program-cs-foundation.md)**: لفهم كيفية تسجيل الخدمات والحقن.
+- **[02 - نظام الهوية والمصادقة](./02-identity-system.md)**: لإدارة المستخدمين والأدوار.
+- **[07 - نظام PSP](./07-psp-system.md)**: لوثائق برامج دعم المرضى.
+- **[08 - خطة التطوير](./08-roadmap.md)**: لمتابعة المهام المنجزة والقادمة.
+- **[09 - دليل الـ API](./09-api-guide.md)**: لمعرفة كيفية استخدام وبناء نقاط النهاية.
+- **[10 - دليل تطوير MAUI](./10-maui-development-guide.md)**: لنشر وتطوير تطبيق الموبايل.
+- **[11 - دليل BlazorWebView](./11-blazor-webview-guide.md)**: لأنماط MAUI.
+- **[15 - نظام الترجمة](./15-translation-system.md)**: لوثائق الترجمة والاتجاه.
+- **[16 - Google Sign-In](./16-google-sign-in.md)**: لإعدادات Google Login.
+- **[22 - دليل RubikCare.PWA](./22-RubikCare.PWA.md)**: للنشر وحالة التطوير.
+- **[24 - جرد هيكلة المشاريع](./24-project-structure-inventory.md)**: لمعرفة المكونات المنقولة والمتبقية.
+- **[26 - نظام النقاط](./26-rubika-points-system.md)**: توثيق كامل لنظام النقاط.
+- **[27 - الديون التقنية](./27-technical-debt.md)**: لمراجعة الديون التقنية.
 
 ---
 
@@ -261,11 +333,15 @@ flowchart LR
 
 | التاريخ | التغيير | السبب |
 | :--- | :--- | :--- |
-| 29 أغسطس 2026 | **إعادة كتابة شاملة للوثيقة**. | دمج مشروع PWA وهيكل المشاريع الجديد (9 مشاريع). |
-| 29 أغسطس 2026 | إضافة **شجرة القرار المعماري** و **جداول المقارنة**. | توجيه المطورين لاختيار النهج الصحيح (UseCase vs GenericService). |
-| 18 يوليو 2026 | إضافة قسم "شجرة القرار المعماري". | حل التناقض بين الوثائق وتوحيد الممارسات. |
-| 18 يوليو 2026 | تحديث العلاقات وقواعد Shared.UI. | توضيح الفرق بين المكونات والصفحات في المكتبة المشتركة. |
+| 3 أكتوبر 2026 | **إضافة نظام النقاط (PSP Program Points)** كقسم كامل. | توثيق البنية الجديدة. |
+| 3 أكتوبر 2026 | **إضافة PWA** بشكل رسمي (9 مشاريع). | التحديث من 8 إلى 9 مشاريع. |
+| 3 أكتوبر 2026 | **إضافة Controllers جديدة** (5 Controllers + 18 Endpoint). | توثيق نظام النقاط. |
+| 29 أغسطس 2026 | **إعادة كتابة شاملة للوثيقة**. | دمج مشروع PWA وهيكل المشاريع الجديد. |
+| 18 يوليو 2026 | إضافة **شجرة القرار المعماري** و **جداول المقارنة**. | توجيه المطورين لاختيار النهج الصحيح. |
 
 ---
 
 **خاتمة**: هذه الوثيقة هي البوصلة المعمارية لـ RubikCare. أي تغيير جوهري في الهيكل أو إضافة مشروع جديد يجب أن ينعكس هنا أولاً، لتظل المرجعية الأساسية للفريق.
+````
+
+---
