@@ -1,8 +1,8 @@
 # 26 — نظام النقاط وروبيكا (Rubika Points & Currency System)
 
-**آخر تحديث:** 8 أكتوبر 2026
-**الإصدار:** 3.0 (تحديث شامل — الرؤية الكاملة + Beneficiary Types + Organization Groups + Rubika Currency)
-**الحالة:** ✅ Backend مكتمل جزئياً — UI قيد الانتظار — Migration جديدة مطلوبة
+**آخر تحديث:** 9 أكتوبر 2026
+**الإصدار:** 4.0 (تحديث ما بعد Stage 3 — BeneficiaryTypeID FK + OrganizationGroups مكتملة)
+**الحالة:** ✅ Backend مكتمل — Stage 1-3 منفّذة — UI قيد الانتظار
 **المؤلف:** فريق RubikCare
 
 ---
@@ -21,6 +21,7 @@
 - 🏢 **المؤسسات أولاً** — المؤسسة هي الفاعل الأساسي، والأفراد يعملون من خلالها
 - 👤 **كل فرد مريض محتمل** — لا يوجد "دور مريض" منفصل
 - 📈 **قابل للتوسع لعشر سنوات** — إضافة أي خدمة = INSERT، ليس Migration
+- 🆔 **BeneficiaryTypeID (FK)** — بديل نهائي عن النص — لا Magic Strings
 
 ---
 
@@ -34,22 +35,24 @@
 │  ├── OrganizationTypes (أنواع المؤسسات — قابل للتوسع)            │
 │  ├── PointSystemTypes (أنواع أنظمة النقاط — 5 قيم)               │
 │  ├── PointActivityTypes (أنواع الأحداث — 7 قيم)                  │
+│  ├── PointBeneficiaryTypes (أنواع المستفيدين — 6 قيم) ✅         │
 │  └── MembershipTypes (أنواع العضويات — قابل للتوسع)              │
 └─────────────────────────────────────────────────────────────────┘
                               ▲
                               │
 ┌─────────────────────────────────────────────────────────────────┐
 │  Layer 2: Beneficiary Layer (ديناميكي)                           │
-│  ├── PointBeneficiaryTypes (6 قيم — المستوى الأعلى)              │
-│  └── PointSchemeBeneficiaryTypes (M:N + تفصيل)                   │
+│  ├── PointBeneficiaryTypes (6 قيم) ✅                            │
+│  ├── PointSchemeBeneficiaryTypes (M:N) ✅                        │
+│  └── PointSystemTypeBeneficiaryTypes (M:N) ✅                    │
 └─────────────────────────────────────────────────────────────────┘
                               ▲
                               │
 ┌─────────────────────────────────────────────────────────────────┐
 │  Layer 3: Organization Structure                                 │
 │  ├── Organizations (موجود)                                       │
-│  ├── OrganizationGroups (جديد — مجموعات المؤسسات)                │
-│  ├── OrganizationGroupMembers (جديد — أعضاء المجموعة)            │
+│  ├── OrganizationGroups (جديد — ✅ منفّذ)                        │
+│  ├── OrganizationGroupMembers (جديد — ✅ منفّذ)                  │
 │  ├── UserProfiles (موجود — كل إنسان)                             │
 │  └── OrgMemberships (موجود — عضوية الشخص في مؤسسة)               │
 └─────────────────────────────────────────────────────────────────┘
@@ -58,11 +61,11 @@
 ┌─────────────────────────────────────────────────────────────────┐
 │  Layer 4: Value Engines (محركان — منفصلان في البيانات)           │
 │  ├── Program Points Engine (مكافآت الشركات)                      │
-│  │   ├── PSPProgramPointSchemes                                  │
-│  │   ├── PSPProgramPointRules                                    │
-│  │   ├── PSPProgramPointBalances                                 │
-│  │   ├── PSPProgramPointTransactions                             │
-│  │   └── PSPProgramPointRedeemRequests                           │
+│  │   ├── PSPProgramPointSchemes ✅                                │
+│  │   ├── PSPProgramPointRules ✅                                  │
+│  │   ├── PSPProgramPointBalances ✅                               │
+│  │   ├── PSPProgramPointTransactions ✅                           │
+│  │   └── PSPProgramPointRedeemRequests ✅                         │
 │  │                                                               │
 │  └── Rubika Currency Engine (عملة المنصة)                        │
 │      ├── RubikaWallet                                            │
@@ -166,26 +169,34 @@ CREATE TABLE PointBeneficiaryTypes (
 | 5 | PATIENT | مريض | Patient | ❌ |
 | 6 | GENERIC | عام | Generic | ❌ |
 
-### 2.4 منطق التصميم
+### 2.4 Constants (`PointBeneficiaryTypeIds`)
 
-**عندما تصمم الشركة نظام نقاط، تسأل:**
+**الموقع:** `RubikCare.Domain/Constants/PSP/Points/PointBeneficiaryTypeIds.cs`
 
+```csharp
+namespace RubikCare.Domain.Constants.PSP.Points;
+
+/// <summary>
+/// ثوابت أنواع المستفيدين من نظام النقاط
+/// 
+/// ⚠️ هذه القيم ثابتة — مُعرَّفة في Seed Data (PointBeneficiaryTypes)
+/// ⚠️ لا تُعدّل هذه القيم دون Migration
+/// </summary>
+public static class PointBeneficiaryTypeIds
+{
+    public const int Organization = 1;
+    public const int OrgMemberInternal = 2;
+    public const int OrgMemberExternal = 3;
+    public const int RegularUser = 4;
+    public const int Patient = 5;
+    public const int Generic = 6;
+}
 ```
-من أريد أن أكافئه؟
-    │
-    ├── 🏢 مؤسسة (ORGANIZATION)
-    │   └── تُحدَّد نوعها لاحقًا (CLINIC, PHARMACY, LAB, ...)
-    │
-    └── 👤 فرد
-        │
-        ├── عضو في مؤسسة
-        │   │
-        │   ├── داخلي (ORG_MEMBER_INTERNAL) — يعمل في الشركة المصممة
-        │   └── خارجي (ORG_MEMBER_EXTERNAL) — يعمل في مؤسسة أخرى
-        │
-        ├── مستخدم عادي (REGULAR_USER) — مريض محتمل
-        │
-        └── مريض مُسجَّل (PATIENT) — مُسجَّل في برنامج
+
+**الاستخدام:**
+```csharp
+// بدلاً من "ORG" (نصي) — نستخدم:
+BeneficiaryTypeID = PointBeneficiaryTypeIds.Organization
 ```
 
 ### 2.5 جدول M:N (الربط مع Schemes)
@@ -198,7 +209,6 @@ CREATE TABLE PointSchemeBeneficiaryTypes (
     BeneficiaryTypeID INT NOT NULL 
         FOREIGN KEY REFERENCES PointBeneficiaryTypes(BeneficiaryTypeID),
     
-    -- تفصيل اختياري
     OrganizationTypeID INT NULL 
         FOREIGN KEY REFERENCES OrganizationTypes(OrganizationTypeID),
     MembershipType NVARCHAR(40) NULL,
@@ -215,21 +225,54 @@ ON PointSchemeBeneficiaryTypes(
 );
 ```
 
-### 2.6 أمثلة تطبيقية
+### 2.6 جدول M:N (الربط مع PointSystemTypes) ✅ جديد
+
+**يحدد أنواع المستفيدين المسموحين لكل نظام نقاط (PSP, B2B, B2C, ...):**
+
+```sql
+CREATE TABLE PointSystemTypeBeneficiaryTypes (
+    Id INT IDENTITY PRIMARY KEY,
+    PointSystemTypeID INT NOT NULL 
+        FOREIGN KEY REFERENCES PointSystemTypes(PointSystemTypeID) ON DELETE CASCADE,
+    BeneficiaryTypeID INT NOT NULL 
+        FOREIGN KEY REFERENCES PointBeneficiaryTypes(BeneficiaryTypeID),
+    CreatedDate DATETIME2 NOT NULL DEFAULT GETUTCDATE()
+);
+
+CREATE UNIQUE INDEX IX_PointSystemTypeBeneficiaryTypes_Unique 
+ON PointSystemTypeBeneficiaryTypes(PointSystemTypeID, BeneficiaryTypeID);
+```
+
+### 2.7 Seed Data — `PointSystemTypeBeneficiaryTypes` (12 صف)
+
+| # | PointSystemTypeID | BeneficiaryTypeID |
+|:---:|:---:|:---:|
+| **PSP** (1) | 1 | 1 (Organization) |
+| | 1 | 2 (OrgMemberInternal) |
+| | 1 | 5 (Patient) |
+| **B2B_SUPPLY** (2) | 2 | 1 (Organization) |
+| **B2C_PHARMACY** (3) | 3 | 4 (RegularUser) |
+| | 3 | 5 (Patient) |
+| **PLATFORM_MKT** (4) | 4 | 1 (Organization) |
+| | 4 | 2 (OrgMemberInternal) |
+| | 4 | 5 (Patient) |
+| | 4 | 4 (RegularUser) |
+| **RUBIKA** (5) | 5 | 4 (RegularUser) |
+| | 5 | 1 (Organization) |
+
+### 2.8 أمثلة تطبيقية
 
 | السيناريو | BeneficiaryTypeID | OrganizationTypeID | MembershipType |
 |:---|:---|:---|:---|
-| مكافأة العيادات | ORGANIZATION | CLINIC | NULL |
-| مكافأة الأطباء الداخليين | ORG_MEMBER_INTERNAL | PHARMA_COMPANY | DOCTOR |
-| مكافأة مندوبي الصيدليات | ORG_MEMBER_EXTERNAL | PHARMACY | REP |
-| مكافأة المرضى | PATIENT | NULL | NULL |
-| مكافأة المستخدمين العاديين | REGULAR_USER | NULL | NULL |
-
-**الفائدة**: إضافة نوع مؤسسة جديدة (مثل `WAREHOUSE`) = **INSERT في `OrganizationTypes`** — لا Migration.
+| مكافأة العيادات | ORGANIZATION (1) | CLINIC | NULL |
+| مكافأة الأطباء الداخليين | ORG_MEMBER_INTERNAL (2) | PHARMA_COMPANY | DOCTOR |
+| مكافأة مندوبي الصيدليات | ORG_MEMBER_EXTERNAL (3) | PHARMACY | REP |
+| مكافأة المرضى | PATIENT (5) | NULL | NULL |
+| مكافأة المستخدمين العاديين | REGULAR_USER (4) | NULL | NULL |
 
 ---
 
-## 🎯 الجزء 3: مجموعات المؤسسات (OrganizationGroups)
+## 🎯 الجزء 3: مجموعات المؤسسات (OrganizationGroups) ✅ منفّذ
 
 ### 3.1 الفلسفة
 
@@ -241,7 +284,7 @@ ON PointSchemeBeneficiaryTypes(
 - **Polyclinic** = عيادة باطنة + عيادة أطفال + معمل
 - **مجموعة مستشفيات** = مستشفى القاهرة + مستشفى الجيزة
 
-### 3.2 البنية المُبسَّطة
+### 3.2 البنية
 
 **جدولان فقط** — بلا `GroupTypes` معقدة.
 
@@ -251,14 +294,11 @@ CREATE TABLE OrganizationGroups (
     GroupCode NVARCHAR(100) NOT NULL UNIQUE,
     GroupNameAr NVARCHAR(400) NOT NULL,
     GroupNameEn NVARCHAR(400) NULL,
-    
     Description NVARCHAR(2000) NULL,
     
-    -- للتداخل (مجموعة داخل مجموعة)
     ParentGroupID INT NULL 
         FOREIGN KEY REFERENCES OrganizationGroups(GroupID),
     
-    -- المالك
     OwnerUserProfileID INT NULL 
         FOREIGN KEY REFERENCES UserProfiles(UserProfileID),
     AdminOrganizationID INT NULL 
@@ -285,41 +325,13 @@ CREATE TABLE OrganizationGroupMembers (
     IsActive BIT NOT NULL DEFAULT 1
 );
 
-CREATE UNIQUE INDEX IX_OrgGroupMembers_Unique 
+CREATE UNIQUE INDEX IX_OrganizationGroupMembers_Unique 
 ON OrganizationGroupMembers(GroupID, OrganizationID);
-CREATE INDEX IX_OrgGroupMembers_Org 
+CREATE INDEX IX_OrganizationGroupMembers_Org 
 ON OrganizationGroupMembers(OrganizationID);
 ```
 
-### 3.3 أمثلة الاستخدام
-
-**مثال 1: مستشفى متكامل**
-```
-Group: "مستشفى الأمل"
-├── عيادة قلب
-├── عيادة باطنة
-├── صيدلية داخلية
-├── معمل تحاليل
-└── غرفة عمليات
-```
-
-**مثال 2: مجموعة مستشفيات (تداخل)**
-```
-Group: "مجموعة الشفاء الطبية"
-├── Group: "مستشفى الشفاء - القاهرة"
-│   ├── عيادة
-│   ├── صيدلية
-│   └── معمل
-├── Group: "مستشفى الشفاء - الجيزة"
-│   ├── عيادة
-│   └── معمل
-└── Group: "مستشفى الشفاء - الإسكندرية"
-    └── عيادة
-```
-
-**التداخل يعمل بشكل طبيعي عبر `ParentGroupID`.**
-
-### 3.4 الفوائد
+### 3.3 الفوائد
 
 | الميزة | التفسير |
 |--------|---------|
@@ -333,17 +345,15 @@ Group: "مجموعة الشفاء الطبية"
 
 ## 🎯 الجزء 4: Rubika Currency Engine
 
-### 4.1 البنية الحالية (موجودة بالفعل)
-
-**3 جداول ناضجة:**
+### 4.1 البنية (موجودة بالفعل — 3 جداول)
 
 ```sql
 -- ═══ RubikaWallet ═══
 CREATE TABLE RubikaWallet (
     WalletID INT IDENTITY PRIMARY KEY,
-    UserProfileID INT NULL,              -- لمستخدم
-    OrganizationID INT NULL,              -- أو لمؤسسة
-    WalletType NVARCHAR(40) NOT NULL,     -- USER, ORGANIZATION, SYSTEM
+    UserProfileID INT NULL,
+    OrganizationID INT NULL,
+    WalletType NVARCHAR(40) NOT NULL,
     Balance DECIMAL(18,2) NOT NULL DEFAULT 0,
     Currency NVARCHAR(6) NOT NULL DEFAULT 'RUB',
     IsActive BIT NOT NULL DEFAULT 1,
@@ -351,7 +361,7 @@ CREATE TABLE RubikaWallet (
     LockReason NVARCHAR(500) NULL,
     CreatedDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
     LastUpdatedDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
-    PointsType NVARCHAR(40) NOT NULL,     -- RUBIKA, PROMO, ...
+    PointsType NVARCHAR(40) NOT NULL,
     EquivalentEGP DECIMAL(18,2) NULL,
     ExchangeRate DECIMAL(10,4) NULL
 );
@@ -367,8 +377,8 @@ CREATE TABLE RubikaTransactions (
     AmountInEGP DECIMAL(18,2) NOT NULL,
     AmountInRubika DECIMAL(18,2) NOT NULL,
     ExchangeRate DECIMAL(10,4) NOT NULL,
-    TransactionType NVARCHAR(40) NOT NULL,  -- TOPUP, CONSUME, TRANSFER, REFUND
-    TransactionStatus NVARCHAR(40) NOT NULL, -- PENDING, COMPLETED, FAILED
+    TransactionType NVARCHAR(40) NOT NULL,
+    TransactionStatus NVARCHAR(40) NOT NULL,
     Description NVARCHAR(1000) NULL,
     PaymentGatewayReference NVARCHAR(200) NULL,
     IsAutomated BIT NOT NULL DEFAULT 0,
@@ -382,7 +392,7 @@ CREATE TABLE RubikaValueSettings (
     SettingKey NVARCHAR(100) NOT NULL UNIQUE,
     SettingValue NVARCHAR(500) NOT NULL,
     SettingDescription NVARCHAR(1000) NULL,
-    DataType NVARCHAR(40) NOT NULL,       -- DECIMAL, STRING, BOOLEAN
+    DataType NVARCHAR(40) NOT NULL,
     IsActive BIT NOT NULL DEFAULT 1,
     LastModifiedBy INT NULL,
     LastModifiedDate DATETIME2 NULL,
@@ -393,231 +403,262 @@ CREATE TABLE RubikaValueSettings (
 );
 ```
 
-### 4.2 الاستخدامات
+---
 
-| # | الاستخدام | الوصف |
+## 🎯 الجزء 5: Migration المُنفَّذة (Stage 1-3) ✅
+
+### 5.1 نظرة عامة — 3 Stages
+
+| Stage | النوع | الطريقة | الحالة |
+|:---:|:---|:---|:---:|
+| **Stage 1** | Schema | Migration (`AddPointBeneficiaryAndOrganizationGroups`) | ✅ |
+| **Stage 2** | Data | SQL Script (`UPDATE` 8 صفوف) | ✅ |
+| **Stage 3** | Cleanup | Migration (`RemoveLegacyBeneficiaryColumns`) | ✅ |
+
+### 5.2 Stage 1: Schema Migration
+
+**الاسم:** `20261009151558_AddPointBeneficiaryAndOrganizationGroups`
+
+**ما تم إنشاؤه:**
+
+| # | العنصر | النوع |
 |:---:|:---|:---|
-| **1** | **شحن رصيد** | العيادة/الصيدلية تشحن محفظتها بـ Rubika |
-| **2** | **استهلاك خدمة** | كل حجز/طلب يخصم Rubika من الرصيد |
-| **3** | **مكافأة المنصة** | المنصة تمنح Rubika مقابل سلوك مرغوب |
-| **4** | **تحويل بين محافظ** | من محفظة المنصة → محفظة المستخدم |
-| **5** | **خصم عند الدفع** | المريض يستبدل Rubika بخصم على الكشف |
+| **1** | `PointBeneficiaryTypes` (+ 6 Seed) | جدول جديد |
+| **2** | `PointSchemeBeneficiaryTypes` | جدول جديد (M:N) |
+| **3** | `PointSystemTypeBeneficiaryTypes` (+ 12 Seed) | جدول جديد (M:N) |
+| **4** | `OrganizationGroups` | جدول جديد |
+| **5** | `OrganizationGroupMembers` | جدول جديد |
+| **6** | `BeneficiaryTypeID` في `PSPProgramPointRules` | عمود جديد (NULL) |
+| **7** | `BeneficiaryTypeID` في `PSPProgramPointBalances` | عمود جديد (NULL) |
+| **8** | `BeneficiaryTypeID` في `PSPProgramPointRedeemRequests` | عمود جديد (NULL) |
+| **9** | 3 FKs نظيفة | FK |
+| **10** | 3 Indexes | Index |
 
-### 4.3 التكامل مع Program Points
+### 5.3 Stage 2: Data Migration
 
-**الفكرة**: **Service Layer مشترك** بين النظامين.
+**الطريقة:** SQL Script مباشر (وفق قاعدة "البيانات عبر SQL").
 
-```csharp
-public interface IPointEngineService
-{
-    Task<EarnResult> EarnAsync(EarnContext context);
-    Task<RedeemResult> RedeemAsync(RedeemContext context);
-    Task<BalanceResult> GetBalanceAsync(BalanceQuery query);
-    Task<List<TransactionDto>> GetTransactionsAsync(TransactionQuery query);
-}
+**ما تم:**
 
-// تنفيذ لـ Program Points
-public class ProgramPointsEngine : IPointEngineService { ... }
+```sql
+-- تحويل "ORG" → BeneficiaryTypeID = 1 (ORGANIZATION)
+UPDATE PSPProgramPointRules 
+SET BeneficiaryTypeID = 1 
+WHERE BeneficiaryType = N'ORG' AND BeneficiaryTypeID IS NULL;
 
-// تنفيذ لـ Rubika Points
-public class RubikaPointsEngine : IPointEngineService { ... }
+UPDATE PSPProgramPointBalances 
+SET BeneficiaryTypeID = 1 
+WHERE BeneficiaryType = N'ORG' AND BeneficiaryTypeID IS NULL;
+
+UPDATE PSPProgramPointRedeemRequests 
+SET BeneficiaryTypeID = 1 
+WHERE BeneficiaryType = N'ORG' AND BeneficiaryTypeID IS NULL;
 ```
 
-**الفائدة**:
-- نفس الواجهة (`IPointEngineService`)
-- تنفيذ مختلف لكل نظام
-- **الاستخدام** من نفس المكان (`PointDashboard`)
+**النتيجة:**
+- Rules: 4 صفوف → `BeneficiaryTypeID = 1`
+- Balances: 4 صفوف → `BeneficiaryTypeID = 1`
+- RedeemRequests: 1 صف → `BeneficiaryTypeID = 1`
+
+### 5.4 Stage 3: Cleanup Migration
+
+**الاسم:** `202610091XXXXX_RemoveLegacyBeneficiaryColumns`
+
+**ما تم:**
+
+#### حذف الأعمدة النصية (5 أعمدة):
+
+| # | الجدول | العمود |
+|:---:|:---|:---|
+| **1** | `PSPProgramPointRules` | `BeneficiaryType` |
+| **2** | `PSPProgramPointBalances` | `BeneficiaryType` |
+| **3** | `PSPProgramPointRedeemRequests` | `BeneficiaryType` |
+| **4** | `PSPProgramPointSchemes` | `TargetBeneficiaryTypes` |
+| **5** | `PointSystemTypes` | `AllowedBeneficiaryTypes` |
+
+#### تحويل `BeneficiaryTypeID` إلى `NOT NULL`:
+
+```sql
+ALTER TABLE PSPProgramPointRules 
+ALTER COLUMN BeneficiaryTypeID INT NOT NULL;
+
+ALTER TABLE PSPProgramPointBalances 
+ALTER COLUMN BeneficiaryTypeID INT NOT NULL;
+
+ALTER TABLE PSPProgramPointRedeemRequests 
+ALTER COLUMN BeneficiaryTypeID INT NOT NULL;
+```
+
+#### إعادة بناء الفهارس:
+
+```sql
+-- حذف الفهارس القديمة
+DROP INDEX IX_PSPProgramPointRules_Scheme_Activity_Beneficiary;
+DROP INDEX IX_PointBalances_Scheme_Beneficiary;
+
+-- إنشاء الفهارس الجديدة (بـ BeneficiaryTypeID)
+CREATE UNIQUE INDEX IX_PSPProgramPointRules_Scheme_Activity_Beneficiary 
+ON PSPProgramPointRules(SchemeID, ActivityTypeID, BeneficiaryTypeID);
+
+CREATE UNIQUE INDEX IX_PointBalances_Scheme_Beneficiary 
+ON PSPProgramPointBalances(SchemeID, BeneficiaryTypeID, BeneficiaryID);
+```
 
 ---
 
-## 🎯 الجزء 5: خطة التوسع المستقبلية
+## 🎯 الجزء 6: تحديثات Handlers ✅
 
-### 5.1 الرؤية (3-5 سنوات)
+### 6.1 ما تم تحديثه — 11 Handler
+
+| # | Handler | التعديل |
+|:---:|:---|:---|
+| **1** | `EarnPointsHandler` | `"ORG"` → `PointBeneficiaryTypeIds.Organization` |
+| **2** | `CheckPointsVisibilityHandler` | `b.BeneficiaryType == "ORG"` → `b.BeneficiaryTypeID == 1` |
+| **3** | `GetAllBalancesBySchemeHandler` | Select + Filter |
+| **4** | `GetBalanceByOrganizationHandler` | Filter |
+| **5** | `GetOrganizationPointSummaryHandler` | Filter |
+| **6** | `SetPointsVisibilityHandler` | Filter + Create |
+| **7** | `GetPointTransactionsHandler` | Filter (Subquery) |
+| **8** | `GetSchemeClinicsHandler` | Filter |
+| **9** | `GetRedeemRequestsHandler` | Filter (Subquery) |
+| **10** | `CreatePointRuleHandler` | `BeneficiaryTypeID = 1` عند الإنشاء |
+| **11** | `CreateRedeemRequestHandler` | `BeneficiaryTypeID = balance.BeneficiaryTypeID` |
+
+### 6.2 Handlers نظيفة (لا تحتاج تعديل)
+
+| المجموعة | العدد |
+|:---|:---:|
+| Schemes Handlers | 4 |
+| Rules Handlers (الباقي) | 4 |
+| Redeem Actions Handlers (الباقي) | 4 |
+
+---
+
+## 🎯 الجزء 7: الجرد الشامل ✅
+
+### 7.1 ما تم فحصه
+
+| # | الطبقة | النتيجة |
+|:---:|:---|:---:|
+| **1** | `Api.Web` (Controllers) | ✅ نظيف |
+| **2** | `RubikCare.Application` (Commands/DTOs) | ✅ نظيف |
+| **3** | `Rubikcare.Web` (Blazor Server) | ✅ نظيف |
+| **4** | `Shared.UI` (Components) | ✅ نظيف |
+| **5** | `RubikCare.PWA` | ✅ نظيف |
+| **6** | `RubikCare.Tests` | ✅ نظيف |
+| **7** | `Mobile` (MAUI) | ✅ نظيف |
+
+### 7.2 الاستنتاج
+
+**✅ لا يوجد أي استخدام لـ `BeneficiaryType` (النصي) خارج الـ 11 Handler التي تم تحديثها.**
+
+**النتيجة:** Stage 3 آمن 100%.
+
+---
+
+## 🎯 الجزء 8: خطة التوسع المستقبلية
+
+### 8.1 الرؤية (3-5 سنوات)
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│  RubikCare Platform — Digital Health Infrastructure         │
-│                                                              │
-│  Phase 1: PSP (الحالي)                                       │
-│  Phase 2: B2B Supply Chain + Medical CRM                     │
-│  Phase 3: B2C + Labs + Pharmacy Network                      │
-│  Phase 4: Medical Tourism + Hotels + Airlines                │
-│  Phase 5: Healthcare Professional Network + University       │
-└─────────────────────────────────────────────────────────────┘
+Phase 1: PSP (الحالي) ✅
+Phase 2: B2B Supply Chain + Medical CRM
+Phase 3: B2C + Labs + Pharmacy Network
+Phase 4: Medical Tourism + Hotels + Airlines
+Phase 5: Healthcare Professional Network + University
 ```
 
-### 5.2 الخدمات القادمة + كيفية ربطها بنظام النقاط
+### 8.2 الخدمات القادمة + كيفية ربطها
 
 | # | الخدمة | PointSystemType | Beneficiary Types |
 |:---:|:---|:---|:---|
-| **1** | **B2B Supply Chain** | `B2B_SUPPLY` | ORGANIZATION (Warehouse, Pharmacy) |
-| **2** | **B2C Store** | `B2C_PHARMACY` | PATIENT, REGULAR_USER |
-| **3** | **Medical CRM** | `PLATFORM_MKT` | ORG_MEMBER_INTERNAL (Rep) |
-| **4** | **Labs Integration** | `PSP` (موسّع) | ORGANIZATION (Lab) |
-| **5** | **Medical Tourism** | `PLATFORM_MKT` (جديد) | ORGANIZATION (Hospital, Hotel, Airline) |
-| **6** | **Professional Network** | `PLATFORM_MKT` | REGULAR_USER |
-| **7** | **University Programs** | `PLATFORM_MKT` (جديد) | REGULAR_USER (Students) |
+| **1** | B2B Supply Chain | `B2B_SUPPLY` | ORGANIZATION (Warehouse, Pharmacy) |
+| **2** | B2C Store | `B2C_PHARMACY` | PATIENT, REGULAR_USER |
+| **3** | Medical CRM | `PLATFORM_MKT` | ORG_MEMBER_INTERNAL (Rep) |
+| **4** | Labs Integration | `PSP` (موسّع) | ORGANIZATION (Lab) |
+| **5** | Medical Tourism | `PLATFORM_MKT` (جديد) | ORGANIZATION (Hospital, Hotel, Airline) |
+| **6** | Professional Network | `PLATFORM_MKT` | REGULAR_USER |
+| **7** | University Programs | `PLATFORM_MKT` (جديد) | REGULAR_USER (Students) |
 
-### 5.3 شبكة التوزيع اللوجستي (Logistics Network)
+### 8.3 إضافة خدمة جديدة — الخطوات
 
-**الرؤية**:
-- 1800 شركة أدوية → 1000 مخزن جملة → مخازن تجزئة → 50,000 صيدلية
-- تقسيم إلى 10 Lines × 180 شركة
-- كل مخزن جملة يخدم 100 مخزن تجزئة في نطاقه الجغرافي
-
-**الربط بنظام النقاط**:
-- `PointSystemType = B2B_SUPPLY`
-- `BeneficiaryType = ORGANIZATION` (Warehouse)
-- كل عملية توريد ناجحة = نقاط للمخزن والصيدلية
-
-### 5.4 Medical CRM
-
-**الرؤية**: نظام لإدارة مندوبي الدعاية والبيع للأطباء والصيادلة.
-
-**الربط**:
-- `PointSystemType = PLATFORM_MKT`
-- `BeneficiaryType = ORG_MEMBER_INTERNAL` (Rep)
-- كل زيارة ناجحة = نقاط للمندوب
-
-### 5.5 السياحة العلاجية
-
-**الرؤية**: مستشفيات + فنادق + شركات طيران.
-
-**الربط**:
-- `PointSystemType = PLATFORM_MKT` (جديد)
-- `BeneficiaryType = ORGANIZATION` (Hospital, Hotel, Airline)
-- كل حزمة سياحية ناجحة = نقاط لكل طرف
-
----
-
-## 🎯 الجزء 6: Migration المطلوبة
-
-### 6.1 نظرة عامة
-
-**6 خطوات** — لا أكثر:
-
-| # | المهمة | الأثر |
+| # | الخطوة | الطريقة |
 |:---:|:---|:---|
-| **1** | إنشاء `PointBeneficiaryTypes` + Seed (6 قيم) | جديد |
-| **2** | إنشاء `PointSchemeBeneficiaryTypes` (M:N) | جديد |
-| **3** | إنشاء `OrganizationGroups` + `OrganizationGroupMembers` | جديد |
-| **4** | إضافة `BeneficiaryTypeID` FK في 3 جداول | تعديل |
-| **5** | تحويل CSV → M:N | بيانات |
-| **6** | حذف الأعمدة النصية | تنظيف |
+| **1** | إضافة `PointSystemType` جديد | SQL Script (INSERT) |
+| **2** | ربط `BeneficiaryTypes` المسموحة | SQL Script (INSERT في M:N) |
+| **3** | إنشاء `PointScheme` جديد | عبر Handler موجود |
+| **4** | ربط الحملة | عبر Handler موجود |
+| **5** | إضافة `Rules` | عبر Handler موجود |
 
-### 6.2 التفاصيل
-
-#### 6.2.1 Step 1: `PointBeneficiaryTypes`
-
-```sql
-CREATE TABLE PointBeneficiaryTypes (
-    BeneficiaryTypeID INT IDENTITY PRIMARY KEY,
-    BeneficiaryTypeCode NVARCHAR(40) NOT NULL UNIQUE,
-    NameAr NVARCHAR(200) NOT NULL,
-    NameEn NVARCHAR(200) NOT NULL,
-    Description NVARCHAR(1000) NULL,
-    IsOrganization BIT NOT NULL,
-    IsActive BIT NOT NULL DEFAULT 1,
-    DisplayOrder INT NOT NULL DEFAULT 0,
-    CreatedDate DATETIME2 NOT NULL DEFAULT GETUTCDATE()
-);
-
-INSERT INTO PointBeneficiaryTypes VALUES
-(N'ORGANIZATION', N'مؤسسة', N'Organization', N'أي مؤسسة — يُحدد نوعها لاحقًا', 1, 1, 1, GETUTCDATE()),
-(N'ORG_MEMBER_INTERNAL', N'عضو داخلي', N'Internal Member', N'يعمل في الشركة المصممة للنظام', 0, 1, 2, GETUTCDATE()),
-(N'ORG_MEMBER_EXTERNAL', N'عضو خارجي', N'External Member', N'يعمل في مؤسسة أخرى (شريك)', 0, 1, 3, GETUTCDATE()),
-(N'REGULAR_USER', N'مستخدم عادي', N'Regular User', N'مستخدم عادي (مريض محتمل)', 0, 1, 4, GETUTCDATE()),
-(N'PATIENT', N'مريض', N'Patient', N'مريض مُسجَّل في برنامج', 0, 1, 5, GETUTCDATE()),
-(N'GENERIC', N'عام', N'Generic', N'للاستخدامات المستقبلية', 0, 1, 6, GETUTCDATE());
-```
-
-#### 6.2.2 Step 2: `PointSchemeBeneficiaryTypes`
-
-```sql
-CREATE TABLE PointSchemeBeneficiaryTypes (
-    Id INT IDENTITY PRIMARY KEY,
-    SchemeID INT NOT NULL 
-        FOREIGN KEY REFERENCES PSPProgramPointSchemes(SchemeID) ON DELETE CASCADE,
-    BeneficiaryTypeID INT NOT NULL 
-        FOREIGN KEY REFERENCES PointBeneficiaryTypes(BeneficiaryTypeID),
-    OrganizationTypeID INT NULL 
-        FOREIGN KEY REFERENCES OrganizationTypes(OrganizationTypeID),
-    MembershipType NVARCHAR(40) NULL,
-    CreatedDate DATETIME2 NOT NULL DEFAULT GETUTCDATE()
-);
-
-CREATE UNIQUE INDEX IX_SchemeBeneficiaryTypes_Unique 
-ON PointSchemeBeneficiaryTypes(
-    SchemeID, BeneficiaryTypeID, 
-    ISNULL(OrganizationTypeID, 0), 
-    ISNULL(MembershipType, '')
-);
-```
-
-#### 6.2.3 Step 3: `OrganizationGroups`
-
-(كما هو موضح في الجزء 3)
-
-#### 6.2.4 Step 4: إضافة FK في 3 جداول
-
-```sql
-ALTER TABLE PSPProgramPointRules
-ADD BeneficiaryTypeID INT NULL 
-    FOREIGN KEY REFERENCES PointBeneficiaryTypes(BeneficiaryTypeID);
-
-ALTER TABLE PSPProgramPointBalances
-ADD BeneficiaryTypeID INT NULL 
-    FOREIGN KEY REFERENCES PointBeneficiaryTypes(BeneficiaryTypeID);
-
-ALTER TABLE PSPProgramPointRedeemRequests
-ADD BeneficiaryTypeID INT NULL 
-    FOREIGN KEY REFERENCES PointBeneficiaryTypes(BeneficiaryTypeID);
-```
-
-#### 6.2.5 Step 5: تحويل CSV → M:N
-
-(SQL Script يحلل `"ORG,Patient,Rep"` → 3 صفوف في `PointSchemeBeneficiaryTypes`)
-
-#### 6.2.6 Step 6: حذف الأعمدة النصية
-
-```sql
-ALTER TABLE PSPProgramPointRules DROP COLUMN BeneficiaryType;
-ALTER TABLE PSPProgramPointBalances DROP COLUMN BeneficiaryType;
-ALTER TABLE PSPProgramPointRedeemRequests DROP COLUMN BeneficiaryType;
-ALTER TABLE PSPProgramPointSchemes DROP COLUMN TargetBeneficiaryTypes;
-ALTER TABLE PointSystemTypes DROP COLUMN AllowedBeneficiaryTypes;
-```
+**⚠️ لا Migration جديدة — فقط SQL Scripts.**
 
 ---
 
-## 📊 الجزء 7: ملخص الحالة
+## 🎯 الجزء 9: خطة المرحلة القادمة 🎯
 
-### 7.1 ما هو موجود (✅)
+### 9.1 ما يتبقى للوصول إلى "نظام نقاط كامل"
+
+| # | المهمة | الأولوية | الوقت المتوقع |
+|:---:|:---|:---:|:---:|
+| **1** | **`IPointEngineService`** (Service Layer مشترك) | 🔴 عالية | 2-3 ساعات |
+| **2** | **تحديث `EarnPointsHandler`** لدعم `BeneficiaryTypeID` من Command | 🔴 عالية | 1-2 ساعة |
+| **3** | **تحديث `Commands`/`DTOs`** لإضافة `BeneficiaryTypeID` | 🔴 عالية | 1-2 ساعة |
+| **4** | **API Endpoints** — دعم `BeneficiaryType` في Requests | 🟠 متوسطة | 1 ساعة |
+| **5** | **Frontend (Web)** — UI لاختيار نوع المستفيد | 🔴 عالية | 3-4 ساعات |
+| **6** | **Frontend (PWA/MAUI)** — عرض النقاط حسب النوع | 🟠 متوسطة | 2-3 ساعات |
+| **7** | **ربط `PROGRAM_COMPLETED`** | 🟡 متوسطة | 1-2 ساعة |
+| **8** | **ربط `LAB_TEST_UPLOADED`** | 🟡 متوسطة | 2-3 ساعات |
+| **9** | **واجهة إدارة `OrganizationGroups`** | 🟡 متوسطة | 3-4 ساعات |
+| **10** | **اختبار شامل** | 🔴 عالية | 2-3 ساعات |
+
+**الإجمالي:** 18-26 ساعة (3-4 أيام).
+
+### 9.2 ما يدعمه النظام الآن
+
+| # | الخدمة | جاهز؟ |
+|:---:|:---|:---:|
+| **1** | نظام نقاط للعيادات (ORGANIZATION) | ✅ |
+| **2** | نظام نقاط للصيادلة (ORG_MEMBER_INTERNAL + PHARMACY) | ✅ (Schema جاهز) |
+| **3** | نظام نقاط للمرضى (PATIENT) | ✅ (Schema جاهز) |
+| **4** | نظام نقاط للمندوبين (ORG_MEMBER_INTERNAL + REP) | ✅ (Schema جاهز) |
+| **5** | نظام نقاط لأي خدمة (B2B, B2C, إلخ) | ✅ (Schema جاهز) |
+
+**⚠️ لكن:** `EarnPointsHandler` لا يزال يدعم `ORGANIZATION` فقط (مُثبَّت).
+**التحديث مطلوب** لدعم الأنواع الأخرى.
+
+---
+
+## 📊 الجزء 10: ملخص الحالة
+
+### 10.1 ما هو مكتمل (✅)
 
 | # | المكون | الحالة |
 |:---:|:---|:---:|
 | 1 | 8 جداول PSP Program Points | ✅ |
-| 2 | 19 Handler | ✅ |
-| 3 | 5 Controllers (18 Endpoint) | ✅ |
-| 4 | `PSPEnrollmentService` | ✅ |
-| 5 | ربط 5 أحداث (Invited, Enrolled, eRX, Dispense, Refill) | ✅ |
+| 2 | 5 جداول جديدة (Beneficiary + Groups) | ✅ |
+| 3 | 19 Handler (+ 11 مُحدَّث) | ✅ |
+| 4 | 5 Controllers | ✅ |
+| 5 | `PSPEnrollmentService` | ✅ |
 | 6 | 3 جداول Rubika | ✅ |
-| 7 | `SubscriptionPlans` + `PlanServices` + `ServicePricingOptions` | ✅ |
+| 7 | `SubscriptionPlans` + `PlanServices` | ✅ |
+| 8 | `PointBeneficiaryTypeIds` Constants | ✅ |
+| 9 | Migration Stage 1-3 | ✅ |
+| 10 | الجرد الشامل | ✅ |
 
-### 7.2 ما يحتاج عملاً (🎯)
+### 10.2 ما يحتاج عملاً (🎯)
 
 | # | المهمة | الأولوية |
 |:---:|:---|:---:|
-| 1 | Migration (6 خطوات) | 🔴 عالية |
-| 2 | `IPointEngineService` (Service Layer مشترك) | 🔴 عالية |
-| 3 | ربط `PROGRAM_COMPLETED` | 🟡 متوسطة |
-| 4 | ربط `LAB_TEST_UPLOADED` | 🟡 متوسطة |
-| 5 | واجهة إدارة `OrganizationGroups` | 🟡 متوسطة |
-| 6 | ربط Rubika Points بـ `PointDashboard` | 🔴 عالية |
+| 1 | `IPointEngineService` | 🔴 |
+| 2 | Frontend UI (اختيار BeneficiaryType) | 🔴 |
+| 3 | تحديث `EarnPointsHandler` لدعم أنواع متعددة | 🔴 |
+| 4 | ربط `PROGRAM_COMPLETED` | 🟡 |
+| 5 | ربط `LAB_TEST_UPLOADED` | 🟡 |
+| 6 | واجهة إدارة `OrganizationGroups` | 🟡 |
 
 ---
 
-## 🔗 الجزء 8: روابط ذات صلة
+## 🔗 الجزء 11: روابط ذات صلة
 
 - [00 - الهيكل المعماري](00-architecture-overview.md)
 - [07 - نظام PSP](07-psp-system.md)
@@ -627,13 +668,14 @@ ALTER TABLE PointSystemTypes DROP COLUMN AllowedBeneficiaryTypes;
 
 ---
 
-## 📝 الجزء 9: سجل التغييرات
+## 📝 الجزء 12: سجل التغييرات
 
 | الإصدار | التاريخ | التغييرات |
 |---------|---------|-----------|
 | 1.0 | 29 سبتمبر 2026 | الإصدار الأولي — Backend |
 | 2.0 | 3 أكتوبر 2026 | إضافة التفاصيل الكاملة |
-| **3.0** | **8 أكتوبر 2026** | **تحديث شامل: الرؤية الكاملة + Beneficiary Types + Organization Groups + Rubika Currency + خطة التوسع** |
+| 3.0 | 8 أكتوبر 2026 | الرؤية الكاملة + Beneficiary Types + Organization Groups + Rubika Currency |
+| **4.0** | **9 أكتوبر 2026** | **Stage 1-3 منفّذة — BeneficiaryTypeID FK + OrganizationGroups + تحديث 11 Handler + الجرد الشامل** |
 
 ---
 
