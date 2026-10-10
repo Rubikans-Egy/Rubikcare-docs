@@ -1,804 +1,612 @@
-# 🌐 Translation System (نظام الترجمة الشامل)
+## 📄 وثيقة 15: `15-multi-layer-menu-control.md`
 
-آخر تحديث: 17 سبتمبر 2026 | الأولوية: 🔴 حرج
+**النسخة الكاملة (مع نصك الحرفي + تحديثات):**
 
-## 📌 مقدمة
+```markdown
+# 15 — نظام التحكم المركزي متعدد الطبقات للقوائم والصلاحيات
 
-هذا المرجع يوثق **نظام الترجمة الكامل** في مشروع RubikCare، ويغطي **ثلاثة مسارات**:
-
-| # | المسار | التقنية | الاستخدام |
-|---|--------|---------|-----------|
-| **1** | **Web Dashboard** | Blazor Server (MainLayout + InteractiveMenu) | التطبيق الداخلي |
-| **2** | **Marketing Site** | Blazor Server (MarketingLayout + MarketingHeader) | الموقع التسويقي |
-| **3** | **Mobile** | XAML + BlazorWebView | تطبيق MAUI |
-
-**المبدأ الأساسي:**
-
-> **API واحد للترجمة** (`/api/localization/page/{domain}?lang={lang}`)
-> **واجهة موحّدة** (`ISharedTranslationService` + `ISharedTranslationState`)
-> **سلوك مختلف لكل منصة** (Cookie + LocalStorage للويب، Preferences للموبايل)
+**الإصدار:** 2.0 (Reusable Feature Edition)
+**آخر تحديث:** 10 أكتوبر 2026
+**الحالة:** ✅ مقترح معتمد — مرجع معماري إلزامي
+**المؤلف:** RubikCare Team
 
 ---
 
-## 🏗️ الجزء الأول: الأساس المشترك (Shared.UI)
+## 📌 الجزء صفر: الرؤية والفلسفة (نص المؤلف الحرفي)
 
-**هذا الجزء إلزامي لكل المسارات الثلاثة.**
+> **⚠️ ملاحظة:** هذا القسم يحتوي على **نص الكاتب الحرفي** — دون إعادة صياغة.
+> الهدف: حفظ الرؤية الكاملة كما صيغت.
 
-### 1.1 الواجهات المشتركة
+---
 
-**المسار:** `Shared.UI/Services/ITranslationService.cs`
+### 0.1 الرؤية الكاملة للنظام
 
-```csharp
-namespace RubikCare.Shared.UI.Services;
+> **نص المؤلف الحرفي:**
+> 
+> "راجع هذه الوثيقة جيداً والخاصة بتحويل جذري لإدارة القوائم في المنصة.
+> وذلك بهدف إظهار أو إخفاء هذه الميزات بشكل ديناميكي من لوحة التحكم في المنصة وليس عبر الكود، وفقاً لنظام اشتراكات أو خطط تسويق مختلفة ومرنة.
+> 
+> لاحظ أن النظام موجود في الويب ولكن مطلوب تعميمه ليكون في منصات العرض كلها مع تحكم تام مركزي، مرن أيضاً بنفس نمط تفكيري."
 
-public interface ISharedTranslationService
-{
-    Task<Dictionary<string, string>> GetPageTranslationsAsync(string pageDomain, string? lang = null);
-    string GetCurrentLanguage();
-}
+**الترجمة التقنية:**
+- **مصدر الحقيقة** = قاعدة البيانات (لا كود).
+- **التعميم** = Web + PWA + MAUI (نفس النظام).
+- **المرونة** = Subscriptions + Plans + Dynamic Visibility.
+- **التحكم المركزي** = لوحة تحكم Super Admin.
+
+---
+
+### 0.2 سبب الحاجة للنظام (الربط بنظام النقاط)
+
+> **نص المؤلف الحرفي:**
+> 
+> "لماذا أخبرك بهذه الجزئية الآن؟
+> أخبرك بها لأننا سنحتاج بعد الانتهاء من backend ما ننجزه الآن أن نفكر في مراعاة هذه الجزئية المذكورة في تصميم الواجهات، وتعديل الوضع الحالي ليسمح بمرونة أكثر، بدلاً من كونها ميزة مدمجة في داخل برامج الدعم.
+> 
+> فلا نحتاج مستقبلاً لتطوير واجهات مخصصة لكل خدمة نريد إضافة نظام نقاط لها."
+
+**الترجمة التقنية:**
+
+**المشكلة الحالية:**
+- نظام النقاط **مدمج داخل PSP**.
+- لو أردنا نظام نقاط في B2B → نسخ كود + تعديلات.
+
+**بعد وثيقة 15:**
+- نظام النقاط يصبح **ميزة (Feature)**.
+- المنظمة تشترك في **Plan** يحتوي على `POINTS_SYSTEM`.
+- **لا كود مخصص لكل خدمة.**
+- **نفس الميزة، نفس الواجهة، نفس المحرك.**
+
+**الربط بنظام النقاط:**
+
 ```
-
-**المسار:** `Shared.UI/Services/ITranslationState.cs`
-
-```csharp
-namespace RubikCare.Shared.UI.Services;
-
-public interface ISharedTranslationState
-{
-    string CurrentLanguage { get; }
-    event Action? OnLanguageChanged;
-    void SetLanguage(string lang);
-}
-```
-
-### 1.2 قواعد التسمية (Naming Convention)
-
-| البادئة | المنصة | مثال |
-|---------|--------|------|
-| `SHARED.` | مشترك بين Web + Mobile (BlazorWebView) | `SHARED.SUPPORT.TITLE` |
-| `WEB.` | الويب فقط | `WEB.DASHBOARD.WELCOME` |
-| `HOME.` | الموقع التسويقي — الصفحة الرئيسية | `HOME.HERO.TITLE.LINE1` |
-| `MANUFACTURERS.` | الموقع التسويقي — شركات الأدوية | `MANUFACTURERS.HERO.TITLE` |
-| `PATIENTS.` | الموقع التسويقي — المرضى | `PATIENTS.HERO.TITLE` |
-| `DOCTORS.` | الموقع التسويقي — الأطباء | `DOCTORS.HERO.TITLE` |
-| `PHARMACIES.` | الموقع التسويقي — الصيدليات | `PHARMACIES.HERO.TITLE` |
-| `COMPLIANCE.` | الموقع التسويقي — الامتثال | `COMPLIANCE.HERO.TITLE` |
-| `DEMO.` | الموقع التسويقي — طلب عرض | `DEMO.FORM.TITLE` |
-| `MOBILE.` | الموبايل فقط (XAML) | `MOBILE.LOGIN.EMAIL` |
-| `COMMON` | نصوص عامة | `COMMON.SAVE` |
-
-### 1.3 قواعد البيانات
-
-**جدول `Resources` — الأعمدة:**
-
-| العمود | النوع | ملاحظات |
-|--------|------|---------|
-| `ResourceKey` | `nvarchar` | PRIMARY KEY — فريد |
-| `ResourceValueAr` | `nvarchar` | القيمة العربية — **يجب `N''`** |
-| `ResourceValueEn` | `nvarchar` | القيمة الإنجليزية |
-| `Module` | `nvarchar` | `HOME` / `SHARED` / `MOBILE` / `COMMON` |
-| `ResourceType` | `nvarchar` | `Title` / `Text` / `Button` / `Label` |
-| `IsActive` | `bit` | 1 = نشط |
-| `CreatedDate` | `datetime` | `GETDATE()` |
-| `LastModifiedDate` | `datetime` | عند التحديث |
-
-### 1.4 SQL — قواعد صارمة
-
-**⭐ استخدم `N''` للعربية دائمًا:**
-
-```sql
--- ❌ خطأ — يُنتج ????
-INSERT INTO Resources (ResourceValueAr, ...) VALUES ('عنوان', ...);
-
--- ✅ صحيح
-INSERT INTO Resources (ResourceValueAr, ...) VALUES (N'عنوان', ...);
-```
-
-**⭐ استخدم `MERGE` بدلًا من INSERT/UPDATE منفصلة:**
-
-```sql
-MERGE Resources AS target
-USING (VALUES
-    (N'HOME.HERO.TITLE.LINE1', N'تحصل على دوائها.', N'She gets her medicine.', N'HOME', N'Title'),
-    (N'HOME.HERO.TITLE.LINE2', N'كل شهر', N'Every month', N'HOME', N'Title'),
-    (N'HOME.HERO.BADGE',       N'برامج دعم المرضى · مصر', N'Patient Support Programs · Egypt', N'HOME', N'Badge')
-) AS source (ResourceKey, ResourceValueAr, ResourceValueEn, Module, ResourceType)
-ON target.ResourceKey = source.ResourceKey AND target.Module = source.Module
-WHEN MATCHED THEN
-    UPDATE SET
-        ResourceValueAr = source.ResourceValueAr,
-        ResourceValueEn = source.ResourceValueEn,
-        LastModifiedDate = GETDATE()
-WHEN NOT MATCHED THEN
-    INSERT (ResourceKey, ResourceValueAr, ResourceValueEn, Module, ResourceType, IsActive, CreatedDate)
-    VALUES (source.ResourceKey, source.ResourceValueAr, source.ResourceValueEn, source.Module, source.ResourceType, 1, GETDATE());
-```
-
-**⚠️ ملاحظة مهمة:** `MERGE` يحتاج **مفتاحين** للتطابق (`ResourceKey` + `Module`) — لأن نفس المفتاح قد يتكرر في modules مختلفة.
-
-**⭐ التحقق قبل الإدراج:**
-
-```sql
-SELECT ResourceKey, ResourceValueAr, ResourceValueEn, Module
-FROM Resources
-WHERE ResourceKey LIKE 'HOME.%'
-ORDER BY ResourceKey;
+Feature: POINTS_SYSTEM
+    ↓
+Plans (تحتوي عليه أو لا)
+    ↓
+OrganizationSubscriptions (منظمة مشتركة)
+    ↓
+MenuItemVisibility (إظهار/إخفاء)
+    ↓
+نظام النقاط يظهر في واجهة المنظمة
 ```
 
 ---
 
-## 🖥️ الجزء الثاني: Web Dashboard (Blazor Server)
+### 0.3 تعميم النظام على كل المنصات
 
-### 2.1 المكوّنات الأساسية
+> **نص المؤلف الحرفي:**
+> 
+> "لاحظ أن النظام موجود في الويب ولكن مطلوب تعميمه ليكون في منصات العرض كلها مع تحكم تام مركزي."
 
-| الملف | الدور |
-|-------|------|
-| `BasePage.cs` | الفئة الأساسية للصفحات — تحمّل الترجمات |
-| `TranslationStateService` | إدارة حالة اللغة (Cookie + LocalStorage) |
-| `WebTranslationState` | تنفيذ `ISharedTranslationState` للويب |
-| `WebTranslationService` | تنفيذ `ISharedTranslationService` للويب |
-| `ILocalizationService` | خدمة الوصول لقاعدة البيانات + Cache |
+**الترجمة التقنية:**
 
-### 2.2 نمط `BasePage`
+| المنصة | الحالة الحالية | الهدف |
+|:------:|:--------------:|:-----:|
+| **Web** | ✅ النظام مُطبَّق | يبقى |
+| **PWA** | 🟡 قائمة ثابتة | تُطبَّق 4 طبقات |
+| **MAUI** | 🟡 AppShell ثابت | يُستبدل بـ `DynamicMenuComponent` |
 
-**المسار:** `Rubikcare.Web/Components/Base/BasePage.cs`
-
-**كل صفحة في الويب يجب أن ترث `BasePage`:**
-
-```razor
-@page "/dashboard"
-@inherits BasePage
-@layout MainLayout
-@rendermode InteractiveServer
-
-<PageTitle>@T("WEB.DASHBOARD.TITLE")</PageTitle>
-
-<h1>@T("WEB.DASHBOARD.WELCOME")</h1>
-
-@code {
-    protected override string GetPageDomain() => "WEB.DASHBOARD";
-}
-```
-
-**المزايا:**
-- `T("key")` جاهز في كل صفحة
-- `OnLanguageChanged` يعيد الرسم تلقائيًا
-- Cache على مستوى السيرفر
-
-### 2.3 نمط المكوّن التفاعلي داخل Layout ثابت
-
-**المشكلة:** `LayoutComponentBase` **لا يقبل `@rendermode`** (بسبب `RenderFragment Body`).
-
-**الحل:** استخراج الجزء التفاعلي في **مكوّن فرعي**.
-
-**مثال — `MainLayout.razor` (Static) + `InteractiveMenu.razor` (Interactive):**
-
-```razor
-@* MainLayout.razor — Static SSR *@
-@inherits LayoutComponentBase
-
-<InteractiveMenu />
-<main>@Body</main>
-```
-
-```razor
-@* InteractiveMenu.razor — Interactive *@
-@rendermode InteractiveServer
-@inject TranslationStateService TranslationState
-```
-
-**نفس النمط في الموقع التسويقي:**
-- `MarketingLayout.razor` (Static)
-- `MarketingHeader.razor` (Interactive)
-- `LanguageSwitcher.razor` (Interactive)
-
-### 2.4 خدمة `TranslationStateService`
-
-**المسار:** `RubikCare.Application/Services/TranslationStateService.cs`
-
-**المسؤوليات:**
-1. قراءة اللغة من **Cookie** (`RubikCare.Language`)
-2. حفظ اللغة في **LocalStorage** + **Cookie**
-3. إطلاق `OnLanguageChanged` عند التغيير
-4. **قراءة فورية من Cookie عند كل استدعاء** — لمنع الانقلاب
-
-**⚠️ قاعدة حرجة — `CurrentLanguage` يجب أن تقرأ Cookie فورًا:**
-
-```csharp
-public string CurrentLanguage
-{
-    get
-    {
-        if (!string.IsNullOrEmpty(_currentLanguage))
-            return _currentLanguage;
-
-        // ⭐ قراءة فورية من Cookie
-        try
-        {
-            var httpContext = _httpContextAccessor?.HttpContext;
-            if (httpContext != null)
-            {
-                var cookieValue = httpContext.Request.Cookies[".RubikCare.Language"];
-                if (!string.IsNullOrEmpty(cookieValue))
-                {
-                    var decoded = Uri.UnescapeDataString(cookieValue);
-                    var match = Regex.Match(decoded, @"c=([a-z]{2})");
-                    if (match.Success && (match.Groups[1].Value == "ar" || match.Groups[1].Value == "en"))
-                    {
-                        _currentLanguage = match.Groups[1].Value;
-                        return _currentLanguage;
-                    }
-                }
-            }
-        }
-        catch { }
-
-        return "en";  // الافتراضي
-    }
-}
-```
-
-**⚠️ بدون هذا — تحدث قفزات بين SSR و Interactive.**
-
-### 2.5 ⚠️ خطأ شائع: قلب المنطق
-
-**هذه الأخطاء الثلاثة أدت إلى "توقف زر التبديل" أو "انقلاب اللغة" — تأكد من صحتها دائمًا:**
-
-```csharp
-// ❌ خطأ 1: رفض "ar"
-if (languageCode != "en" && languageCode != "en") throw ...
-// ✅ صحيح
-if (languageCode != "ar" && languageCode != "en") throw ...
-
-// ❌ خطأ 2: كلا الحالتين en
-var inferredLang = currentDir == "ltr" ? "en" : "en";
-// ✅ صحيح
-var inferredLang = currentDir == "rtl" ? "ar" : "en";
-
-// ❌ خطأ 3: قبول en فقط
-if (match.Success && (value == "en" || value == "en")) ...
-// ✅ صحيح
-if (match.Success && (value == "ar" || value == "en")) ...
-```
-
-### 2.6 `LocalizationService` — قواعد اختيار اللغة
-
-**⚠️ الترتيب مهم في كل استعلام:**
-
-```csharp
-// ⭐ إذا طلبت "ar" → ResourceValueAr، وإلا → ResourceValueEn
-var value = language.ToLower() == "ar"
-    ? resource.ResourceValueAr
-    : resource.ResourceValueEn;
-```
-
-**⚠️ القيم الافتراضية يجب أن تكون `"en"`:**
-
-```csharp
-// ✅ في كل الدوال
-public async Task<Dictionary<string, string>> GetPageTranslationsAsync(
-    string pageDomain, string language = "en")  // ← "en" وليس "ar"
-```
-
-### 2.7 إخفاء الترجمة أثناء التحميل (منع الوميض)
-
-**⚠️ لا تستخدم `T("COMMON.LOADING")` في صفحة تحمّل الترجمة — لأن المفتاح نفسه لن يكون مترجمًا بعد.**
-
-**الحل:**
-
-```razor
-@if (!_translations.Any())
-{
-    <div class="spinner"></div>
-}
-else
-{
-    <div class="page-content">
-        @* محتوى الصفحة *@
-    </div>
-}
-```
-
-**السبب:** في أول زيارة، `_translations` فارغة → عرض المفتاح الخام → وميض.
-
-**الحل البديل (عند الحاجة):** النص المباشر باللغة:
-
-```razor
-<p>@(_currentLanguage == "ar" ? "جاري التحميل..." : "Loading...")</p>
-```
+**الحل:** `DynamicMenuComponent` في `Shared.UI` — يُستخدم في **الثلاث منصات**.
 
 ---
-## ⚠️ قاعدة ذهبية: `dir` لا يُضاف يدوياً
 
-### 🚫 ممنوع:
-- إضافة `dir="rtl"` أو `dir="ltr"` على أي عنصر HTML
-- إضافة `dir` على `<aside>`، `<div>`، `<main>`، إلخ
-- استخدام `LayoutComponentBase` مع `dir` ثابت
+## 📌 الملخص التنفيذي
 
-### ✅ الصحيح:
-- `<html dir="@CurrentDir">` في `App.razor` (Server-Side)
-- `TranslationState.CurrentLanguage` هو المصدر الوحيد
-- CSS يعتمد على `html[dir="rtl"]` فقط
-- `direction-protector.js` كـ **fallback فقط**
+هذه الوثيقة تُعرّف نظامًا معماريًا موحّدًا للتحكم في القوائم والصلاحيات والميزات عبر المنصات الثلاث (Blazor Web + PWA + MAUI)، من خلال **أربع طبقات تحكم** مستقلة ومتكاملة:
 
-### 📌 السبب:
-إضافة `dir` على عنصر يُنشئ **Directional Context** جديد — يتعارض مع `<html>` — يُسبب قفزات عند التنقل.
+1. **طبقة المنصة** (Platform Control) — ما هو متاح لنوع المنظمة.
+2. **طبقة الاشتراكات** (Subscriptions Control) — ما هو مفعّل في اشتراك المنظمة.
+3. **طبقة المنظمة** (Organization Control) — ما سمحت به المنظمة لوظائفها.
+4. **طبقة الوظيفة** (JobTitle Control) — ما تراه كل وظيفة داخل المنظمة.
 
-### 🧪 الاختبار عند إضافة صفحة جديدة:
-1. افتح الصفحة في العربية
-2. اضغط على أي عنصر داخلها
-3. لا قفزة → ✅
-4. قفزة → ❌ ابحث عن `dir` ثابت
-   ```
+**الهدف:** توحيد مصدر الحقيقة، إزالة الفوضى، تمكين المنظمات من التحكم الذاتي، وتفعيل نظام الاشتراكات والصلاحيات في حل واحد.
 
----
-## 🌐 الجزء الثالث: Marketing Site (Blazor Server)
-
-### 3.1 الفرق عن Dashboard
-
-| الجانب | Dashboard | Marketing |
-|--------|-----------|-----------|
-| **اللغة الافتراضية** | `"ar"` (السوق المصري) | **`"en"`** (شركات الأدوية العالمية) |
-| **القائمة** | ديناميكية (من DB) | ثابتة |
-| **التخطيط** | `MainLayout` | `MarketingLayout` |
-| **الرأس** | `InteractiveMenu` | `MarketingHeader` |
-| **الألوان** | `--rubik-*` | `--hp-*` |
-| **الخطوط** | Cairo | Cairo + Fraunces + IBM Plex |
-
-### 3.2 مكوّن `LanguageSwitcher`
-
-**المسار:** `Rubikcare.Web/Components/Layout/LanguageSwitcher.razor`
-
-```razor
-@implements IDisposable
-@rendermode InteractiveServer
-
-@using RubikCare.Shared.UI.Services
-@inject ISharedTranslationState TranslationState
-
-<button type="button" class="lang-switch" @onclick="ToggleLanguageAsync">
-    @(_currentLanguage == "ar" ? "EN | ع" : "ع | EN")
-</button>
-
-@code {
-    private string _currentLanguage = "ar";
-
-    protected override void OnInitialized()
-    {
-        _currentLanguage = TranslationState.CurrentLanguage ?? "en";
-        TranslationState.OnLanguageChanged += OnLanguageChangedHandler;
-    }
-
-    private async Task ToggleLanguageAsync()
-    {
-        var newLang = _currentLanguage == "ar" ? "en" : "ar";
-        TranslationState.SetLanguage(newLang);
-        _currentLanguage = newLang;
-        await Task.CompletedTask;
-    }
-
-    private void OnLanguageChangedHandler()
-    {
-        _currentLanguage = TranslationState.CurrentLanguage ?? "en";
-        InvokeAsync(StateHasChanged);
-    }
-
-    public void Dispose()
-    {
-        TranslationState.OnLanguageChanged -= OnLanguageChangedHandler;
-    }
-}
-```
-
-### 3.3 ⚠️ قاعدة جوهرية: مصدر واحد للغة
-
-**هذه القاعدة تحل مشكلة "القفزات" في الاتجاه واللغة:**
-
-**⭐ في `App.razor` — السكربت الأولي:**
-
-```html
-<script>
-    (function() {
-        try {
-            var lang = null;
-
-            // 1. LocalStorage (الأولوية القصوى)
-            var stored = localStorage.getItem('RubikCare:Language');
-            if (stored === 'ar' || stored === 'en') lang = stored;
-
-            // 2. Cookie
-            if (!lang) {
-                var cookieMatch = document.cookie.match(/(?:^|;\s*)\.RubikCare\.Language=([^;]*)/);
-                if (cookieMatch) {
-                    var decoded = decodeURIComponent(cookieMatch[1]);
-                    var langMatch = decoded.match(/c=([a-z]{2})/);
-                    if (langMatch && (langMatch[1] === 'ar' || langMatch[1] === 'en')) {
-                        lang = langMatch[1];
-                    }
-                }
-            }
-
-            // 3. الافتراضي
-            if (!lang) lang = 'en';
-
-            var dir = lang === 'ar' ? 'rtl' : 'ltr';
-            document.documentElement.setAttribute('dir', dir);
-            document.documentElement.setAttribute('lang', lang);
-            if (document.body) document.body.setAttribute('dir', dir);
-        } catch (e) {
-            document.documentElement.setAttribute('dir', 'ltr');
-            document.documentElement.setAttribute('lang', 'en');
-        }
-    })();
-</script>
-```
-
-**⭐ في `direction-protector.js`:**
-
-```javascript
-function getCurrentLanguage() {
-    try {
-        // 1. LocalStorage
-        var stored = localStorage.getItem(STORAGE_KEY);
-        if (stored === 'ar' || stored === 'en') return stored;
-
-        // 2. Cookie
-        var cookieMatch = document.cookie.match(/(?:^|;\s*)\.RubikCare\.Language=([^;]*)/);
-        if (cookieMatch) {
-            var decoded = decodeURIComponent(cookieMatch[1]);
-            var langMatch = decoded.match(/c=([a-z]{2})/);
-            if (langMatch && (langMatch[1] === 'ar' || langMatch[1] === 'en')) {
-                return langMatch[1];
-            }
-        }
-
-        // 3. html lang
-        var htmlLang = document.documentElement.getAttribute('lang');
-        if (htmlLang === 'ar' || htmlLang === 'en') return htmlLang;
-
-        return DEFAULT_LANG;
-    } catch (e) { return DEFAULT_LANG; }
-}
-```
-
-**⭐ في `TranslationStateService.CurrentLanguage`:** (مذكور في القسم 2.4)
-
-**⭐ في `WebTranslationState`:** استخدم `ISharedTranslationState`
-
-**⚠️ الترتيب ثابت في كل مكان:**
-1. `localStorage` (الأحدث — يُكتب عند الضغط)
-2. `Cookie` (يُقرأ من الخادم)
-3. `html lang` (احتياطي)
-4. **`"en"`** (الافتراضي النهائي)
-
-### 3.4 CSS — دعم الاتجاهين
-
-**استخدم `inset-inline-start/end` بدلًا من `left/right`:**
-
-```css
-/* ✅ صحيح — يعمل في RTL و LTR تلقائيًا */
-.hero__image {
-    position: absolute;
-    inset-inline-end: 0;   /* يمين في RTL، يسار في LTR */
-}
-
-/* ❌ خطأ — ثابت */
-.hero__image {
-    right: 0;
-}
-```
-
-**للصور التي تحتاج انعكاسًا:**
-
-```css
-.home-page[dir="ltr"] .hero__image {
-    transform: scaleX(-1);
-}
-```
-
-**⚠️ لا تستخدم الانعكاس إذا كانت الصورة تحتوي على نصوص.**
+**المدة المقدرة للتنفيذ:** 7-8 جلسات عمل مركزة (~أسبوع إلى 10 أيام).
 
 ---
 
-## 📱 الجزء الرابع: Mobile (XAML + BlazorWebView)
+## 🎯 الجزء الأول: الفلسفة المعمارية
 
-### 4.1 الفرق عن الويب
+### 1.1 المبدأ الأساسي
 
-| الجانب | Web | Mobile |
-|--------|-----|--------|
-| **التخزين** | Cookie + LocalStorage | `Preferences` (Native) |
-| **الإبلاغ** | SignalR / Blazor Circuit | `OnLanguageChanged` event |
-| **API الترجمة** | `/api/localization/page/{domain}` | **نفس الـ API** |
-| **`T("key")`** | في `BasePage` | في الـ ViewModel |
+> **"لا نبني نظامًا جديدًا، بل نُوسّع ونُوحّد الموجود."**
 
-### 4.2 `MobileTranslationService`
+### 1.2 القواعد الذهبية
 
-**المسار:** `Mobile/Services/MobileTranslationService.cs`
-
-```csharp
-public interface IMobileTranslationService : ISharedTranslationService
-{
-    Task<Dictionary<string, string>> GetAllTranslationsAsync(string? lang = null);
-    Task PreloadCommonTranslationsAsync();
-}
-
-public class MobileTranslationService : IMobileTranslationService
-{
-    private readonly ApiService _apiService;
-    private readonly IMemoryCache _cache;
-    private const string DefaultLang = "en";
-    private const string LangKey = "RubikCare:Language";
-
-    public string GetCurrentLanguage() => Preferences.Get(LangKey, DefaultLang);
-
-    public async Task<Dictionary<string, string>> GetPageTranslationsAsync(
-        string pageDomain, string? lang = null)
-    {
-        var currentLang = lang ?? GetCurrentLanguage();
-        var cacheKey = $"mobile_translations_{pageDomain}_{currentLang}";
-
-        if (_cache.TryGetValue(cacheKey, out Dictionary<string, string>? cached) && cached != null)
-            return cached;
-
-        var result = await _apiService.GetAsync<Dictionary<string, string>>(
-            $"/api/localization/page/{pageDomain}?lang={currentLang}");
-
-        var translations = result ?? new Dictionary<string, string>();
-        _cache.Set(cacheKey, translations, TimeSpan.FromMinutes(30));
-        return translations;
-    }
-}
-```
-
-### 4.3 `MobileTranslationState`
-
-**المسار:** `Mobile/Services/MobileTranslationState.cs`
-
-```csharp
-public class MobileTranslationState : ISharedTranslationState
-{
-    private const string LangKey = "RubikCare:Language";
-    private const string DefaultLang = "en";
-
-    public event Action? OnLanguageChanged;
-
-    public string CurrentLanguage => Preferences.Get(LangKey, DefaultLang);
-
-    public void SetLanguage(string lang)
-    {
-        if (lang == CurrentLanguage) return;
-        Preferences.Set(LangKey, lang);
-        OnLanguageChanged?.Invoke();
-    }
-}
-```
-
-### 4.4 التسجيل في `MauiProgram.cs`
-
-```csharp
-builder.Services.AddMemoryCache();
-
-builder.Services.AddSingleton<MobileTranslationState>();
-builder.Services.AddSingleton<IMobileTranslationService, MobileTranslationService>();
-builder.Services.AddSingleton<TranslationCacheService>();
-
-builder.Services.AddSingleton<ISharedTranslationState>(sp => sp.GetRequiredService<MobileTranslationState>());
-builder.Services.AddSingleton<ISharedTranslationService>(sp => sp.GetRequiredService<IMobileTranslationService>());
-```
-
-**⚠️ Singleton:** لأن اللغة يجب أن تكون واحدة على مستوى التطبيق.
-
-### 4.5 نمط ViewModel (XAML)
-
-```csharp
-public partial class ExampleViewModel : ObservableObject, IDisposable
-{
-    private readonly IMobileTranslationService _translationService;
-    private readonly MobileTranslationState _translationState;
-    private Dictionary<string, string> _translations = new();
-
-    [ObservableProperty] private string _titleText = string.Empty;
-
-    public ExampleViewModel(
-        IMobileTranslationService translationService,
-        MobileTranslationState translationState)
-    {
-        _translationService = translationService;
-        _translationState = translationState;
-
-        _translationState.OnLanguageChanged += OnLanguageChangedHandler;
-    }
-
-    public async Task InitializeAsync() => await LoadTranslationsAsync();
-
-    private async Task LoadTranslationsAsync()
-    {
-        var lang = _translationState.CurrentLanguage;
-        var pageTrans = await _translationService.GetPageTranslationsAsync("MOBILE.EXAMPLE", lang);
-        var commonTrans = await _translationService.GetPageTranslationsAsync("COMMON", lang);
-
-        _translations = commonTrans
-            .Concat(pageTrans)
-            .GroupBy(x => x.Key)
-            .ToDictionary(g => g.Key, g => g.First().Value);
-
-        TitleText = T("MOBILE.EXAMPLE.TITLE");
-    }
-
-    private string T(string key) =>
-        _translations.TryGetValue(key, out var value) ? value : key;
-
-    private async void OnLanguageChangedHandler() => await LoadTranslationsAsync();
-
-    public void Dispose() => _translationState.OnLanguageChanged -= OnLanguageChangedHandler;
-}
-```
-
-### 4.6 Checklist لكل صفحة XAML
-
-- [ ] ViewModel يحقن `IMobileTranslationService` و `MobileTranslationState`
-- [ ] الاشتراك في `OnLanguageChanged` في constructor
-- [ ] `LoadTranslationsAsync()` تحمّل `domain` الصفحة + `COMMON` دفعة واحدة
-- [ ] `ApplyTranslations()` تُحدِّث كل Properties
-- [ ] XAML يستخدم `{Binding TitleText}` — لا نصوص ثابتة
-- [ ] `OnAppearing` تستدعي `InitializeAsync()`
-- [ ] `OnDisappearing` تستدعي `Dispose()`
-- [ ] مفاتيح الترجمة موجودة في `Resources` مع `N''`
+1. **التطوير التراكمي الآمن:** لا تغييرات جذرية مفاجئة.
+2. **مصدر حقيقة واحد:** كل بيانات القوائم في جداول مركزية.
+3. **فصل الطبقات:** كل طبقة تحكم لها مسؤولية واضحة.
+4. **إعادة الاستخدام:** 80% مما نحتاجه موجود.
+5. **التوحيد عبر المنصات:** كود واحد، ثلاثة أغلفة رقيقة.
+6. **الأولوية للأدق:** الطبقة الأدق تتجاوز الأعلى عمومية.
 
 ---
 
-## 📊 جدول مقارنة شامل
+## 🏛️ الجزء الثاني: الطبقات الأربع للتحكم
 
-| العنصر | Web Dashboard | Marketing Site | Mobile |
-|--------|---------------|----------------|--------|
-| **اللغة الافتراضية** | `ar` | `en` | `en` |
-| **التخزين** | Cookie + LocalStorage | Cookie + LocalStorage | Preferences |
-| **الحقن** | `[Inject] TranslationStateService` | `[Inject] ISharedTranslationState` | Constructor Injection |
-| **`BasePage`** | ✅ | ✅ | ❌ (ViewModels) |
-| **`T("key")`** | في `BasePage` | في `BasePage` | في ViewModel |
-| **تحديث UI** | `StateHasChanged` | `StateHasChanged` | `[ObservableProperty]` |
-| **RTL/LTR** | `dir` attribute | `dir` attribute | `I18nManager` |
-| **التنظيف** | `Dispose()` | `Dispose()` | `Dispose()` + `OnDisappearing` |
-| **الأنماط** | `--rubik-*` | `--hp-*` | `--rubik-*` |
+### 2.1 نظرة عامة
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  الطبقة 1: المنصة (Platform)                             │
+│  من يتحكم؟ Super Admin                                   │
+│  ماذا؟ القوائم الرئيسية لكل نوع منظمة                    │
+│  المعيار: OrganizationType + MenuAssignments             │
+└─────────────────────────────────────────────────────────┘
+                          ↓
+┌─────────────────────────────────────────────────────────┐
+│  الطبقة 2: الاشتراكات (Subscriptions)                    │
+│  من يتحكم؟ Super Admin                                   │
+│  ماذا؟ الميزات المفعّلة في اشتراك المنظمة                 │
+│  المعيار: Features + Plans + Subscriptions               │
+└─────────────────────────────────────────────────────────┘
+                          ↓
+┌─────────────────────────────────────────────────────────┐
+│  الطبقة 3: المنظمة (Organization)                        │
+│  من يتحكم؟ Admin المنظمة                                 │
+│  ماذا؟ ما سمحت به المنظمة لعناصر قوائمها                 │
+│  المعيار: MenuItemVisibility (Org-level)                │
+└─────────────────────────────────────────────────────────┘
+                          ↓
+┌─────────────────────────────────────────────────────────┐
+│  الطبقة 4: الوظيفة (JobTitle)                            │
+│  من يتحكم؟ Admin المنظمة                                 │
+│  ماذا؟ ما تراه كل وظيفة داخل المنظمة                     │
+│  المعيار: CustomJobTitle + MenuItemVisibility            │
+└─────────────────────────────────────────────────────────┘
+                          ↓
+              ┌───────────────────────┐
+              │   القائمة النهائية    │
+              │   للمستخدم الحالي     │
+              └───────────────────────┘
+```
+
+### 2.2 الطبقة 1: المنصة (Platform Control)
+
+**الوصف:**
+- **من يتحكم؟** Super Admin (RubikCare).
+- **ماذا يتحكم؟** القوائم الرئيسية + عناصرها لكل `OrganizationType`.
+- **المعيار:** `OrganizationType` + `MenuAssignments`.
+- **النطاق:** كل المنصات.
+- **الحالة:** ✅ موجودة وتعمل.
+
+**الوظائف:**
+- إضافة قائمة رئيسية.
+- إضافة عناصر للقائمة.
+- إخفاء/إظهار عنصر.
+- نقل عنصر بين قوائم.
+- إظهار عنصر في عدة قوائم.
+
+**الجداول:**
+- `SystemMenus`
+- `MenuItems`
+- `MenuAssignments` (بمعيار `OrganizationType`)
+
+### 2.3 الطبقة 2: الاشتراكات (Subscriptions Control)
+
+**الوصف:**
+- **من يتحكم؟** Super Admin.
+- **ماذا يتحكم؟** الميزات المفعّلة في اشتراك كل منظمة.
+- **المعيار:** `Features` + `Plans` + `Subscriptions`.
+- **النطاق:** كل المنصات.
+- **الحالة:** ⚠️ البنية موجودة، غير مفعّلة.
+
+**الوظائف:**
+- تعريف الميزات (`Features`).
+- تعريف الخطط (`Plans`).
+- ربط الميزات بالخطط (`PlanFeatures`).
+- ربط المنظمات بالخطط (`OrganizationSubscriptions`).
+- تفعيل/تعطيل ميزة لمنظمة معينة.
+
+**الجداول:**
+- `Features` (موجود)
+- `Plans` (موجود)
+- `Pricing` (موجود)
+- `PlanFeatures` (يُضاف إن لم يكن موجودًا)
+- `OrganizationSubscriptions` (يُضاف إن لم يكن موجودًا)
+- `FeatureMenuItems` (جديد — يربط الميزة بعناصر القائمة)
+
+**آلية العمل:**
+عند بناء القائمة لمستخدم:
+1. يُحدد اشتراك المنظمة النشطة.
+2. تُحدد الميزات المفعّلة.
+3. تُفلتر `MenuItems` بحيث تظهر فقط العناصر المرتبطة بميزات مفعّلة.
+
+### 2.4 الطبقة 3: المنظمة (Organization Control)
+
+**الوصف:**
+- **من يتحكم؟** Admin المنظمة.
+- **ماذا يتحكم؟** ما سمحت به المنظمة لعناصر قوائمها (إظهار/إخفاء).
+- **المعيار:** `MenuItemVisibility` على مستوى المنظمة.
+- **النطاق:** عناصر قوائم المنظمة فقط.
+- **الحالة:** 🆕 جديدة.
+
+**الوظائف:**
+- عرض عناصر قوائم المنظمة (المتاحة وفق اشتراكها).
+- إظهار/إخفاء عنصر على مستوى المنظمة.
+- **لا يضيف** عناصر جديدة.
+- **لا ينقل** عناصر بين قوائم.
+
+**الجداول:**
+- `MenuItemVisibility` (جديد)
+
+**الفرق بين الطبقة 1 والطبقة 3:**
+
+| البند | الطبقة 1 (المنصة) | الطبقة 3 (المنظمة) |
+|-------|---------------------|----------------------|
+| **من يتحكم؟** | Super Admin | Admin المنظمة |
+| **النطاق** | كل المنظمات | منظمة واحدة |
+| **الوظائف** | إضافة/نقل/إخفاء | إظهار/إخفاء فقط |
+| **المستوى** | `MenuItem` عام | `MenuItem` داخل منظمة |
+
+### 2.5 الطبقة 4: الوظيفة (JobTitle Control)
+
+**الوصف:**
+- **من يتحكم؟** Admin المنظمة.
+- **ماذا يتحكم؟** ما تراه كل وظيفة (`CustomJobTitle`) داخل المنظمة.
+- **المعيار:** `CustomJobTitle` + `MenuItemVisibility`.
+- **النطاق:** وظائف المنظمة فقط.
+- **الحالة:** 🆕 جديدة.
+
+**الوظائف:**
+- عرض وظائف المنظمة (`CustomJobTitles`).
+- ربط كل وظيفة بعناصر مرئية.
+- معاينة القائمة كما سيراها المستخدم بهذه الوظيفة.
+
+**الجداول:**
+- `CustomJobTitles` (موجود)
+- `MenuItemVisibility` (جديد — بمعيار `CustomJobTitleId`)
+
+### 2.6 ترتيب الأولويات بين الطبقات
+
+عند بناء القائمة لمستخدم، تُطبّق الطبقات بالترتيب التالي:
+
+```
+1. الطبقة 1: تحديد القوائم المتاحة لنوع المنظمة
+   ↓
+2. الطبقة 2: فلترة القوائم وفق الاشتراك
+   ↓
+3. الطبقة 3: فلترة العناصر وفق إعدادات المنظمة
+   ↓
+4. الطبقة 4: فلترة العناصر وفق وظيفة المستخدم
+   ↓
+5. القائمة النهائية
+```
+
+**قاعدة الأولوية:**
+
+> **"الطبقة الأدق تتجاوز الأعلى عمومية."**
+
+- إذا أظهرت الطبقة 3 عنصرًا، لكن الطبقة 4 حجبته عن وظيفة المستخدم → **لا يظهر**.
+- إذا حجبت الطبقة 3 عنصرًا، لكن الطبقة 4 سمحت به → **لا يظهر** (لأن الطبقة 3 أعلى).
+- **الاستثناء:** `UserProfileID` في `MenuAssignment` (تخصيص مباشر) يتجاوز كل الطبقات.
 
 ---
 
-## ⚠️ الجزء السادس: تحذيرات ومحاذير
+## 🗄️ الجزء الثالث: نموذج البيانات الموسّع (ERD)
 
-### 🔴 ممنوعات مطلقة
+### 3.1 الجداول الموجودة (لا تُعدّل)
 
-| # | الممنوع | البديل |
-|---|---------|--------|
-| **1** | نصوص Hardcoded | `@T("KEY")` |
-| **2** | نسيان `Dispose()` | Memory Leak |
-| **3** | استدعاء API في كل Render | `OnInitializedAsync` فقط |
-| **4** | SQL بدون `N''` | تظهر `????` |
-| **5** | حقن `MobileTranslationService` في Shared.UI | `ISharedTranslationService` |
-| **6** | `INSERT` بدلًا من `MERGE` | `MERGE` |
-| **7** | قلب منطق اللغة (انظر 2.5) | تحقق من كل شرط |
-| **8** | `T("COMMON.LOADING")` في صفحة تحمّل الترجمة | spinner بدون نص |
-| **9** | `left/right` في CSS | `inset-inline-start/end` |
-| **10** | `@rendermode` على `LayoutComponentBase` | مكوّن فرعي Interactive |
+| الجدول | الوظيفة |
+|--------|---------|
+| `SystemMenus` | القوائم الرئيسية |
+| `MenuItems` | عناصر القوائم |
+| `MenuAssignments` | تخصيص القوائم |
+| `CustomJobTitles` | وظائف الأعضاء |
+| `OrgMemberships` | عضويات المستخدمين |
+| `Organizations` | المنظمات |
+| `OrganizationTypes` | أنواع المنظمات |
+| `Features` | الميزات/الخدمات |
+| `Plans` | الخطط |
+| `Pricing` | التسعير |
+| `AspNetRoles` | الأدوار النظامية |
+| `UserProfiles` | ملفات المستخدمين |
 
-### 🟡 تنبيهات مهمة
+### 3.2 الجداول الجديدة
 
-- **`TranslationStateService` (Web):** Singleton مُسجَّل، يُشارك بين كل الجلسات
-- **`MobileTranslationState`:** Singleton — تغيير اللغة يؤثر على التطبيق كله فورًا
-- **Cache:** 30 دقيقة — تعديل DB يحتاج Restart
-- **`LocalizationCacheService`:** Singleton — يُشارك بين Circuits
-- **`PersistentComponentState`:** إذا استُخدم، يجب أن يكون في `BasePage`
+#### الجدول 1: `MenuItemVisibility`
+**الوظيفة:** يربط `MenuItem` بـ `CustomJobTitleId` داخل منظمة محددة.
 
----
+| الحقل | النوع | الوصف |
+|-------|------|-------|
+| `VisibilityId` | INT PK | المعرف |
+| `OrganizationId` | INT FK | المنظمة |
+| `CustomJobTitleId` | INT FK NULL | الوظيفة (NULL = على مستوى المنظمة) |
+| `MenuItemId` | INT FK | عنصر القائمة |
+| `IsVisible` | BIT | مرئي/مخفي |
+| `CreatedDate` | DATETIME2 | تاريخ الإنشاء |
+| `CreatedBy` | INT FK | من أنشأ |
+| `ModifiedDate` | DATETIME2 | تاريخ التعديل |
 
-## 🟠 الجزء السابع: المشاكل المعروفة والحلول
+**الفهارس:**
+- `IX_MenuItemVisibility_Org_JobTitle` (`OrganizationId`, `CustomJobTitleId`)
+- `IX_MenuItemVisibility_MenuItem` (`MenuItemId`)
 
-### 7.1 بعض الصفحات تعرض مفاتيح بدلًا من النصوص
+**الاستخدام:**
+- `CustomJobTitleId = NULL` → إعداد على مستوى المنظمة (الطبقة 3).
+- `CustomJobTitleId = X` → إعداد لوظيفة محددة (الطبقة 4).
 
-**السبب:** `GetPageTranslationsAsync` يُرجع فاضي.
-**الحل:** تحقق من `Module` في جدول `Resources`.
+#### الجدول 2: `FeatureMenuItems`
+**الوظيفة:** يربط `Feature` بـ `MenuItem`.
 
-### 7.2 ترجمة جزئية
+| الحقل | النوع | الوصف |
+|-------|------|-------|
+| `Id` | INT PK | المعرف |
+| `FeatureId` | INT FK | الميزة |
+| `MenuItemId` | INT FK | عنصر القائمة |
+| `IsActive` | BIT | مفعّل/معطّل |
 
-**السبب:** المفاتيح موجودة في `COMMON` وليس في `domain` الصفحة.
-**الحل:**
+**الاستخدام:** عند تفعيل ميزة لمنظمة، تظهر عناصرها المرتبطة.
 
-```csharp
-var pageTrans = await TranslationService.GetPageTranslationsAsync(PageDomain, lang);
-var commonTrans = await TranslationService.GetPageTranslationsAsync("COMMON", lang);
-_translations = commonTrans.Concat(pageTrans).ToDictionary(k => k.Key, v => v.Value);
+#### الجدول 3: `PlanFeatures` (إن لم يكن موجودًا)
+**الوظيفة:** يربط `Plan` بـ `Feature`.
+
+| الحقل | النوع | الوصف |
+|-------|------|-------|
+| `Id` | INT PK | المعرف |
+| `PlanId` | INT FK | الخطة |
+| `FeatureId` | INT FK | الميزة |
+| `IsIncluded` | BIT | مضمنة/غير مضمنة |
+
+#### الجدول 4: `OrganizationSubscriptions` (إن لم يكن موجودًا)
+**الوظيفة:** يربط `Organization` بـ `Plan`.
+
+| الحقل | النوع | الوصف |
+|-------|------|-------|
+| `SubscriptionId` | INT PK | المعرف |
+| `OrganizationId` | INT FK | المنظمة |
+| `PlanId` | INT FK | الخطة |
+| `StartDate` | DATETIME2 | تاريخ البدء |
+| `EndDate` | DATETIME2 | تاريخ الانتهاء |
+| `IsActive` | BIT | نشط/غير نشط |
+
+### 3.3 التوسيعات على الجداول الموجودة
+
+#### `MenuItems` — إضافة أعمدة
+
+| العمود | النوع | الوصف |
+|--------|------|-------|
+| `Platform` | NVARCHAR(20) | `Web` / `Mobile` / `Both` |
+| `IsMobileVisible` | BIT | مرئي في الموبايل |
+| `FeatureId` | INT FK NULL | الميزة المرتبطة (اختياري) |
+
+#### `MenuAssignments` — إضافة عمود
+
+| العمود | النوع | الوصف |
+|--------|------|-------|
+| `CustomJobTitleId` | INT FK NULL | الوظيفة (لمن تظهر القائمة) |
+
+### 3.4 مخطط العلاقات (مبسّط)
+
 ```
-
-### 7.3 تغيير اللغة لا يؤثر على الصفحة الحالية
-
-**السبب:** نسيان `InvokeAsync(StateHasChanged)`.
-**الحل:**
-
-```csharp
-private async void HandleLanguageChanged()
-{
-    await LoadTranslations();
-    await InvokeAsync(StateHasChanged);  // ⭐ إلزامي
-}
-```
-
-### 7.4 تسرب الذاكرة
-
-**السبب:** نسيان إلغاء الاشتراك.
-**الحل:**
-
-```csharp
-public void Dispose()
-{
-    TranslationState.OnLanguageChanged -= HandleLanguageChanged;
-}
-```
-
-### 7.5 ⭐ القفزات بين SSR و Interactive (مشكلة محلولة)
-
-**السبب:** `TranslationStateService.CurrentLanguage` **لم تكن تقرأ Cookie فورًا** — كانت تُرجع `"en"` (الافتراضي) → انقلاب.
-
-**الحل:** `CurrentLanguage` **تقرأ Cookie عند كل استدعاء** (انظر 2.4).
-
-**⚠️ هذه كانت مشكلة متجذرة — تأكد من عدم إعادة كسرها.**
-
-### 7.6 زر التبديل لا يعمل
-
-**السبب:** شرط `SetLanguageAsync` يرفض `"ar"`.
-**الحل:** تحقق من الشرط `languageCode != "ar" && languageCode != "en"`.
-
-### 7.7 وميض `COMMON.LOADING` في أول زيارة
-
-**السبب:** الصفحة تعرض `T("COMMON.LOADING")` قبل تحميل الترجمات.
-**الحل:** Spinner بدون نص (انظر 2.7).
-
----
-
-## 📁 هيكل الملفات الكامل
-
-```
-📁 Shared.UI/Services/
-├── ITranslationService.cs
-└── ITranslationState.cs
-
-📁 RubikCare.Application/Services/
-├── TranslationStateService.cs        ⭐ Web + Marketing
-└── LocalizationService.cs
-
-📁 Rubikcare.Web/Services/
-├── WebTranslationState.cs
-└── WebTranslationService.cs
-
-📁 Rubikcare.Web/Components/Base/
-└── BasePage.cs
-
-📁 Rubikcare.Web/Components/Layout/
-├── MainLayout.razor                  (Dashboard)
-├── InteractiveMenu.razor             (Dashboard header)
-├── MarketingLayout.razor             (Marketing)
-├── MarketingHeader.razor             (Marketing header)
-└── LanguageSwitcher.razor            (Marketing toggle)
-
-📁 Rubikcare.Web/wwwroot/Assets/js/
-└── direction-protector.js
-
-📁 Mobile/Services/
-├── MobileTranslationService.cs
-├── MobileTranslationState.cs
-└── TranslationCacheService.cs
+Organizations ──┬── OrganizationSubscriptions ── Plans ── PlanFeatures ── Features
+                │                                                            │
+                ├── OrgMemberships ── CustomJobTitles              FeatureMenuItems
+                │                                                            │
+                └── MenuItemVisibility ──────────────────────────── MenuItems
+                                                                             │
+                                                                       SystemMenus
+                                                                             │
+                                                                     MenuAssignments
 ```
 
 ---
 
-## 🔗 روابط ذات صلة
+## 🏗️ الجزء الرابع: توزيع المسؤوليات التقنية
 
-- [00 - الهيكل المعماري](../00-architecture.md)
-- [02 - نظام الهوية والمصادقة](../02-identity-system.md)
-- [05 - إنشاء الصفحات والمكونات](../05-page-creation-checklist.md)
-- [09 - دليل API](../09-api-guide.md)
+### 4.1 المبدأ
+
+> **"منطق واحد في UseCase، عرض واحد في Shared.UI، ثلاثة أغلفة رقيقة."**
+
+### 4.2 التوزيع
+
+| الطبقة | النوع | الموقع | المسؤولية |
+|--------|------|--------|-----------|
+| **Domain** | منطق نقي | `Rubikcare.Domain` | قواعد الأولوية، تقييم الصلاحية |
+| **Application** | UseCase | `Rubikcare.Application` | `GetVisibleMenuItemsUseCase` |
+| **Infrastructure** | Handler + Repositories | `Rubikcare.Infrastructure` | التنفيذ + الوصول للبيانات |
+| **Shared.UI** | Service + Components | `Rubikcare.Shared.UI` | `MenuStateService` + `DynamicMenuComponent` + `RouteGuard` |
+| **Web** | Thin Wrapper | `Rubikcare.Web` | استدعاء `Shared.UI` |
+| **MAUI** | Thin Wrapper | `Rubikcare.Mobile` | استدعاء `Shared.UI` داخل `BlazorWebView` |
+| **PWA** | Thin Wrapper | `Rubikcare.PWA` | استدعاء `Shared.UI` |
+
+### 4.3 UseCase + Handler
+
+#### `GetVisibleMenuItemsUseCase`
+- **الموقع:** `Rubikcare.Application`
+- **الوظيفة:** يحدد القائمة النهائية للمستخدم.
+- **المدخلات:** `UserProfileId`, `ActiveOrganizationId`, `Platform`
+- **المخرجات:** `List<VisibleMenuItem>`
+
+#### `GetVisibleMenuItemsHandler`
+- **الموقع:** `Rubikcare.Infrastructure`
+- **الوظيفة:** تنفيذ الاستعلامات على قاعدة البيانات.
+- **يعتمد على:** `DbContextFactory` + Repositories.
+
+**لماذا هذا النمط؟**
+- **فصل تام** بين المنطق والتنفيذ.
+- **قابلية اختبار** عالية.
+- **إعادة استخدام** عبر المنصات الثلاثة.
+- **متوافق** مع النمط الحالي في المشروع.
+
+### 4.4 Shared.UI
+
+#### `MenuStateService`
+- **الوظيفة:** يحتفظ بالقوائم المفلترة للمستخدم.
+- **يدعم:** تعدد المنظمات (كاش لكل منظمة).
+- **يعتمد على:** `GetVisibleMenuItemsUseCase`.
+
+#### `DynamicMenuComponent`
+- **الوظيفة:** عرض القائمة.
+- **يُستدعى في:** Web + PWA + MAUI.
+- **يعتمد على:** `MenuStateService`.
+
+#### `RouteGuard`
+- **الوظيفة:** منع الوصول المباشر للصفحات المحجوبة.
+- **يعتمد على:** `MenuStateService`.
 
 ---
 
-**آخر تحديث:** 17 سبتمبر 2026
-**الملف:** `15-translation-system.md`
-**الحالة:** ✅ مستقر — لا تعدّل منطق اللغة دون مراجعة 7.5
+## 🗺️ الجزء الخامس: خارطة التنفيذ (4 مراحل)
+
+### 5.1 نظرة عامة
+
+| المرحلة | الوصف | الجلسات |
+|---------|-------|---------|
+| **المرحلة 1** | إدارة الخدمات والميزات | 2 |
+| **المرحلة 2** | إدارة الصلاحيات | 2 |
+| **المرحلة 3** | تحويل القوائم الثلاثة لديناميكية | 2 |
+| **المرحلة 4** | الاختبار الشامل | 2 |
+| **الإجمالي** | | **8 جلسات** |
+
+### 5.2 المرحلة 1: إدارة الخدمات والميزات
+
+**الهدف:** تفعيل نظام `Features` + `Plans` + `Subscriptions` وربطه بالقوائم.
+
+**المهام:**
+1. مراجعة الجداول الموجودة (`Features`, `Plans`, `Pricing`).
+2. إضافة `PlanFeatures` (إن لم يكن موجودًا).
+3. إضافة `OrganizationSubscriptions` (إن لم يكن موجودًا).
+4. إضافة `FeatureMenuItems` (جديد).
+5. إضافة `FeatureId` إلى `MenuItems`.
+6. Migration آمن.
+7. بناء `GetSubscribedFeaturesUseCase`.
+8. بناء Handler.
+9. تحديث شاشة تفاصيل المنظمة (إدارة الميزات).
+
+**المخرجات:**
+- جداول مفعّلة.
+- UseCase + Handler.
+- شاشة إدارة الميزات.
+
+### 5.3 المرحلة 2: إدارة الصلاحيات
+
+**الهدف:** إضافة طبقتين: المنظمة (Org) والوظيفة (JobTitle).
+
+**المهام:**
+1. إضافة `MenuItemVisibility`.
+2. إضافة `CustomJobTitleId` إلى `MenuAssignments`.
+3. Migration آمن.
+4. بناء `GetVisibleMenuItemsUseCase` (يدمج الطبقات الأربع).
+5. بناء Handler.
+6. بناء شاشة تحكم المنظمة (مشتركة، ديناميكية).
+7. بناء منطق تقييم `MenuItem.RequiredPermission`.
+
+**المخرجات:**
+- جداول جديدة.
+- UseCase موحّد للطبقات الأربع.
+- شاشة تحكم المنظمة.
+
+### 5.4 المرحلة 3: تحويل القوائم الثلاثة لديناميكية
+
+**الهدف:** توحيد القوائم عبر Web + PWA + MAUI.
+
+**المهام:**
+1. نقل قائمة PWA الحالية إلى `SystemMenus` + `MenuItems`.
+2. إضافة عمود `Platform` / `IsMobileVisible` إلى `MenuItems`.
+3. بناء `MenuStateService` (كاش متعدد المنظمات).
+4. بناء `DynamicMenuComponent`.
+5. دمج `DynamicMenuComponent` في Web.
+6. دمج `DynamicMenuComponent` في PWA.
+7. استبدال `AppShell` في MAUI:
+   - الاحتفاظ بـ Shell Host بسيط.
+   - استدعاء `DynamicMenuComponent` في `BlazorWebView`.
+8. بناء `RouteGuard`.
+
+**المخرجات:**
+- قائمة موحّدة عبر المنصات.
+- `AppShell` مبسّط.
+- `RouteGuard` فعّال.
+
+### 5.5 المرحلة 4: الاختبار الشامل
+
+**الهدف:** التحقق من سلامة النظام عبر المنصات الثلاث.
+
+**المهام:**
+1. اختبار Web.
+2. اختبار PWA.
+3. اختبار MAUI.
+4. اختبار السيناريوهات الحدّية.
+5. إصلاح Bugs.
+6. توثيق الميزة الجديدة.
+
+**المخرجات:**
+- نظام مستقر.
+- توثيق محدّث.
+- تقرير اختبار.
+
+---
+
+## ⚠️ الجزء السادس: المخاطر والتخفيف
+
+| المخاطرة | الاحتمال | الأثر | التخفيف |
+|----------|-----------|--------|----------|
+| مشاكل `BlazorWebView` في MAUI | متوسط | مرتفع | اختبار مبكر + وثيقة `11-blazor-webview-guide.md` |
+| Migration خاطئ | منخفض | مرتفع | نسخ احتياطي + اختبار على بيئة تجريبية |
+| تضارب في الكاش (تعدد المنظمات) | متوسط | متوسط | `MenuStateService` مصمم لهذا |
+| RouteGuard لا يعمل في PWA | منخفض | متوسط | اختبار مبكر + fallback |
+| تعطيل `AppShell` يكسر التنقل | مرتفع | مرتفع | الاحتفاظ بـ Shell Host بسيط |
+| بطء الأداء | منخفض | متوسط | `UserSessionService` كاش مركزي |
+| تضارب الأولويات بين الطبقات | متوسط | مرتفع | وثيقة الأولويات + اختبارات |
+
+---
+
+## ✅ الجزء السابع: معايير القبول (Definition of Done)
+
+### 7.1 معايير وظيفية
+- [ ] المستخدم يرى القوائم الصحيحة وفق الطبقات الأربع.
+- [ ] تبديل المنظمات يعمل ويُحدّث القوائم.
+- [ ] `RouteGuard` يمنع الوصول المباشر للصفحات المحجوبة.
+- [ ] المنصة تتحكم في الميزات من شاشة تفاصيل المنظمة.
+- [ ] المنظمة تتحكم في صلاحيات الوظائف من شاشتها.
+- [ ] `CustomJobTitle` يُستخدم كمعيار للصلاحيات.
+
+### 7.2 معايير تقنية
+- [ ] `GetVisibleMenuItemsUseCase` موجود في Application.
+- [ ] Handler موجود في Infrastructure.
+- [ ] `MenuStateService` يدعم تعدد المنظمات.
+- [ ] `DynamicMenuComponent` يعمل في Web + PWA + MAUI.
+- [ ] `AppShell` مبسّط ولا يكسر التنقل.
+- [ ] جداول جديدة موثّقة ومفهرسة.
+
+### 7.3 معايير تجربة المستخدم
+- [ ] القائمة تظهر بسرعة (< 1 ثانية).
+- [ ] تبديل المنظمات سلس.
+- [ ] لا وميض في الاتجاه (RTL/LTR).
+- [ ] `RouteGuard` يعطي رسالة واضحة.
+
+### 7.4 معايير التوثيق
+- [ ] `15-multi-layer-menu-control.md` محدّثة.
+- [ ] `04-dynamic-menus.md` محدّثة.
+- [ ] `02-identity-system.md` محدّثة.
+- [ ] `14-caching-system.md` محدّثة.
+
+---
+
+## 🔗 الجزء الثامن: روابط ذات صلة
+
+- [00 - الهيكل المعماري](./00-architecture-overview.md)
+- [02 - نظام الهوية والمصادقة](./02-identity-system.md)
+- [04 - نظام القوائم الديناميكية](./04-dynamic-menus.md)
+- [05 - إنشاء الصفحات والمكونات](./05-page-creation-checklist.md)
+- [08 - Strategic Roadmap](./08-Strategic-Roadmap.md)
+- [10 - دليل تطوير MAUI](./10-maui-development-guide.md)
+- [11 - دليل BlazorWebView](./11-blazor-webview-guide.md)
+- [14 - نظام الكاش الموحد](./14-caching-system.md)
+- [17 - استقرار اتجاه القائمة الجانبية واللغة](./17-sidebar-direction-stability.md)
+- [26 - نظام النقاط وروبيكا](./26-rubika-points-system.md)
+
+---
+
+## 📝 الجزء التاسع: سجل التغييرات
+
+| الإصدار | التاريخ | التغييرات |
+|---------|---------|------------|
+| 1.0 | 6 أكتوبر 2026 | الإصدار الأولي |
+| **2.0** | **10 أكتوبر 2026** | **إضافة نص المؤلف الحرفي + الربط بنظام النقاط + تعميم المنصات + المبدأ السادس (Reusable Services)** |
+
+---
+
+**© 2026 RubikCare — للاستخدام الداخلي**
 ```
