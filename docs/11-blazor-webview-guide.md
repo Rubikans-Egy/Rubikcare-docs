@@ -1,6 +1,6 @@
 # 11 - دليل BlazorWebView والأنماط الناجحة
 
-**آخر تحديث: 8 أكتوبر 2026 (الإصدار 2.0)**
+**آخر تحديث: 10 أكتوبر 2026 (الإصدار 3.0)**
 **الحالة: ✅ محدّث بالأنماط الفعلية + دروس مستفادة من جلسة نظام النقاط**
 
 ---
@@ -11,12 +11,16 @@
 
 **⚠️ ملاحظة مهمة:** هذا المستند يعكس **ما هو مُتبع فعلياً في المشروع**، وليس ما هو نظري. بعض الأنماط هنا **تعمل بثبات** رغم تحذيرات قديمة في نسخ سابقة من هذا المستند.
 
-**🆕 جديد في الإصدار 2.0:**
+**🆕 جديد في الإصدار 3.0:**
+- `SafeAsyncAction` Helper لتقليل تكرار try/catch
+- جدول مقارنة `[QueryProperty]` vs `IQueryAttributable`
+- تحديث شجرة القرار
+- تحديث النقاط المفتوحة
+
+**🆕 في الإصدار 2.0 (محفوظ):**
 - قسم `[QueryProperty]` مع `Nullable<T>` (القسم 2-ب)
 - قسم `Action<T>` مع `async` (القسم 5-ب)
-- تحديث شجرة القرار (القسم 4)
 - قصة نجاح `PointsDashboardPage` (القسم 12)
-- تحديث النقاط التي تحتاج توثيقاً (القسم 11)
 
 ---
 
@@ -116,7 +120,7 @@ public MyFlowPage()
 
 `BlazorWebView` على Windows يستخدم `WebView2` كمحرك. هذا المحرك **يربط الـ DOM بمكونات Blazor فقط أثناء دورة حياة الكونستركتور** للـ `ContentPage` المضيفة.
 
-**⚠️ استثناء مهم مُوثَّق:** في بيئة المشروع الفعلية، `RootComponents.Clear()` ثم `Add` **يعمل بنجاح** في بعض السيناريوهات (خاصة عند استخدام `CustomBlazorWebView` — انظر القسم التالي). هذا مُوثَّق في نمط "QueryProperty + Setter" أدناه.
+**⚠️ استثناء مهم مُوثَّق:** في بيئة المشروع الفعلية، `RootComponents.Clear()` ثم `Add` **يعمل بنجاح** في بعض السيناريوهات (خاصة عند استخدام `CustomBlazorWebView`). هذا مُوثَّق في نمط "QueryProperty + Setter" أدناه.
 
 ### ❌ أنماط فاشلة موثقة
 
@@ -126,12 +130,6 @@ public MyFlowPage()
 {
     InitializeComponent();
     _ = LoadAndShowAsync(); // Task تنتهي بعد الكونستركتور — لن يعمل
-}
-
-private async Task LoadAndShowAsync()
-{
-    await LoadDataAsync();
-    blazorWebView.RootComponents.Add(...); // ← متأخر جداً
 }
 
 // ❌ النمط 2: في OnAppearing (للمكونات التي لم تُضف في Constructor)
@@ -183,11 +181,6 @@ public MyFlowPage()
 System.InvalidCastException: Invalid cast from 'System.String' to 
 'System.Nullable`1[[System.Int32, System.Private.CoreLib, Version=10.0.0.0, 
 Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]'.
-   at System.Convert.DefaultToType(IConvertible value, Type targetType, IFormatProvider provider)
-   at System.String.System.IConvertible.ToType(Type type, IFormatProvider provider)
-   at System.Convert.ChangeType(Object value, Type conversionType, IFormatProvider provider)
-   at Microsoft.Maui.Controls.ShellContent.ApplyQueryAttributes(Object content, 
-       ShellRouteParameters query, ShellRouteParameters oldQuery)
 ```
 
 ### 🎯 السبب الجذري
@@ -265,6 +258,23 @@ protected override void OnAppearing()
 ```
 
 **هذا يضمن أن `QueryProperty` تم تعيينه قبل بناء المكون.**
+
+### 📊 متى تستخدم `IQueryAttributable` بدلاً من `[QueryProperty]`؟
+
+| الحالة | `[QueryProperty]` | `IQueryAttributable` |
+|--------|:------------------:|:-------------------:|
+| 1-2 معاملات | ✅ مُوصى | يعمل |
+| 3+ معاملات | ❌ وميض | ✅ مُوصى |
+| `Nullable<T>` | ❌ يحتاج حيلة (string) | ✅ يدعم أصلاً |
+| إعادة إنشاء المكون | لا | لا |
+| `LoadBlazorComponent` في Constructor | ✅ | يحتاج `_queryReady` flag |
+| ترتيب الاستدعاء | Setter في Constructor | `ApplyQueryAttributes` (بعد Constructor، قبل OnAppearing) |
+
+**القاعدة:** 
+- `[QueryProperty]` **للبساطة** (1-2 معاملات، `string`).
+- `IQueryAttributable` **للمرونة** (3+ معاملات، `Nullable<T>`، تحكم كامل).
+
+**⚠️ ملاحظة:** النمط 2 (PharmacyDetailFlow) يعتمد على `[QueryProperty]` لتفعيل الـ Setter — وهو مُتبع ومستقر. **لكن لا يستخدمه مع `Nullable<T>`.**
 
 ---
 
@@ -437,13 +447,9 @@ public partial class ProfessionalStatusFlow : ContentPage
 
     private async Task RefreshFromApiAsync()
     {
-        // جلب من API
         var session = await _cachedSessionService.GetSessionAsync();
-
-        // تحديث Preferences
         Preferences.Set("license_status_code", newStatusCode);
 
-        // إذا تغيّر شيء، أعد تحميل UI
         if (changed)
         {
             await MainThread.InvokeOnMainThreadAsync(() =>
@@ -510,7 +516,6 @@ public partial class ProfessionalLicenseFlow : ContentPage
         });
     }
 
-    // ⭐ استدعاء method على المكون
     private async Task PickFileAndUpdateAsync()
     {
         var result = await FilePicker.PickAsync(...);
@@ -524,14 +529,14 @@ public partial class ProfessionalLicenseFlow : ContentPage
 
         await MainThread.InvokeOnMainThreadAsync(() =>
         {
-            _licensePageRef?.SetFileData(fileName, bytes);  // ⭐ public method
+            _licensePageRef?.SetFileData(fileName, bytes);
         });
     }
 
     protected override void OnDisappearing()
     {
         base.OnDisappearing();
-        _licensePageRef = null;   // تنظيف
+        _licensePageRef = null;
         try { blazorWebView.RootComponents.Clear(); } catch { }
     }
 }
@@ -547,11 +552,10 @@ public partial class ProfessionalLicenseFlow : ContentPage
     {
         if (firstRender)
         {
-            OnComponentReady?.Invoke(this);   // ⭐ إرسال مرجع this
+            OnComponentReady?.Invoke(this);
         }
     }
 
-    // ⭐ public method تستدعى من MAUI
     public void SetFileData(string fileName, byte[] fileBytes)
     {
         _fileName = fileName;
@@ -569,7 +573,7 @@ public partial class ProfessionalLicenseFlow : ContentPage
 **العيوب:**
 - ⚠️ يتطلب `public methods` على المكون.
 - ⚠️ يحتاج `Dispose` لتنظيف المرجع.
-- ⚠️ **الحذر**: `OnComponentReady` يُستدعى مرة واحدة فقط عند `firstRender`.
+- ⚠️ `OnComponentReady` يُستدعى مرة واحدة فقط عند `firstRender`.
 
 ---
 
@@ -584,7 +588,6 @@ public partial class ProfessionalLicenseFlow : ContentPage
 │   │       ├── هل تحتاج لتفاعل MAUI → Component؟
 │   │       │   ├── نعم → 🌟 النمط 4 (Constructor + OnComponentReady)
 │   │       │   └── لا → 🌟 النمط 1 (Constructor + LoadComponent)
-│   └── ...
 │
 └── نعم
     ├── هل عدد المعاملات ≤ 2؟
@@ -595,8 +598,6 @@ public partial class ProfessionalLicenseFlow : ContentPage
     │   └── لا (3+ معاملات)
     │       ├── ⚠️ تجنب النمط 2 (يسبب وميض)
     │       └── استخدم: النمط 5 (هجين) + IQueryAttributable
-    │
-    └── ...
 ```
 
 ### جدول ملخص لاختيار النمط
@@ -607,7 +608,7 @@ public partial class ProfessionalLicenseFlow : ContentPage
 | صفحة بمعامل واحد أو اثنين | النمط 2 | يعمل بثبات (بفضل `CustomBlazorWebView`) |
 | صفحة ببيانات Cache محلية | النمط 3 | تجربة مستخدم ممتازة |
 | صفحة بتفاعل MAUI → Component | النمط 4 | يحتاج `public methods` |
-| صفحة بـ 3+ معاملات | **النمط 5 (هجين)** | انظر القسم التالي |
+| صفحة بـ 3+ معاملات | **النمط 5 (هجين)** | انظر القسم الخامس |
 | **صفحة بـ Nullable QueryProperty** | **النمط 2 مع string** | استقبل كـ string، حوّل يدوياً |
 
 ---
@@ -655,7 +656,9 @@ public partial class ProgramDetailsPage : ContentPage, IQueryAttributable
                         Debug.WriteLine("✅ ProgramDetailsWrapper ref captured");
                         TryLoadProgram();   // ⭐ محاولة فورية
                     })
-                }
+                },
+                { "OnGoBack", SafeAsyncAction(GoBackAsync) },
+                { "OnGoToPointsDashboard", SafeAsyncAction<int>(GoToPointsDashboardAsync) },
                 // ... باقي الـ Bridges
             }
         });
@@ -699,6 +702,21 @@ public partial class ProgramDetailsPage : ContentPage, IQueryAttributable
         });
     }
 
+    // ⭐ Helper لتقليل التكرار
+    private Action<T> SafeAsyncAction<T>(Func<T, Task> asyncAction) =>
+        (arg) => MainThread.BeginInvokeOnMainThread(async () =>
+        {
+            try { await asyncAction(arg); }
+            catch (Exception ex) { Debug.WriteLine($"❌ [SafeAsyncAction] {ex}"); }
+        });
+
+    private Action SafeAsyncAction(Func<Task> asyncAction) =>
+        () => MainThread.BeginInvokeOnMainThread(async () =>
+        {
+            try { await asyncAction(); }
+            catch (Exception ex) { Debug.WriteLine($"❌ [SafeAsyncAction] {ex}"); }
+        });
+
     protected override void OnDisappearing()
     {
         base.OnDisappearing();
@@ -718,9 +736,6 @@ public partial class ProgramDetailsPage : ContentPage, IQueryAttributable
 **العيوب:**
 - ⚠️ **يحتاج `public method` على المكون** (`LoadProgram`).
 - ⚠️ **يحتاج flag `_queryReady`** لمنع الاستدعاء قبل وصول الـ Query.
-
-**✅ متى يعمل هذا النمط:**
-- عندما يُستدعى `OnComponentReady` و `ApplyQueryAttributes` — **بأي ترتيب** — فإن `TryLoadProgram()` تُنفَّذ عند اكتمال الاثنين.
 
 ---
 
@@ -747,12 +762,13 @@ Android.Runtime.JavaProxyThrowable
 <Cannot evaluate the exception stack trace>
 ```
 
-**لا يخبرك بشيء.** لا السطر، لا السبب، لا الـ Inner Exception.
+**لا يخبرك بشيء.**
 
 ### ✅ النمط الصحيح
 
+#### الحل 1: لفّ مباشر
+
 ```csharp
-// ⭐ لفّها في MainThread.BeginInvokeOnMainThread + try/catch
 { "OnGoToPointsDashboard", new Action<int>((programId) =>
 {
     MainThread.BeginInvokeOnMainThread(async () =>
@@ -764,10 +780,32 @@ Android.Runtime.JavaProxyThrowable
         catch (Exception ex)
         {
             Debug.WriteLine($"❌ [OnGoToPointsDashboard] {ex}");
-            // أو أظهر Alert للمستخدم
         }
     });
 }) },
+```
+
+#### الحل 2: Helper Method (مُوصى به)
+
+```csharp
+// ⭐ Helper يقلل التكرار
+private Action<T> SafeAsyncAction<T>(Func<T, Task> asyncAction) =>
+    (arg) => MainThread.BeginInvokeOnMainThread(async () =>
+    {
+        try { await asyncAction(arg); }
+        catch (Exception ex) { Debug.WriteLine($"❌ [SafeAsyncAction] {ex}"); }
+    });
+
+private Action SafeAsyncAction(Func<Task> asyncAction) =>
+    () => MainThread.BeginInvokeOnMainThread(async () =>
+    {
+        try { await asyncAction(); }
+        catch (Exception ex) { Debug.WriteLine($"❌ [SafeAsyncAction] {ex}"); }
+    });
+
+// الاستخدام:
+{ "OnGoToPointsDashboard", SafeAsyncAction<int>(GoToPointsDashboardAsync) },
+{ "OnGoBack", SafeAsyncAction(GoBackAsync) },
 ```
 
 ### 📌 القاعدة الذهبية
@@ -775,9 +813,9 @@ Android.Runtime.JavaProxyThrowable
 > **كل `Action<T>` يحتوي على `async` يجب أن:**
 > 1. **يُلفّ في `MainThread.BeginInvokeOnMainThread`**
 > 2. **يحتوي على `try/catch` صريح**
-> 3. **يطبع الـ Exception الكامل** (`ex.ToString()` وليس `ex.Message`)
+> 3. **يطبع الـ Exception الكامل** (`ex.ToString()`)
 
-**هذا يحوّل `JavaProxyThrowable` المبهم إلى Exception واضح يمكن تشخيصه.**
+**هذا يحوّل `JavaProxyThrowable` المبهم إلى Exception واضح.**
 
 ### 📊 مقارنة: قبل/بعد
 
@@ -858,7 +896,6 @@ public MyFlowPage()
 {
     InitializeComponent();
     Debug.WriteLine("🔵 Constructor START");
-    // ...
     Debug.WriteLine($"🟢 RootComponents: {blazorWebView.RootComponents.Count}");
 }
 ```
@@ -903,7 +940,6 @@ public MyFlowPage()
 protected override async Task OnInitializedAsync()
 {
     Debug.WriteLine("🔵 OnInitializedAsync START");
-    // ...
     Debug.WriteLine("🟢 OnInitializedAsync END");
 }
 ```
@@ -911,13 +947,13 @@ protected override async Task OnInitializedAsync()
 | النتيجة | المشكلة |
 |---------|---------|
 | لا يظهر START | مشكلة DI (الخطوة 3) |
-| يظهر START لكن لا يظهر END | Exception في المنتصف — ابحث عن try/catch مفقود |
+| يظهر START لكن لا يظهر END | Exception في المنتصف |
 
-### الخطوة 5 (جديدة): إذا ظهر `JavaProxyThrowable`
+### الخطوة 5: إذا ظهر `JavaProxyThrowable`
 
 **السبب المحتمل:** `Action<T>` مع `async` — راجع القسم 5-ب.
 
-**الحل:** لفّ الـ `Action` في `MainThread.BeginInvokeOnMainThread` + `try/catch`.
+**الحل:** لفّ الـ `Action` في `MainThread.BeginInvokeOnMainThread` + `try/catch` (أو `SafeAsyncAction`).
 
 ---
 
@@ -936,7 +972,7 @@ RubikCare.Mobile/
 │   │
 │   ├── PSP/Doctor/Views/
 │   │   ├── ProgramDetailsPage.xaml     # نمط 5 (Hybrid)
-│   │   └── PointsDashboardPage.xaml    # نمط 5 مع QueryProperty (string)
+│   │   └── PointsDashboardPage.xaml    # نمط 2 مع QueryProperty (string)
 │   │
 │   └── ProfessionalOnboarding/Views/
 │       ├── ProfessionalStatusFlow.xaml
@@ -972,7 +1008,7 @@ RubikCare.Shared.UI/                     # RCL للمكونات المشتركة
 - [ ] هل تستخدم `Action` بدلاً من `EventCallback` لتمرير الدوال (نمط MAUI)؟
 - [ ] هل `OnDisappearing` تستدعي `RootComponents.Clear()` وتنظف `_pageRef`؟
 - [ ] **هل `[QueryProperty]` من نوع `string` وليس `Nullable<T>`؟**
-- [ ] **هل `Action<T>` مع `async` ملفوف في `MainThread.BeginInvokeOnMainThread` + `try/catch`؟**
+- [ ] **هل `Action<T>` مع `async` ملفوف في `MainThread.BeginInvokeOnMainThread` + `try/catch` (أو `SafeAsyncAction`)؟**
 - [ ] **إذا كان `[QueryProperty]` مستخدماً — هل `LoadBlazorComponent` في `OnAppearing` وليس Constructor؟**
 
 ### Blazor Component (المكون)
@@ -987,8 +1023,6 @@ RubikCare.Shared.UI/                     # RCL للمكونات المشتركة
 ---
 
 ## 📝 القسم الحادي عشر: نقاط تحتاج توثيقاً (TODO)
-
-النقاط التالية تحتاج تأكيداً من الفريق:
 
 1. **لماذا يعمل النمط 2 (`QueryProperty + Setter`) رغم تحذير القسم الثاني؟**
    - هل بسبب `CustomBlazorWebView`؟
@@ -1005,7 +1039,6 @@ RubikCare.Shared.UI/                     # RCL للمكونات المشتركة
    - يعمل بنجاح في `ProgramDetailsPage` مع `IQueryAttributable`.
    - الشرط: `OnComponentReady` و `ApplyQueryAttributes` — بأي ترتيب — ثم `TryLoadProgram()`.
    - الإصلاح: flag `_queryReady` + `_wrapperRef`.
-   - **لم يعد نقطة مفتوحة.**
 
 5. **ما هو `IBackButtonHandler`؟**
    - كيف يعمل؟
@@ -1023,27 +1056,23 @@ RubikCare.Shared.UI/                     # RCL للمكونات المشتركة
 
 **3 مشاكل متراكبة:**
 
-1. **`ProgramId` لم يُستقبل أصلاً** — كان `[QueryProperty]` يُعيَّن بعد `LoadBlazorComponent()`، فيبقى `ProgramId = null` عند بناء المكون.
-
-2. **`[QueryProperty]` مع `int?`** — كان `public int? ProgramId`، ففشل Shell في تحويل `"1"` إلى `int?` مع `InvalidCastException`.
-
-3. **`Action<int>` + `async`** — كانت `GoToPointsDashboardAsync` تُلفّ في `Action<int>(async ...)` بدون `try/catch`، فتحوّل الخطأ إلى `JavaProxyThrowable`.
+1. **`ProgramId` لم يُستقبل أصلاً** — كان `[QueryProperty]` يُعيَّن بعد `LoadBlazorComponent()`.
+2. **`[QueryProperty]` مع `int?`** — فشل التحويل.
+3. **`Action<int>` + `async`** — بدون `try/catch`.
 
 ### الحل النهائي
 
 **في `PointsDashboardPage.xaml.cs`:**
 
 ```csharp
-[QueryProperty(nameof(ProgramIdRaw), "programId")]   // ✅ string وليس int?
+[QueryProperty(nameof(ProgramIdRaw), "programId")]
 public partial class PointsDashboardPage : ContentPage
 {
     public string? ProgramIdRaw { get; set; }
-    
     private int? ProgramId => int.TryParse(ProgramIdRaw, out var id) ? id : null;
-    
     private bool _componentLoaded = false;
     
-    protected override void OnAppearing()   // ✅ هنا وليس في Constructor
+    protected override void OnAppearing()
     {
         base.OnAppearing();
         if (!_componentLoaded)
@@ -1058,14 +1087,7 @@ public partial class PointsDashboardPage : ContentPage
 **في `ProgramDetailsPage.xaml.cs`:**
 
 ```csharp
-{ "OnGoToPointsDashboard", new Action<int>((programId) =>
-{
-    MainThread.BeginInvokeOnMainThread(async () =>
-    {
-        try { await GoToPointsDashboardAsync(programId); }
-        catch (Exception ex) { Debug.WriteLine($"❌ {ex}"); }
-    });
-}) },
+{ "OnGoToPointsDashboard", SafeAsyncAction<int>(GoToPointsDashboardAsync) },
 ```
 
 ### النتيجة
@@ -1073,14 +1095,14 @@ public partial class PointsDashboardPage : ContentPage
 ✅ الصفحة تفتح بنجاح في MAUI.
 ✅ الـ Log يظهر القيم الصحيحة (`OrgId=1247, ProgramId=1`).
 ✅ لا `JavaProxyThrowable`.
-✅ البطاقة تعمل بعد إصلاح `CheckPointsVisibility` (Fallback لـ `OrganizationId`).
 
 ### الدروس المستفادة
 
-1. **`[QueryProperty]` ≠ `Nullable<T>`** — استخدم `string` دائماً.
+1. **`[QueryProperty]` ≠ `Nullable<T>`** — استخدم `string`.
 2. **`[QueryProperty]` يُعيَّن بعد Constructor** — استخدم `OnAppearing` مع flag.
 3. **`Action<T>` + `async` = `JavaProxyThrowable`** — لفّها بـ `try/catch`.
 4. **"الفشل الصامت" في MAUI** — قد يكون DI، قد يكون QueryProperty، قد يكون Action.
+5. **`SafeAsyncAction` Helper** — يوحد النمط، يقلل التكرار.
 
 ---
 
@@ -1088,35 +1110,23 @@ public partial class PointsDashboardPage : ContentPage
 
 - [00 - الهيكل المعماري](./00-architecture-overview.md)
 - [05 - إنشاء الصفحات والمكونات](./05-page-creation-checklist.md)
+- [08 - Strategic Roadmap](./08-Strategic-Roadmap.md)
 - [10 - دليل تطوير MAUI](./10-maui-development-guide.md)
 - [13 - Clean Architecture Enforcement](./13-clean-architecture-enforcement.md)
-- [15 - نظام ترجمة الموبايل](./15-translation-system.md)
+- [15 - نظام التحكم المركزي متعدد الطبقات](./15-multi-layer-menu-control.md)
 - [27 - الديون التقنية](./27-technical-debt.md)
 
 ---
 
-**آخر تحديث:** 8 أكتوبر 2026 | **الإصدار:** 2.0 | **الملف:** `11-blazor-webview-guide.md`
+## 📝 سجل التغييرات
+
+| الإصدار | التاريخ | التغييرات |
+|---------|---------|-----------|
+| 1.0 | 8 يوليو 2026 | الإصدار الأولي |
+| 2.0 | 8 أكتوبر 2026 | `[QueryProperty]` + Nullable + `Action<T>` + async + قصة نجاح PointsDashboardPage |
+| **3.0** | **10 أكتوبر 2026** | **`SafeAsyncAction` Helper + جدول مقارنة `[QueryProperty]` vs `IQueryAttributable` + تحديث سجل النقاط المفتوحة + قائمة روابط محدّثة** |
+
+---
+
+**آخر تحديث:** 10 أكتوبر 2026 | **الإصدار:** 3.0 | **الملف:** `11-blazor-webview-guide.md`
 ```
-
----
-
-## ✅ ملخص ما تغيّر في الإصدار 2.0
-
-| # | التغيير | القسم |
-|:---:|:---|:---|
-| **1** | 🆕 قسم كامل — `[QueryProperty]` مع `Nullable<T>` | القسم 2-ب |
-| **2** | 🆕 قسم كامل — `Action<T>` مع `async` | القسم 5-ب |
-| **3** | 🆕 قصة نجاح موثقة — `PointsDashboardPage` | القسم 12 |
-| **4** | تحديث شجرة القرار — إضافة سؤال Nullable | القسم 4 |
-| **5** | تحديث القسم 11 — النمط 5 مُتحقَّق منه | القسم 11 |
-| **6** | تحديث Checklist — إضافة 3 فحوصات جديدة | القسم 10 |
-| **7** | تحديث الخطوة 5 في تشخيص الصفحة الفارغة | القسم 8 |
-| **8** | تحديث هيكل المشروع — إضافة `PointsDashboardPage` | القسم 9 |
-| **9** | تحديث قائمة الافتراضات الفاشلة | القسم 7 |
-
----
-
-
-**هذه الوثيقة الآن "ذهبية" — تمنع كل الأخطاء التي واجهناها اليوم.** 🚀
-
-**هل تريد تحديثاً مشابهاً لأي وثيقة أخرى؟**
