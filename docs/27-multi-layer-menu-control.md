@@ -521,6 +521,427 @@ Organizations ──┬── OrganizationSubscriptions ── Plans ── Plan
 
 ---
 
+
+## 📄 الوثيقة الموحدة `15-multi-layer-menu-control.md
+```markdown
+# 15 - نظام القوائم والصلاحيات الشامل
+
+**الإصدار:** 3.0 (Unified Edition — Menu & Permissions System)
+**آخر تحديث:** 13 أكتوبر 2026
+**الحالة:** ✅ مرجع معماري إلزامي — يقرأه كل مطور قبل العمل على القوائم
+**المؤلف:** RubikCare Team
+
+---
+
+## 📌 الجزء صفر: الرؤية والفلسفة (نص المؤلف الحرفي)
+
+> **⚠️ ملاحظة:** هذا القسم يحتوي على **نص الكاتب الحرفي** — دون إعادة صياغة.
+> الهدف: حفظ الرؤية الكاملة كما صيغت.
+
+---
+
+### 0.1 الرؤية الكاملة للنظام
+
+> **نص المؤلف الحرفي:**
+> 
+> "راجع هذه الوثيقة جيداً والخاصة بتحويل جذري لإدارة القوائم في المنصة.
+> وذلك بهدف إظهار أو إخفاء هذه الميزات بشكل ديناميكي من لوحة التحكم في المنصة وليس عبر الكود، وفقاً لنظام اشتراكات أو خطط تسويق مختلفة ومرنة.
+> 
+> لاحظ أن النظام موجود في الويب ولكن مطلوب تعميمه ليكون في منصات العرض كلها مع تحكم تام مركزي، مرن أيضاً بنفس نمط تفكيري."
+
+**الترجمة التقنية:**
+- **مصدر الحقيقة** = قاعدة البيانات (لا كود).
+- **التعميم** = Web + PWA + MAUI (نفس النظام).
+- **المرونة** = Subscriptions + Plans + Dynamic Visibility.
+- **التحكم المركزي** = لوحة تحكم Super Admin.
+
+---
+
+### 0.2 سبب الحاجة للنظام (الربط بنظام النقاط)
+
+> **نص المؤلف الحرفي:**
+> 
+> "لماذا أخبرك بهذه الجزئية الآن؟
+> أخبرك بها لأننا سنحتاج بعد الانتهاء من backend ما ننجزه الآن أن نفكر في مراعاة هذه الجزئية المذكورة في تصميم الواجهات، وتعديل الوضع الحالي ليسمح بمرونة أكثر، بدلاً من كونها ميزة مدمجة في داخل برامج الدعم.
+> 
+> فلا نحتاج مستقبلاً لتطوير واجهات مخصصة لكل خدمة نريد إضافة نظام نقاط لها."
+
+**الترجمة التقنية:**
+
+**المشكلة الحالية:**
+- نظام النقاط **مدمج داخل PSP**.
+- لو أردنا نظام نقاط في B2B → نسخ كود + تعديلات.
+
+**بعد وثيقة 15:**
+- نظام النقاط يصبح **ميزة (Feature)**.
+- المنظمة تشترك في **Plan** يحتوي على `POINTS_SYSTEM`.
+- **لا كود مخصص لكل خدمة.**
+- **نفس الميزة، نفس الواجهة، نفس المحرك.**
+
+---
+
+### 0.3 تعميم النظام على كل المنصات
+
+> **نص المؤلف الحرفي:**
+> 
+> "لاحظ أن النظام موجود في الويب ولكن مطلوب تعميمه ليكون في منصات العرض كلها مع تحكم تام مركزي."
+
+**الترجمة التقنية:**
+
+| المنصة | الحالة الحالية | الهدف |
+|:------:|:--------------:|:-----:|
+| **Web** | ✅ النظام مُطبَّق | يبقى |
+| **PWA** | 🟡 قائمة ثابتة | تُطبَّق 4 طبقات |
+| **MAUI** | 🟡 AppShell ثابت | يُستبدل بـ `DynamicMenuComponent` |
+
+**الحل:** `DynamicMenuComponent` في `Shared.UI` — يُستخدم في **الثلاث منصات**.
+
+---
+
+## 📌 الملخص التنفيذي
+
+هذه الوثيقة تُعرّف نظامًا معماريًا موحّدًا للتحكم في القوائم والصلاحيات والميزات عبر المنصات الثلاث (Blazor Web + PWA + MAUI)، من خلال **أربع طبقات تحكم** مستقلة ومتكاملة، مع **آلية Rules** ديناميكية.
+
+**الهدف:** توحيد مصدر الحقيقة، إزالة الفوضى، تمكين المنظمات من التحكم الذاتي، وتفعيل نظام الاشتراكات والصلاحيات في حل واحد.
+
+---
+
+## 🏛️ الجزء الأول: البنية المعمارية
+
+### 1.1 المبدأ الأساسي
+
+> **"لا نبني نظامًا جديدًا، بل نُوسّع ونُوحّد الموجود."**
+
+### 1.2 الطبقات الأربع للتحكم
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  الطبقة 1: المنصة (Platform)                             │
+│  من يتحكم؟ Super Admin                                   │
+│  ماذا؟ القوائم الرئيسية لكل نوع منظمة                    │
+│  المعيار: OrganizationType + MenuAssignments             │
+└─────────────────────────────────────────────────────────┘
+                          ↓
+┌─────────────────────────────────────────────────────────┐
+│  الطبقة 2: الاشتراكات (Subscriptions)                    │
+│  من يتحكم؟ Super Admin                                   │
+│  ماذا؟ الميزات المفعّلة في اشتراك المنظمة                 │
+│  المعيار: MenuVisibilityRules (SubscriptionPlanID)       │
+└─────────────────────────────────────────────────────────┘
+                          ↓
+┌─────────────────────────────────────────────────────────┐
+│  الطبقة 3: المنظمة (Organization)                        │
+│  من يتحكم؟ Admin المنظمة                                 │
+│  ماذا؟ ما سمحت به المنظمة لعناصر قوائمها                 │
+│  المعيار: MenuVisibilityRules (OrganizationID)           │
+└─────────────────────────────────────────────────────────┘
+                          ↓
+┌─────────────────────────────────────────────────────────┐
+│  الطبقة 4: الوظيفة (JobTitle)                            │
+│  من يتحكم؟ Admin المنظمة                                 │
+│  ماذا؟ ما تراه كل وظيفة داخل المنظمة                     │
+│  المعيار: MenuVisibilityRules (RoleId)                   │
+└─────────────────────────────────────────────────────────┘
+```
+
+### 1.3 ترتيب الأولويات بين الطبقات
+
+```
+1. MenuAssignments → تحديد القوائم المتاحة لنوع المنظمة
+   ↓
+2. MenuVisibilityRules → تطبيق القواعد (RuleType + Priority)
+   ↓
+3. القائمة النهائية للمستخدم
+```
+
+**قاعدة الأولوية:**
+
+> **"Priority الأصغر = الأولوية الأعلى."**
+
+**مثال:**
+- Rule 1: `RuleType=All`, `Priority=100`, `IsVisible=true` → يظهر للجميع.
+- Rule 2: `RuleType=Organization`, `OrganizationID=5`, `Priority=50`, `IsVisible=false` → يخفي عن Org 5.
+- **النتيجة لـ Org 5:** **الاثنان مطابقان** → **الأعلى أولوية (Rule 2, Priority=50) يفوز** → **مخفي**.
+
+---
+
+## 🗄️ الجزء الثاني: نموذج البيانات (ERD)
+
+### 2.1 الجداول الأساسية
+
+| # | الجدول | الدور |
+|:-:|--------|-------|
+| 1 | `SystemMenus` | القوائم الرئيسية (USER_BASE, ADMIN_MENU, LOYALTY, ...) |
+| 2 | `MenuItems` | عناصر القوائم (Items) |
+| 3 | `MenuAssignments` | ربط القوائم بأنواع المنظمات |
+| 4 | **`MenuVisibilityRules`** | **قواعد الإظهار/الإخفاء الديناميكية** |
+| 5 | `CustomJobTitles` | وظائف الأعضاء |
+| 6 | `OrgMemberships` | عضويات المستخدمين |
+
+### 2.2 `MenuVisibilityRules` — التفصيل
+
+| العمود | النوع | الوصف |
+|--------|------|-------|
+| `RuleID` | `INT PK` | المعرف |
+| `ItemID` | `INT FK` | العنصر المستهدف |
+| `RuleType` | `INT` | نوع القاعدة (enum) |
+| `OrganizationID` | `INT NULL` | منظمة محددة |
+| `OrganizationTypeID` | `INT NULL` | نوع منظمة |
+| `SubscriptionPlanID` | `INT NULL` | خطة اشتراك |
+| `RoleId` | `NVARCHAR NULL` | دور مستخدم |
+| `IsVisible` | `BIT` | مرئي/مخفي |
+| `EffectiveFrom` | `DATETIME2` | بداية الصلاحية |
+| `EffectiveTo` | `DATETIME2 NULL` | نهاية الصلاحية |
+| **`Priority`** | `INT` | **الأصغر = الأعلى** |
+| `IsActive` | `BIT` | نشط/معطّل |
+
+### 2.3 `RuleType` Enum
+
+```csharp
+public enum RuleType
+{
+    All = 0,                // للجميع
+    Organization = 1,       // منظمة محددة
+    OrganizationType = 2,   // نوع منظمة
+    Subscription = 3,       // خطة اشتراك
+    Role = 4,               // دور مستخدم
+    User = 5                // مستخدم محدد (مستقبلاً)
+}
+```
+
+---
+
+## 🏗️ الجزء الثالث: توزيع المسؤوليات التقنية
+
+### 3.1 المبدأ
+
+> **"منطق واحد في Service، عرض واحد في Shared.UI، ثلاثة أغلفة رقيقة."**
+
+### 3.2 التوزيع حسب الطبقة
+
+| # | الطبقة | المكوّن | الموقع |
+|:-:|--------|--------|--------|
+| 1 | **Domain** | `MenuVisibilityRule` (Entity) | `RubikCare.Domain/Entities/Navigation/MenuSystem/` |
+| 2 | **Application** | `IMenuVisibilityService` | `RubikCare.Application/Interfaces/Navigation/` |
+| 3 | **Application** | `IMenuFilteringService` | `RubikCare.Application/Interfaces/Navigation/` |
+| 4 | **Application** | `IMenuFilterableItem` | `RubikCare.Application/Interfaces/Navigation/` |
+| 5 | **Application** | `MenuFilterContextDto` | `RubikCare.Application/DTOs/Navigation/` |
+| 6 | **Application** | `MenuFilteringService` (منطق خالص) | `RubikCare.Application/Services/Navigation/` |
+| 7 | **Infrastructure** | `MenuVisibilityService` (DB) | `RubikCare.Infrastructure/Services/Navigation/` |
+| 8 | **Web** | `DynamicMenuService` (يستخدم الخدمات) | `Rubikcare.Web/Data/Services/Navigation/` |
+| 9 | **Web** | `UserMenuService` (Bridge) | `Rubikcare.Web/Data/Services/` |
+
+### 3.3 `IMenuVisibilityService` — المسؤوليات
+
+```csharp
+public interface IMenuVisibilityService
+{
+    Task<List<MenuVisibilityRule>> GetActiveRulesForItemsAsync(
+        List<int> itemIds,
+        CancellationToken cancellationToken = default);
+
+    Task<List<MenuVisibilityRule>> GetAllActiveRulesAsync(
+        CancellationToken cancellationToken = default);
+}
+```
+
+**المسؤولية:** قراءة القواعد من DB.
+
+### 3.4 `IMenuFilteringService` — المسؤوليات
+
+```csharp
+public interface IMenuFilteringService
+{
+    List<T> ApplyRules<T>(
+        List<T> items,
+        List<MenuVisibilityRule> rules,
+        MenuFilterContextDto context)
+        where T : IMenuFilterableItem;
+}
+```
+
+**المسؤولية:** تطبيق القواعد على قائمة عناصر — **منطق خالص (لا DB).**
+
+### 3.5 `MenuFilterContextDto` — السياق
+
+```csharp
+public class MenuFilterContextDto
+{
+    public int? OrganizationId { get; set; }
+    public int? OrganizationTypeId { get; set; }
+    public int? SubscriptionPlanId { get; set; }
+    public int? UserProfileId { get; set; }
+    public List<string> RoleIds { get; set; } = new();
+    public bool IsPlatformAdmin { get; set; }
+}
+```
+
+### 3.6 تدفق البيانات في `DynamicMenuService`
+
+```
+LoadMenuDataFromDatabaseAsync(user)
+    │
+    ├── GetPersonalMenuAsync(userProfileId)
+    │   ├── جلب Items من SystemMenu (USER_BASE)
+    │   ├── IMenuVisibilityService.GetActiveRulesForItemsAsync(itemIds)
+    │   └── IMenuFilteringService.ApplyRules(items, rules, context)
+    │
+    ├── GetAdminMenuAsync(user)
+    │   ├── جلب Items من SystemMenu (ADMIN_MENU)
+    │   ├── جلب Rules
+    │   └── ApplyRules
+    │
+    └── LoadUserOrganizationsAsync(user)
+        └── لكل Org:
+            └── GetOrganizationMenuFromDatabaseAsync(orgId, orgTypeId, userProfileId)
+                ├── جلب MenuAssignments + Items
+                ├── جلب Rules
+                └── ApplyRules
+```
+
+---
+
+## 🎨 الجزء الرابع: الأنماط المُتبعة (Best Practices)
+
+### 4.1 نمط DTOs: مصدر واحد للحقيقة
+
+**⚠️ قاعدة صارمة:** كل DTO يُعرَّف **مرة واحدة فقط** في `Application.DTOs`.
+
+**ممنوع:**
+- ❌ DTO في `Web.Data.DTOs` + DTO في `Application.DTOs.Navigation`.
+- ❌ استخدام Aliases (`@using X = Y`) — إلا في حالات نادرة.
+
+**الحل الصحيح:**
+- ✅ `Application.DTOs.Navigation.MenuItemDto` — للاستخدام المُشترك.
+- ✅ لا `@using RubikCare.Shared.UI.Components.PSP.Points` في `_Imports.razor`.
+- ✅ إضافة `@using` محلية في الملفات التي تحتاجها.
+
+### 4.2 نمط Rule-Based Filtering
+
+**المبدأ:**
+1. **جلب العناصر** من DB (بدون فلترة).
+2. **جلب القواعد** من `MenuVisibilityRules`.
+3. **تطبيق القواعد** في `MenuFilteringService` (منطق خالص).
+4. **الإرجاع** للـ Caller.
+
+**المزايا:**
+- **قابلية اختبار** عالية (منطق منفصل).
+- **إعادة استخدام** في MAUI/PWA.
+- **فصل تام** بين DB و Business Logic.
+
+### 4.3 نمط Cache Invalidation
+
+**⚠️ مهم:** عند تعديل `SystemMenus`, `MenuItems`, `MenuAssignments`, أو `MenuVisibilityRules`:
+
+**يجب استدعاء:**
+```csharp
+await _menuService.ClearCacheAsync(userId);
+```
+
+**⚠️ مكان الاستدعاء:** `AdminMenuManager.razor` — بعد كل حفظ.
+
+**⚠️ السبب:** لضمان أن القائمة تُحدَّث فوراً.
+
+### 4.4 نمط Priority في Rules
+
+**⚠️ تذكير:** **`Priority` الأصغر = الأعلى.**
+
+**الترتيب في الاستعلام:**
+```csharp
+.OrderBy(r => r.Priority)  // ✅ الأصغر أولاً
+```
+
+---
+
+## 🗺️ الجزء الخامس: خارطة التنفيذ
+
+### 5.1 ما تم إنجازه ✅
+
+| # | المكوّن | الحالة |
+|:-:|--------|:------:|
+| 1 | `MenuVisibilityRule` Entity | ✅ |
+| 2 | `RuleType` Enum | ✅ |
+| 3 | `IMenuVisibilityService` + Impl | ✅ |
+| 4 | `IMenuFilteringService` + Impl | ✅ |
+| 5 | `IMenuFilterableItem` | ✅ |
+| 6 | `MenuFilterContextDto` | ✅ |
+| 7 | `DynamicMenuService` المُحدَّث | ✅ |
+| 8 | `MenuRepository` — `using` صحيح | ✅ |
+| 9 | `LOYALTY_MENU` + 5 Items (SQL) | ✅ |
+| 10 | توحيد DTOs على `Application.DTOs.Navigation` | ✅ |
+
+### 5.2 ما تبقّى ⏳
+
+| # | المكوّن | الأولوية |
+|:-:|--------|:--------:|
+| 1 | `LoyaltySchemesList.razor` | 🔴 |
+| 2 | `LoyaltySchemeDetails.razor` | 🔴 |
+| 3 | `LoyaltySchemeEdit.razor` | 🔴 |
+| 4 | `GetSchemesByOrganizationHandler` + Endpoint | 🔴 |
+| 5 | `MenuVisibilityRules` Seed للمنظمات | 🟠 |
+| 6 | `LoyaltyProgram.razor` (إن وُجد) | 🟡 |
+| 7 | واجهة إدارة `MenuVisibilityRules` | 🟠 |
+| 8 | توسعة MAUI/PWA للقوائم الديناميكية | 🟠 |
+
+### 5.3 المخاطر
+
+| # | المخاطرة | الاحتمال | التخفيف |
+|:-:|----------|:--------:|---------|
+| 1 | تعارض DTOs (`Shared.UI` vs `Application`) | متوسط | **حذف `@using Shared.UI.Components.PSP.Points` من `_Imports.razor`** |
+| 2 | Cache قديم | منخفض | `ClearCacheAsync` بعد كل تعديل |
+| 3 | Priority مقلوب | متوسط | توثيق واضح + اختبار |
+| 4 | Rules متناقضة | متوسط | ترتيب `Priority` يضمن الحسم |
+
+---
+
+## 📚 الجزء السادس: مراجع سريعة
+
+### 6.1 قاموس المصطلحات
+
+| المصطلح | المعنى |
+|---------|--------|
+| `MenuAssignment` | ربط `SystemMenu` بـ `OrganizationType` |
+| `MenuVisibilityRule` | قاعدة إظهار/إخفاء عنصر |
+| `RuleType` | نوع القاعدة (All, Organization, ...) |
+| `Priority` | أولوية القاعدة — **الأصغر = الأعلى** |
+| `IMenuFilterableItem` | واجهة موحدة لكل عنصر قابل للتصفية |
+| `MenuFilterContextDto` | سياق المستخدم للتصفية |
+
+### 6.2 حل المشاكل الشائعة
+
+| # | المشكلة | الحل |
+|:-:|---------|------|
+| 1 | **`CS0104` Ambiguous reference** | احذف `@using RubikCare.Shared.UI.Components.PSP.Points` من `_Imports.razor` |
+| 2 | **`CS0246` Type not found** | تحقق من `@using` في الملف |
+| 3 | **القائمة لا تظهر** | تحقق من `MenuAssignment` + `IsActive` |
+| 4 | **عنصر لا يظهر** | تحقق من `MenuVisibilityRule` + `Priority` |
+| 5 | **Cache قديم** | `ClearCacheAsync(userId)` |
+
+### 6.3 روابط ذات صلة
+
+- [00 - الهيكل المعماري](./00-architecture-overview.md)
+- [02 - نظام الهوية والمصادقة](./02-identity-system.md)
+- [08 - Strategic Roadmap](./08-Strategic-Roadmap.md)
+- [11 - دليل BlazorWebView](./11-blazor-webview-guide.md)
+- [14 - نظام الكاش الموحد](./14-caching-system.md)
+- [26 - نظام النقاط وروبيكا](./26-rubika-points-system.md)
+
+---
+
+## 📝 الجزء السابع: سجل التغييرات
+
+| الإصدار | التاريخ | التغييرات |
+|---------|---------|-----------|
+| 1.0 | 6 أكتوبر 2026 | الإصدار الأولي |
+| 2.0 | 10 أكتوبر 2026 | إضافة نص المؤلف الحرفي |
+| **3.0** | **13 أكتوبر 2026** | **دمج مع `04-dynamic-menus` + `MenuVisibilityRules` + `IMenuFilteringService` + خارطة تنفيذ شاملة** |
+
+---
+
+**© 2026 RubikCare — للاستخدام الداخلي**
+```
+
+
 ## 🔗 الجزء 7: روابط ذات صلة
 
 - [00 - الهيكل المعماري](00-architecture-overview.md)
