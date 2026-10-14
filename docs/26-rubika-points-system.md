@@ -144,6 +144,47 @@
 
 ---
 
+2️⃣ نمط "الفئة المستهدفة" — يحتاج توثيقاً بنصك الحرفي
+طلبتَ توثيق هذه الجزئية بنصك الحرفي + شرحي. سأصيغها الآن:
+
+نص المؤلف الحرفي:
+"لاحظ أن كل نوع من المستفيدين يمكن جلبه من جدول محدد ولهذا تم تحديد 6 أنواع فقط. والجداول هي أنواع المنظمات + جدول المنظمات لتحديد المنظمة المستفيدة. جدول userprofile إن كانت النقاط للمريض. جدول orgmembership + customjobtitle لتحديد المستخدم إن كان عضو داخلي أو خارجي في المنظمة."
+
+الشرح التقني التفصيلي:
+
+القاعدة الذهبية: BeneficiaryTypeID يحدد الجدول الذي سيُجلب منه المستفيد، ولا يحمل بنفسه هوية المستفيد.
+
+BeneficiaryTypeID	الجدول المصدر	المعرّف الفعلي (BeneficiaryID)
+1 = ORGANIZATION	Organizations	OrganizationID
+2 = ORG_MEMBER_INTERNAL	OrgMemberships + CustomJobTitles	UserProfileID (داخل الشركة المُصدِرة)
+3 = ORG_MEMBER_EXTERNAL	OrgMemberships + CustomJobTitles	UserProfileID (داخل مؤسسة شريكة)
+4 = REGULAR_USER	UserProfiles	UserProfileID
+5 = PATIENT	UserProfiles + PSPParticipations	UserProfileID (مُسجَّل في برنامج)
+6 = GENERIC	(مستقبلاً)	—
+عندما يكون BeneficiaryTypeID = 1 (ORGANIZATION) فقط:
+
+نحتاج فلتراً إضافياً لتحديد نوع المؤسسة المستهدفة (CLINIC, PHARMACY, WAREHOUSE, ...).
+
+هنا يأتي دور OrganizationTypeFilterID (بدلاً من TargetOrganizationTypeID).
+
+مثال حي:
+
+text
+Rule #1: PATIENT_ENROLLED → BeneficiaryTypeID = 1 (ORGANIZATION)
+         OrganizationTypeFilterID = 4 (CLINIC)
+         → النقاط تُمنح للعيادات فقط عند تسجيل مريض.
+
+Rule #2: PATIENT_ENROLLED → BeneficiaryTypeID = 5 (PATIENT)
+         OrganizationTypeFilterID = NULL
+         → النقاط تُمنح للمريض نفسه.
+
+Rule #3: PATIENT_ENROLLED → BeneficiaryTypeID = 2 (ORG_MEMBER_INTERNAL)
+         OrganizationTypeFilterID = NULL
+         → النقاط تُمنح للمندوب الداخلي.
+الخلاصة: BeneficiaryTypeID + OrganizationTypeFilterID معاً = الفئة المستهدفة بدقة. الأول يحدد الجدول، والثاني يضيّق نطاق المؤسسة فقط عند اللزوم.
+
+
+
 ### 0.7 إدارة الجداول المرجعية
 
 > **نص المؤلف الحرفي (من جلسة 10 أكتوبر 2026):**
