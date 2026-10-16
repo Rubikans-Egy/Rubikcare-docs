@@ -1,16 +1,19 @@
-# 02 - نظام الهوية والمصادقة (Identity System)
 
-**آخر تحديث:** 18 يوليو 2026
+# 02 — IDENTITY (نظام الهوية والمصادقة)
 
-## مقدمة
-
-نظام الهوية في RubikCare هو أكثر الأجزاء حساسية في المشروع. أي خطأ هنا يعني أن المستخدمين لن يستطيعوا الدخول، أو سيرون بيانات لا تخصهم. هذا المرجع يشرح الفلسفة، البنية، والقواعد الصارمة التي يجب اتباعها.
+**الإصدار:** 2.0 (Unified Edition)
+**آخر تحديث:** 16 أكتوبر 2026
+**الحالة:** ✅ محدّث — يدمج 02 + 16
+**الجمهور:** فريق التطوير + AI Assistants
+**المرجع الإلزامي:** يُقرأ قبل أي تعديل على الهوية أو المصادقة
 
 ---
 
-## فلسفة النظام: "الهوية قبل الدور"
+## 📌 الجزء صفر: الفلسفة والرؤية
 
-### المبدأ الأساسي
+### 0.1 فلسفة النظام — "الهوية قبل الدور"
+
+> **"الهوية قبل الدور. الإنسان أولاً، ثم المهنة، ثم المكان، ثم الوظيفة."**
 
 ```mermaid
 graph TD
@@ -19,22 +22,35 @@ graph TD
     C --> D[4. وظيفة - دور داخل المؤسسة]
 ```
 
-### التدرج في الخدمات
+### 0.2 التدرج في الخدمات
 
-- **المستوى 0:** مستخدم عادي (قائمة شخصية فقط)
-- **المستوى 1:** صاحب مهنة (يمكنه إنشاء مؤسسة غير موثقة)
-- **المستوى 2:** مؤسسة موثقة (خدمات متقدمة)
+- **المستوى 0:** مستخدم عادي (قائمة شخصية فقط).
+- **المستوى 1:** صاحب مهنة (يمكنه إنشاء مؤسسة غير موثقة).
+- **المستوى 2:** مؤسسة موثقة (خدمات متقدمة).
 
-### فصل النظام عن المؤسسات
+### 0.3 فصل النظام عن المؤسسات
 
-- **النظام يدير:** 3 أدوار فقط (Admin, Doctor, Pharmacist)
-- **المؤسسات تدير:** موظفيها وأدوارهم الداخلية
+**⚠️ قاعدة جوهرية:**
+
+| النطاق | المسؤولية |
+|:---|:---|
+| **النظام (RubikCare)** | 3 أدوار نظامية فقط (`Admin`, `Doctor`, `Pharmacist`) |
+| **المؤسسات** | تدير موظفيها وأدوارهم الداخلية |
+
+**⚠️ ملاحظة (من جلسة 16 أكتوبر):**
+
+> **"UserRole مخصص فقط لتمييز الطبيب والصيدلي بشكل رئيسي، فهي الأدوار التي تحتاج تراخيص لممارسة مهامها. أما باقي الأدوار فيتم تحديدها حصراً عبر `OrgMembership` + `CustomJobTitle`."**
+
+**⚠️ النظام الحالي (16 أكتوبر):**
+
+- **`Admin`** — يُمنح عبر العضوية في **المنظمة رقم 1** (منصة RubikCare).
+- **`Doctor` + `Pharmacist`** — عبر `UserRole` مع `RoleType = Professional` + `ProfessionalLicense`.
 
 ---
 
-## الهيكل المعماري لجداول قاعدة البيانات
+## 🗄️ الجزء الأول: نموذج البيانات
 
-### مخطط العلاقات
+### 1.1 مخطط العلاقات
 
 ```mermaid
 erDiagram
@@ -43,182 +59,126 @@ erDiagram
     AspNetRoles ||--o{ AspNetUserRoles : "One-to-Many"
     AspNetUserRoles }o--|| UserProfiles : "Many-to-One"
     AspNetUserRoles }o--o| Organizations : "Many-to-One (Nullable)"
+    UserProfiles ||--o{ OrgMemberships : "One-to-Many"
+    OrgMemberships }o--|| Organizations : "Many-to-One"
+    OrgMemberships }o--o| CustomJobTitles : "Many-to-One"
 ```
 
-### AspNetUsers (من Microsoft Identity + تعديلاتنا)
+### 1.2 `AspNetUsers` (من Microsoft Identity + تعديلاتنا)
 
 | العمود | النوع | الوصف |
 |--------|------|-------|
-| Id | PK, nvarchar(450) | GUID |
-| UserName, NormalizedUserName | nvarchar | |
-| Email, NormalizedEmail | nvarchar | |
-| PasswordHash, SecurityStamp | nvarchar | |
-| UserProfileID | FK → UserProfiles | الرابط إلى البيانات الموسعة ⭐ |
-| DisplayName | nvarchar | اسم العرض ⭐ |
-| LastActivityDate | datetime2 | آخر نشاط ⭐ |
+| `Id` | PK, nvarchar(450) | GUID |
+| `UserName`, `NormalizedUserName` | nvarchar | |
+| `Email`, `NormalizedEmail` | nvarchar | |
+| `PasswordHash`, `SecurityStamp` | nvarchar | |
+| **`UserProfileID`** | FK → UserProfiles | الرابط إلى البيانات الموسعة ⭐ |
+| **`DisplayName`** | nvarchar | اسم العرض ⭐ |
+| **`LastActivityDate`** | datetime2 | آخر نشاط ⭐ |
+| **`EmailVerificationCode`** | nvarchar | كود التحقق ⭐ |
+| **`EmailVerificationCodeExpiry`** | datetime2 | انتهاء الكود ⭐ |
 
-### AspNetRoles (الأدوار النظامية)
-
-| العمود | النوع | الوصف |
-|--------|------|-------|
-| Id | PK, nvarchar(450) | GUID |
-| Name | nvarchar | "Admin", "Doctor", "Pharmacist" |
-| NormalizedName | nvarchar | أحرف كبيرة |
-
-### AspNetUserRoles (⭐ المعدل والموسع - الأهم)
+### 1.3 `AspNetRoles` (الأدوار النظامية)
 
 | العمود | النوع | الوصف |
 |--------|------|-------|
-| UserId | PK, FK → AspNetUsers | |
-| RoleId | PK, FK → AspNetRoles | |
-| UserProfileID | FK → UserProfiles | NOT NULL ⭐ |
-| RoleType | nvarchar(50) | "System", "Professional", "Organizational" ⭐ |
-| ProfessionalLicense | nvarchar(100) | ترخيص مهني |
-| Specialization | nvarchar(200) | تخصص فرعي |
-| IsVerified | bit | DEFAULT 0 |
-| VerifiedDate | datetime2 | |
-| LicenseExpiryDate | datetime2 | |
-| ValidFrom | datetime2 | |
-| ValidTo | datetime2 | |
-| IsActive | bit | DEFAULT 1 |
-| OrganizationID | FK → Organizations | إذا كان الدور مرتبط بمؤسسة |
+| `Id` | PK, nvarchar(450) | GUID |
+| `Name` | nvarchar | "Admin", "Doctor", "Pharmacist" |
+| `NormalizedName` | nvarchar | أحرف كبيرة |
 
-### UserProfiles (البيانات الموسعة)
+### 1.4 `AspNetUserRoles` (⭐ المعدل والموسع — الأهم)
+
+**⚠️ `UserRole` هو جدول مُوسَّع — للأطباء والصيادلة فقط.**
+
+| العمود | النوع | الوصف |
+|--------|-------|-------|
+| `UserId` | PK, FK → AspNetUsers | |
+| `RoleId` | PK, FK → AspNetRoles | |
+| **`UserProfileID`** | FK → UserProfiles | NOT NULL ⭐ |
+| **`RoleType`** | nvarchar(50) | "System", "Professional", "Organizational" ⭐ |
+| **`ProfessionalLicense`** | nvarchar(100) | ترخيص مهني |
+| **`Specialization`** | nvarchar(200) | تخصص فرعي |
+| **`IsVerified`** | bit | DEFAULT 0 |
+| **`VerifiedDate`** | datetime2 | |
+| **`LicenseExpiryDate`** | datetime2 | |
+| **`ValidFrom`** | datetime2 | |
+| **`ValidTo`** | datetime2 | |
+| **`IsActive`** | bit | DEFAULT 1 |
+| **`OrganizationID`** | FK → Organizations | إذا كان الدور مرتبط بمؤسسة |
+| **`CustomJobTitleID`** | FK → CustomJobTitles | |
+| **`SystemJobTitleID`** | FK → SystemJobTitles | |
+| **`SpecialityID`** | FK → Specialities | |
+
+**⚠️ ملاحظة حرجة:** جدول `AspNetUserRoles` في DB يحتوي **مسافة زائدة في الاسم** (`AspNetUserRoles `) — دين تقني.
+
+### 1.5 `UserProfiles` (البيانات الموسعة)
 
 | العمود | النوع | الوصف |
 |--------|------|-------|
-| UserProfileID | PK, int | معرف فريد |
-| ApplicationUserId | FK → AspNetUsers | رابط عكسي (One-to-One) |
-| FirstName, LastName | nvarchar | |
-| FullNameAr, FullNameEn | nvarchar | |
-| NationalID, Email, PhoneNumber | nvarchar | |
-| DateOfBirth, Gender | | |
-| ProfilePictureUrl | nvarchar | |
-| AreaID | FK → Areas | الموقع الجغرافي |
-| IsActive, CreatedDate, LastModifiedDate | | |
+| `UserProfileID` | PK, int | معرف فريد |
+| `ApplicationUserId` | FK → AspNetUsers | رابط عكسي (One-to-One) |
+| `FirstName`, `LastName` | nvarchar | |
+| `FullNameAr`, `FullNameEn` | nvarchar | |
+| `NationalID`, `Email`, `PhoneNumber` | nvarchar | |
+| `DateOfBirth`, `Gender` | | |
+| `ProfilePictureUrl` | nvarchar | |
+| `AreaID` | FK → Areas | الموقع الجغرافي |
+| `IsActive`, `CreatedDate`, `LastModifiedDate` | | |
 
----
+### 1.6 `OrgMembership` (العضوية في المنظمة)
 
-## UserRoleService - القلب النابض لنظام الأدوار
+**⚠️ هذا الجدول هو أساس الصلاحيات داخل المنظمة.**
 
-### لماذا هذه الخدمة؟
+| العمود | النوع | الوصف |
+|--------|------|-------|
+| `OrgMembershipID` | PK, int | |
+| `UserProfileID` | FK → UserProfiles | |
+| `OrganizationID` | FK → Organizations | |
+| **`MembershipType`** | nvarchar(50) | ⚠️ **Deprecated** — 8 قيم ثابتة |
+| **`CanManageOrganization`** | bit | ⚠️ **Deprecated** |
+| **`CanManageMembers`** | bit | ⚠️ **Deprecated** |
+| **`CanManageFinance`** | bit | ⚠️ **Deprecated** |
+| **`CanManageServices`** | bit | ⚠️ **Deprecated** |
+| **`CanViewReports`** | bit | ⚠️ **Deprecated** |
+| `EffectiveFrom`, `EffectiveTo` | datetime2 | |
+| `AssignmentReason` | nvarchar(500) | |
+| `IsActive` | bit | |
+| `AssignedByUserID` | int | |
+| `SystemJobTitleID` | int? | |
+| `CustomJobTitleID` | int? | |
 
-`AspNetUserRoles` هو جدول محوري يربط بين:
-- المستخدم (`AspNetUsers`)
-- الدور (`AspNetRoles`)
-- البيانات الموسعة (`UserProfiles`)
-- الصلاحيات الزمنية (`ValidFrom`, `ValidTo`)
+**⚠️ الحقول المُعلَّمة Deprecated — ستُستبدل بنظام `19-PERMISSIONS` (ControlLevel + Permissions).**
 
-بدون `UserRoleService`، كنا سنضطر لكتابة استعلامات معقدة ومتكررة في كل صفحة.
+**⚠️ `MemberTitles`** — M:N جديد يُستخدم للمنطق المُوسَّع (نظام الصلاحيات).
 
-### الكود الكامل
+### 1.7 `UserRoleService` — القلب النابض لنظام الأدوار
+
+**المسار:** `RubikCare.Application/Services/Identity/UserRoleService.cs`
+
+**المسؤوليات:**
+
+- إدارة `AspNetUserRoles` الموسَّع.
+- إدارة الأدوار المهنية (Doctor/Pharmacist).
+- التحقق من الصلاحية الزمنية (`ValidFrom`, `ValidTo`).
+
+**الواجهة:**
 
 ```csharp
-using Microsoft.EntityFrameworkCore;
-using Rubikcare.Web.Data.Models;
-
-namespace Rubikcare.Web.Data.Services
+public interface IUserRoleService
 {
-    public class UserRoleService : IUserRoleService
-    {
-        private readonly IDbContextFactory<BusinessDbContext> _dbContextFactory;
-
-        public UserRoleService(IDbContextFactory<BusinessDbContext> dbContextFactory)
-        {
-            _dbContextFactory = dbContextFactory;
-        }
-
-        public IQueryable<UserRole> GetAll()
-        {
-            var context = _dbContextFactory.CreateDbContext();
-            return context.UserRoles
-                .Include(ur => ur.UserProfile)
-                .AsNoTracking()
-                .AsQueryable();
-        }
-
-        public async Task<UserRole?> GetByIdAsync(string userId, string roleId)
-        {
-            await using var context = await _dbContextFactory.CreateDbContextAsync();
-            return await context.UserRoles
-                .FirstOrDefaultAsync(ur => ur.UserId == userId && ur.RoleId == roleId);
-        }
-
-        public async Task AddAsync(UserRole userRole)
-        {
-            if (userRole == null) throw new ArgumentNullException(nameof(userRole));
-            await using var context = await _dbContextFactory.CreateDbContextAsync();
-            await context.UserRoles.AddAsync(userRole);
-            await context.SaveChangesAsync();
-        }
-
-        public async Task UpdateAsync(UserRole userRole)
-        {
-            if (userRole == null) throw new ArgumentNullException(nameof(userRole));
-            await using var context = await _dbContextFactory.CreateDbContextAsync();
-            var existing = await context.UserRoles
-                .FirstOrDefaultAsync(ur => ur.UserId == userRole.UserId && ur.RoleId == userRole.RoleId);
-            if (existing != null)
-            {
-                context.Entry(existing).CurrentValues.SetValues(userRole);
-                await context.SaveChangesAsync();
-            }
-            else
-            {
-                await context.UserRoles.AddAsync(userRole);
-                await context.SaveChangesAsync();
-            }
-        }
-
-        public async Task DeleteAsync(UserRole userRole)
-        {
-            if (userRole == null) throw new ArgumentNullException(nameof(userRole));
-            await using var context = await _dbContextFactory.CreateDbContextAsync();
-            var existing = await context.UserRoles
-                .FirstOrDefaultAsync(ur => ur.UserId == userRole.UserId && ur.RoleId == userRole.RoleId);
-            if (existing != null)
-            {
-                context.UserRoles.Remove(existing);
-                await context.SaveChangesAsync();
-            }
-        }
-
-        public async Task<List<UserRole>> GetRolesForUserAsync(int userProfileId)
-        {
-            await using var context = await _dbContextFactory.CreateDbContextAsync();
-            return await context.UserRoles
-                .Where(ur => ur.UserProfileID == userProfileId)
-                .ToListAsync();
-        }
-
-        public async Task<List<UserRole>> GetUsersInRoleAsync(string roleId)
-        {
-            await using var context = await _dbContextFactory.CreateDbContextAsync();
-            return await context.UserRoles
-                .Include(ur => ur.UserProfile)
-                .Where(ur => ur.RoleId == roleId)
-                .ToListAsync();
-        }
-
-        public async Task<bool> ExistsAsync(string userId, string roleId)
-        {
-            await using var context = await _dbContextFactory.CreateDbContextAsync();
-            return await context.UserRoles
-                .AnyAsync(ur => ur.UserId == userId && ur.RoleId == roleId);
-        }
-
-        public async Task<UserProfile?> GetUserProfileWithUserAsync(int userProfileId)
-        {
-            await using var context = await _dbContextFactory.CreateDbContextAsync();
-            return await context.UserProfiles
-                .Include(up => up.ApplicationUser)
-                .FirstOrDefaultAsync(up => up.UserProfileID == userProfileId);
-        }
-    }
+    IQueryable<UserRole> GetAll();
+    Task<UserRole?> GetByIdAsync(string userId, string roleId);
+    Task AddAsync(UserRole userRole);
+    Task UpdateAsync(UserRole userRole);
+    Task DeleteAsync(UserRole userRole);
+    Task<List<UserRole>> GetRolesForUserAsync(int userProfileId);
+    Task<List<UserRole>> GetUsersInRoleAsync(string roleId);
+    Task<bool> ExistsAsync(string userId, string roleId);
+    Task<UserProfile?> GetUserProfileWithUserAsync(int userProfileId);
 }
 ```
 
-### تسجيل الخدمة في Program.cs
+**التسجيل:**
 
 ```csharp
 builder.Services.AddScoped<IUserRoleService, UserRoleService>();
@@ -226,9 +186,9 @@ builder.Services.AddScoped<IUserRoleService, UserRoleService>();
 
 ---
 
-## كيفية إنشاء مستخدم جديد (الطريقة الصحيحة)
+## 🎯 الجزء الثاني: إنشاء مستخدم جديد (التسلسل الإلزامي)
 
-### التسلسل الإلزامي (لا تغيره أبداً)
+### 2.1 المخطط
 
 ```mermaid
 sequenceDiagram
@@ -244,7 +204,7 @@ sequenceDiagram
     Dev->>URS: 4. AddAsync (optional extra data)
 ```
 
-### الكود التفصيلي
+### 2.2 الكود التفصيلي
 
 ```csharp
 // الخطوة 1: إنشاء UserProfile أولاً
@@ -289,60 +249,324 @@ if (result.Succeeded)
 }
 ```
 
-### ⚠️ تحذير حرج
+### 2.3 ⚠️ تحذير حرج
 
-لا تحاول أبداً إنشاء `ApplicationUser` بدون `UserProfile` أولاً. هذا يكسر العلاقة ويجعل النظام غير قادر على ربط حساب الدخول بالبيانات الموسعة.
+**لا تحاول أبداً إنشاء `ApplicationUser` بدون `UserProfile` أولاً. هذا يكسر العلاقة ويجعل النظام غير قادر على ربط حساب الدخول بالبيانات الموسعة.**
 
 ---
 
-## المحاذير والقواعد الصارمة
+## 🔐 الجزء الثالث: Google Sign-In (دمج `16`)
 
-### 🔴 ممنوعات مطلقة
+### 3.1 نظرة عامة
 
-- لا تعدل `AspNetUserRoles` يدوياً في قاعدة البيانات أبداً. استخدم `UserRoleService` أو `UserManager`.
-- لا تحذف `AspNetUsers` بدون حذف `UserProfiles` أولاً (أو العكس). التسلسل مهم.
-- لا تستخدم `[Key]` في `UserRole.cs` - المفتاح مركب (UserId, RoleId) ويتم تعريفه في `OnModelCreating`.
-- لا تغير أنواع مفاتيح Identity (تبقى `nvarchar(450)`).
+**⚠️ من `16-Google-Sign-In-Complete-Guide`:**
 
-### 🟡 إجراءات تتطلب حذراً
+| المنصة | التقنية | الحالة |
+|--------|---------|--------|
+| **Web (Blazor Server)** | OAuth 2.0 + ASP.NET Core Identity | ✅ يعمل |
+| **PWA** | نفس Web | ✅ يعمل |
+| **Mobile (MAUI)** | WebAuthenticator + PKCE | ✅ يعمل |
 
-| الإجراء | الصحيح | الخطأ |
-|---------|--------|-------|
-| إضافة مستخدم | UserProfile ← ApplicationUser ← أدوار | إنشاء ApplicationUser بدون UserProfile |
-| حذف مستخدم | أدوار ← عضويات ← AspNetUser ← UserProfile | الحذف العشوائي |
-| تعديل دور | استخدم `UpdateAsync` في `UserRoleService` | التعديل المباشر على `AspNetUserRoles` |
+### 3.2 الملفات المتعلقة
 
-### 🔵 أفضل الممارسات
+| الملف | المسار | الدور |
+|-------|--------|-------|
+| `Program.cs` | `Rubikcare.Web/` | تسجيل Google OAuth |
+| `IGoogleRegistrationService.cs` | `RubikCare.Application/Interfaces/Auth/` | واجهة الخدمة الموحدة |
+| `GoogleRegistrationService.cs` | `RubikCare.Application/Services/Auth/` | تنفيذ الخدمة |
+| `ExternalLogin.razor` | `Rubikcare.Web/Components/Account/Pages/` | استقبال Callback |
+| `Login.razor` | `Rubikcare.Web/Components/Account/Pages/` | زر Google |
 
-- استخدم `UserRoleService` لكل العمليات على `AspNetUserRoles`.
-- استخدم `UserManager` لعمليات Identity الأساسية (إنشاء مستخدم، إضافة لدور).
-- تحقق من الصلاحية الزمنية دائماً:
+### 3.3 إعدادات `Program.cs`
 
 ```csharp
-var isValid = userRole.IsActive && 
-              userRole.ValidFrom <= DateTime.Now && 
-              (userRole.ValidTo == null || userRole.ValidTo > DateTime.Now);
+var googleClientId = builder.Configuration["Authentication:Google:ClientId"]
+    ?? throw new InvalidOperationException("Google ClientId not found");
+
+var googleClientSecret = builder.Configuration["Authentication:Google:ClientSecret"]
+    ?? throw new InvalidOperationException("Google ClientSecret not found");
+
+builder.Services.AddAuthentication()
+    .AddGoogle(options =>
+    {
+        options.ClientId = googleClientId;
+        options.ClientSecret = googleClientSecret;
+        options.CallbackPath = "/signin-google";
+        options.CorrelationCookie.SameSite = SameSiteMode.Unspecified;
+        options.CorrelationCookie.SecurePolicy = CookieSecurePolicy.Always;
+        options.CorrelationCookie.HttpOnly = true;
+    });
+
+builder.Services.ConfigureExternalCookie(options =>
+{
+    options.Cookie.SameSite = SameSiteMode.Unspecified;
+    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+});
+
+builder.Services.ConfigureApplicationCookie(options =>
+{
+    options.Cookie.SameSite = SameSiteMode.Unspecified;
+    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+});
+```
+
+### 3.4 المنطق في `ExternalLogin.razor`
+
+```csharp
+protected override async Task OnInitializedAsync()
+{
+    try
+    {
+        Input ??= new();
+
+        var info = await SignInManager.GetExternalLoginInfoAsync();
+        if (info is null)
+        {
+            message = T("Error.LoadingInfo");
+            return;
+        }
+
+        externalLoginInfo = info;
+        var email = info.Principal.FindFirstValue(ClaimTypes.Email);
+
+        // 1. محاولة تسجيل دخول مباشر
+        var signInResult = await SignInManager.ExternalLoginSignInAsync(
+            info.LoginProvider, info.ProviderKey,
+            isPersistent: false, bypassTwoFactor: false);
+
+        if (signInResult.Succeeded)
+        {
+            Logger.LogInformation("✅ Google login succeeded: {Email} at {Time}",
+                email, DateTime.Now);
+            NavigationManager.NavigateTo(ReturnUrl ?? "/", forceLoad: true);
+            return;
+        }
+
+        // 2. البريد غير مُفعَّل → تفعيل تلقائي
+        if (signInResult.IsNotAllowed)
+        {
+            var userByLogin = await UserManager.FindByLoginAsync(info.LoginProvider, info.ProviderKey);
+            if (userByLogin != null
+                && string.Equals(userByLogin.Email, email, StringComparison.OrdinalIgnoreCase))
+            {
+                if (await GoogleService.AutoConfirmEmailAsync(userByLogin))
+                {
+                    await SignInManager.SignInAsync(userByLogin, isPersistent: false);
+                    Logger.LogInformation("✅ Auto-confirmed and signed in {Email}", email);
+                    NavigationManager.NavigateTo(ReturnUrl ?? "/", forceLoad: true);
+                    return;
+                }
+            }
+        }
+
+        // 3. ربط Google Login بمستخدم موجود
+        var existingUser = await UserManager.FindByEmailAsync(email);
+        if (existingUser != null)
+        {
+            var linked = await GoogleService.LinkGoogleLoginAsync(
+                existingUser, info.LoginProvider, info.ProviderKey);
+
+            if (linked)
+            {
+                await GoogleService.AutoConfirmEmailAsync(existingUser);
+                await SignInManager.SignInAsync(existingUser, isPersistent: false);
+                Logger.LogInformation("✅ Linked and signed in {Email}", email);
+                NavigationManager.NavigateTo(ReturnUrl ?? "/", forceLoad: true);
+                return;
+            }
+        }
+
+        // 4. مستخدم جديد → نموذج إكمال البيانات
+        _showRegistrationForm = true;
+
+        var name = info.Principal.FindFirstValue(ClaimTypes.Name) ?? "";
+        var nameParts = name.Split(' ');
+        Input.FirstName = nameParts.Length > 0 ? nameParts[0] : "";
+        Input.LastName = nameParts.Length > 1 ? string.Join(" ", nameParts.Skip(1)) : "";
+        Input.Email = email;
+    }
+    finally
+    {
+        _isLoading = false;
+    }
+}
+```
+
+### 3.5 الحل الجذري لـ `EmailConfirmed`
+
+في `GoogleRegistrationService.CreateNewUserAsync`:
+
+```csharp
+var user = new ApplicationUser
+{
+    UserName = email,
+    Email = email,
+    PhoneNumber = phoneNumber,
+    EmailConfirmed = true  // ⭐ Google أكد البريد
+};
+
+// تأكيد البريد بشكل صريح
+var token = await _userManager.GenerateEmailConfirmationTokenAsync(user);
+await _userManager.ConfirmEmailAsync(user, token);
+```
+
+### 3.6 إعدادات Mobile (MAUI)
+
+**الملفات:**
+
+| الملف | المسار |
+|-------|--------|
+| `WebAuthenticatorActivity.cs` | `Mobile/Platforms/Android/` |
+| `AndroidManifest.xml` | `Mobile/Platforms/Android/` |
+| `LoginViewModel.cs` | `Mobile/Features/Auth/ViewModels/` |
+| `RubikCare.Mobile.csproj` | `Mobile/` |
+
+**`WebAuthenticatorActivity.cs`:**
+
+```csharp
+[Activity(
+    NoHistory = true,
+    LaunchMode = LaunchMode.SingleTop,
+    Exported = true)]
+[IntentFilter(
+    new[] { Android.Content.Intent.ActionView },
+    Categories = new[]
+    {
+        Android.Content.Intent.CategoryDefault,
+        Android.Content.Intent.CategoryBrowsable
+    },
+    DataScheme = "com.googleusercontent.apps.369163319733-8229skagomnn7t0j74uuj3ilj5h1635g")]
+public class WebAuthenticatorActivity : WebAuthenticatorCallbackActivity
+{
+}
+```
+
+**الـ Redirect URI في `LoginViewModel.cs`:**
+
+```csharp
+private readonly string _googleClientId =
+    "369163319733-8229skagomnn7t0j74uuj3ilj5h1635g.apps.googleusercontent.com";
+
+private readonly string _googleRedirectUri =
+    "com.googleusercontent.apps.369163319733-8229skagomnn7t0j74uuj3ilj5h1635g:/oauth2redirect";
 ```
 
 ---
 
-## نظام إدارة الجلسات والكاش (⭐ جديد - 24 مايو 2026)
+## 📧 الجزء الرابع: نظام الإيميلات (Failover)
 
-### لمحة عامة
+### 4.1 الكلاسات
 
-تم توحيد نظام الكاش في `UserSessionService` كمصدر وحيد لإدارة جلسات المستخدمين. هذا يمنع مشاكل ظهور بيانات المستخدم السابق بعد تسجيل الخروج.
+```csharp
+public class ZohoEmailSettings
+{
+    public string SmtpServer { get; set; } = "smtp.zoho.com";
+    public int SmtpPort { get; set; } = 587;
+    public string SenderEmail { get; set; } = string.Empty;
+    public string SenderName { get; set; } = string.Empty;
+    public string Username { get; set; } = string.Empty;
+    public string Password { get; set; } = string.Empty;
+    public bool EnableSsl { get; set; } = true;
+}
 
-### ClearUserCacheUseCase
+public class GmailEmailSettings
+{
+    public string SmtpServer { get; set; } = "smtp.gmail.com";
+    public int SmtpPort { get; set; } = 587;
+    public string SenderEmail { get; set; } = string.Empty;
+    public string SenderName { get; set; } = string.Empty;
+    public string Username { get; set; } = string.Empty;
+    public string Password { get; set; } = string.Empty;
+    public bool EnableSsl { get; set; } = true;
+}
+```
 
-Use Case مسؤول عن مسح جميع كاشات المستخدم عند Logout:
+### 4.2 `FailoverEmailService`
 
-- **المسار:** `RubikCare.Application/UseCases/User/ClearUserCacheUseCase.cs`
-- **الوظيفة:**
-  - يستدعي `UserSessionService.RefreshUserSessionAndCacheAsync(userId)`
-  - يمسح كاشات: `UserSession_`, `UserPrefs_`, `UserBasic_`
-  - يستدعي `IUserMenuService.ClearCacheAsync(userId)`
+```csharp
+public class FailoverEmailService : IEmailService
+{
+    private readonly IEmailService _primaryService;
+    private readonly IEmailService _backupService;
 
-### الاستخدام في AuthController.Logout
+    public FailoverEmailService(
+        [FromKeyedServices("Primary")] IEmailService primary,
+        [FromKeyedServices("Backup")] IEmailService backup)
+    {
+        _primaryService = primary;
+        _backupService = backup;
+    }
+
+    public async Task<bool> SendVerificationCodeAsync(...)
+    {
+        var result = await _primaryService.SendVerificationCodeAsync(...);
+        if (result) return true;
+        return await _backupService.SendVerificationCodeAsync(...);
+    }
+}
+```
+
+---
+
+## 🔴 الجزء الخامس: المشاكل والحلول
+
+### 5.1 مشاكل Google Login
+
+| # | المشكلة | السبب | الحل |
+|---|---------|-------|------|
+| 1 | زر Google لا يستجيب | `<a href>` داخل `EditForm` | استخدم `<form method="post">` خارج `EditForm` |
+| 2 | `AntiforgeryValidationException` | لا يوجد Anti-forgery token | أضف `<AntiforgeryToken />` |
+| 3 | `CryptographicException` | Data Protection keys غير ثابتة | `PersistKeysToFileSystem` |
+| 4 | `TypeError: Failed to execute 'query' on 'Permissions'` | خطأ في Google GIS Library | تعطيل VS JavaScript Debugging |
+| 5 | تسجيل دخول يفتح صفحة بحث | `<data scheme>` مفقود | أضف `DataScheme` في `WebAuthenticatorActivity.cs` |
+| 6 | Google Login لا يعود للتطبيق | Manifest + Code مسجلان | احذف من Manifest، ابقِ الكود |
+| 7 | `Error 400: invalid_request` | Custom URI Scheme غير مفعّل | فعّله في Google Console |
+| 8 | APK لا يُثبَّت | `Exported = false` | غيّر لـ `Exported = true` |
+
+### 5.2 مشاكل `EmailConfirmed = 0`
+
+**الأعراض:**
+- المستخدم موجود لكن `ExternalLoginSignInAsync` يفشل.
+- النظام يعرض نموذج "إنشاء حساب جديد".
+- يفشل لأن البريد مكرر.
+
+**الحل (للمستخدمين الحاليين):**
+
+```sql
+-- إصلاح الحسابات المتأثرة
+UPDATE AspNetUsers
+SET EmailConfirmed = 1
+WHERE Id IN (
+    SELECT u.Id
+    FROM AspNetUsers u
+    INNER JOIN AspNetUserLogins l ON l.UserId = u.Id
+    WHERE l.LoginProvider = 'Google'
+      AND u.EmailConfirmed = 0
+);
+```
+
+### 5.3 مشاكل VS Debugger
+
+| المشكلة | السبب | الحل |
+|---------|-------|------|
+| VS يتوقف عند خطأ Google | JavaScript Debugging مفعّل | `Tools → Options → Debugging → General` → إلغاء `Enable JavaScript debugging for ASP.NET` |
+| SignalR Circuit ينقطع | توقف VS | نفس الحل |
+| Google Login يفشل | Circuit مقطوع | نفس الحل |
+
+---
+
+## 🔐 الجزء السادس: نظام إدارة الجلسات والكاش
+
+### 6.1 `ClearUserCacheUseCase`
+
+**المسار:** `RubikCare.Application/UseCases/User/ClearUserCacheUseCase.cs`
+
+**الوظيفة:**
+- يستدعي `UserSessionService.RefreshUserSessionAndCacheAsync(userId)`.
+- يمسح كاشات: `UserSession_`, `UserPrefs_`, `UserBasic_`.
+- يستدعي `IUserMenuService.ClearCacheAsync(userId)`.
+
+### 6.2 الاستخدام في `AuthController.Logout`
 
 ```csharp
 [HttpPost("logout")]
@@ -357,268 +581,100 @@ public async Task<IActionResult> Logout([FromServices] ClearUserCacheUseCase cle
 }
 ```
 
-### هيكل الكاش الموحد
-
-```
-ClearUserCacheUseCase (Application)
-    ↓
-UserSessionService.RefreshUserSessionAndCacheAsync(userId)
-    ↓ يمسح
-    ├── UserSession_{userId}   ← بيانات الجلسة الكاملة
-    ├── UserPrefs_{userId}     ← تفضيلات المستخدم
-    ├── UserBasic_{userId}     ← المعلومات الأساسية
-    └── قوائم المستخدم         ← عبر IUserMenuService
-```
-
-### طبقات الكاش
+### 6.3 طبقات الكاش
 
 | الطبقة | المسؤول | المفاتيح | المدة |
 |--------|---------|----------|-------|
-| Session | UserSessionService | UserSession_{userId} | ساعتين |
-| Preferences | UserSessionService | UserPrefs_{userId} | ساعة |
-| BasicInfo | UserSessionService | UserBasic_{userId} | ساعة |
+| Session | `UserSessionService` | `UserSession_{userId}` | ساعتين |
+| Preferences | `UserSessionService` | `UserPrefs_{userId}` | ساعة |
+| BasicInfo | `UserSessionService` | `UserBasic_{userId}` | ساعة |
 
-### ملاحظات هامة
+### 6.4 ملاحظات هامة
 
-- **الموبايل:** `CachedUserSessionService` تدير كاش محلي (`_cachedSession`) يجب مسحه عند Logout
-- **الويب:** `DynamicMenuService` لم تعد تستخدم `IMemoryCache` منفصل - تمت إزالة الكاش منها
-- **Logout:** يجب أن يمسح الكاش على الخادم (`AuthController.Logout`) وعلى العميل (`SecureStorage` + `_cachedSession = null`)
-
----
-
-## 🧭 شجرة القرار المعماري: متى نستخدم كل خدمة هوية (⭐ جديد - 18 يوليو 2026)
-
-### السؤال الأول: ما نوع العملية؟
-
-```mermaid
-graph TD
-    A[عملية تتعلق بالهوية] --> B{ما نوع العملية؟}
-    B -->|CRUD بسيط على UserRole| C[UserRoleService]
-    B -->|عملية معقدة متعددة الخطوات| D[UseCase في Application]
-    B -->|عملية مشتركة Web + Mobile| E[UseCase + API]
-    B -->|معلومات المستخدم الحالي| F[UserContextService]
-```
-
-### 📊 مصفوفة اختيار خدمة الهوية
-
-| نوع العملية | الخدمة الموصى بها | مثال |
-|------------|-------------------|------|
-| **CRUD بسيط على UserRole** | `UserRoleService` | عرض قائمة المستخدمين في دور معين |
-| **إنشاء مستخدم جديد** | UseCase (`CreateUserUseCase`) | تسجيل طبيب جديد مع بيانات موسعة |
-| **تغيير كلمة المرور** | UseCase + API (`ChangePasswordUseCase`) | المستخدم المسجل يغير كلمة مروره |
-| **إعادة تعيين كلمة المرور** | UseCase + API (`ResetPasswordUseCase`) | نسي كلمة المرور |
-| **مسح الكاش عند Logout** | UseCase (`ClearUserCacheUseCase`) | تسجيل الخروج |
-| **معلومات المستخدم الحالي** | `UserContextService` | عرض اسم المستخدم في الصفحة |
-| **التحقق من الصلاحية** | `UserRoleService` + منطق مخصص | التحقق من صلاحية الوصول |
-
-### 💡 أمثلة عملية
-
-#### ✅ مثال 1: عرض قائمة الأطباء (CRUD بسيط)
-
-**القرار:** استخدم `UserRoleService`
-
-```csharp
-// في Web/Pages/Admin/Doctors.razor
-@inject IUserRoleService UserRoleService
-
-@code {
-    private List<UserRole> doctors = new();
-    
-    protected override async Task OnInitializedAsync()
-    {
-        var doctorRole = await GetRoleIdByName("Doctor");
-        doctors = await UserRoleService.GetUsersInRoleAsync(doctorRole);
-    }
-}
-```
-
-**السبب:** عملية قراءة بسيطة، لا تحتاج UseCase.
-
-#### ✅ مثال 2: تسجيل طبيب جديد (عملية معقدة)
-
-**القرار:** استخدم UseCase
-
-```csharp
-// في Application/UseCases/User/RegisterDoctorUseCase.cs
-public class RegisterDoctorUseCase
-{
-    private readonly UserManager<ApplicationUser> _userManager;
-    private readonly IUserRoleService _userRoleService;
-    private readonly BusinessDbContext _context;
-    
-    public async Task<Result<int>> ExecuteAsync(RegisterDoctorDto dto)
-    {
-        // 1. إنشاء UserProfile
-        var userProfile = new UserProfile { /* ... */ };
-        _context.UserProfiles.Add(userProfile);
-        await _context.SaveChangesAsync();
-        
-        // 2. إنشاء ApplicationUser
-        var user = new ApplicationUser 
-        { 
-            UserProfileID = userProfile.UserProfileID,
-            /* ... */
-        };
-        var result = await _userManager.CreateAsync(user, dto.Password);
-        if (!result.Succeeded)
-            return Result<int>.Failure(result.Errors.ToString());
-        
-        // 3. إضافة الدور
-        await _userManager.AddToRoleAsync(user, "Doctor");
-        
-        // 4. إضافة بيانات مهنية
-        var userRole = new UserRole { /* ... */ };
-        await _userRoleService.AddAsync(userRole);
-        
-        return Result<int>.Success(userProfile.UserProfileID);
-    }
-}
-
-// في Web/Pages/Admin/RegisterDoctor.razor
-@inject RegisterDoctorUseCase RegisterDoctorUseCase
-
-@code {
-    private async Task Register()
-    {
-        var result = await RegisterDoctorUseCase.ExecuteAsync(dto);
-        // ...
-    }
-}
-```
-
-**السبب:** عملية معقدة متعددة الخطوات (4 خطوات)، تحتاج UseCase.
-
-#### ✅ مثال 3: تغيير كلمة المرور (عملية مشتركة)
-
-**القرار:** استخدم UseCase + API
-
-```csharp
-// 1. في Application/UseCases/User/ChangePasswordUseCase.cs
-public class ChangePasswordUseCase
-{
-    private readonly UserManager<ApplicationUser> _userManager;
-    private readonly IUserSessionService _sessionService;
-    
-    public async Task<Result> ExecuteAsync(string userId, string currentPassword, string newPassword)
-    {
-        var user = await _userManager.FindByIdAsync(userId);
-        var result = await _userManager.ChangePasswordAsync(user, currentPassword, newPassword);
-        
-        if (result.Succeeded)
-        {
-            // ⭐ إبطال جميع الجلسات الأخرى
-            await _userManager.UpdateSecurityStampAsync(user);
-            await _sessionService.RefreshUserSessionAndCacheAsync(userId);
-        }
-        
-        return result.Succeeded 
-            ? Result.Success() 
-            : Result.Failure(result.Errors.ToString());
-    }
-}
-
-// 2. في Api.Web/Controllers/AuthController.cs
-[HttpPost("change-password")]
-[Authorize]
-public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
-{
-    var userId = User.FindFirst("userId")?.Value;
-    var result = await _changePasswordUseCase.ExecuteAsync(userId, request.CurrentPassword, request.NewPassword);
-    return result.IsSuccess ? Ok(result) : BadRequest(result);
-}
-
-// 3. في Mobile - يستدعي API
-var result = await ApiService.PostAsync<Result>("api/auth/change-password", 
-    new { CurrentPassword = "...", NewPassword = "..." });
-
-// 4. في Web - يستدعي UseCase مباشرة
-var result = await ChangePasswordUseCase.ExecuteAsync(userId, current, new);
-```
-
-**السبب:** العملية مشتركة بين Web و Mobile، وتحتاج أماناً عالياً.
+- **الموبايل:** `CachedUserSessionService` تدير كاش محلي (`_cachedSession`) يجب مسحه عند Logout.
+- **الويب:** `DynamicMenuService` لم تعد تستخدم `IMemoryCache` منفصل.
+- **Logout:** يجب أن يمسح الكاش على الخادم وعلى العميل.
 
 ---
 
-## استعلامات مفيدة للتحقق
+## 🔍 الجزء السابع: قواعد صارمة
 
-للتشخيص والمراقبة:
+### 7.1 🔴 ممنوعات مطلقة
+
+- **لا تعدل `AspNetUserRoles` يدوياً في قاعدة البيانات أبداً.** استخدم `UserRoleService` أو `UserManager`.
+- **لا تحذف `AspNetUsers` بدون حذف `UserProfiles` أولاً** (أو العكس). التسلسل مهم.
+- **لا تستخدم `[Key]` في `UserRole.cs`** — المفتاح مركب (`UserId`, `RoleId`) ويتم تعريفه في `OnModelCreating`.
+- **لا تغير أنواع مفاتيح Identity** (تبقى `nvarchar(450)`).
+
+### 7.2 🟡 إجراءات تتطلب حذراً
+
+| الإجراء | الصحيح | الخطأ |
+|---------|--------|-------|
+| إضافة مستخدم | `UserProfile` ← `ApplicationUser` ← أدوار | إنشاء `ApplicationUser` بدون `UserProfile` |
+| حذف مستخدم | أدوار ← عضويات ← `AspNetUser` ← `UserProfile` | الحذف العشوائي |
+| تعديل دور | استخدم `UpdateAsync` في `UserRoleService` | التعديل المباشر على `AspNetUserRoles` |
+
+### 7.3 🔵 أفضل الممارسات
+
+- استخدم `UserRoleService` لكل العمليات على `AspNetUserRoles`.
+- استخدم `UserManager` لعمليات Identity الأساسية.
+- تحقق من الصلاحية الزمنية دائماً:
+
+```csharp
+var isValid = userRole.IsActive && 
+              userRole.ValidFrom <= DateTime.Now && 
+              (userRole.ValidTo == null || userRole.ValidTo > DateTime.Now);
+```
+
+---
+
+## 🎯 الجزء الثامن: قاعدة "التحقق من الخلفية"
+
+### 8.1 عند أي تعديل على Google Login
+
+1. **اختبر في المتصفح العادي.**
+2. **اختبر في التصفح الخفي.**
+3. **اختبر في الموبايل.**
+4. **تحقق من `UnconfirmedGoogleUsers` = 0.**
+
+### 8.2 استعلامات المراقبة
 
 ```sql
--- 1. المستخدمون بدون UserProfile
-SELECT COUNT(*) FROM AspNetUsers WHERE UserProfileID IS NULL;
-
--- 2. الأدوار المنتهية الصلاحية لا تزال نشطة
-SELECT COUNT(*) FROM AspNetUserRoles 
-WHERE IsActive = 1 AND ValidTo < GETDATE();
-
--- 3. أدوار مكررة نشطة (يجب ألا توجد)
-SELECT UserProfileID, RoleType, COUNT(*) as DuplicateCount
-FROM AspNetUserRoles
-WHERE IsActive = 1
-GROUP BY UserProfileID, RoleType
-HAVING COUNT(*) > 1;
-
--- 4. تقرير الصحة الشهري
-SELECT 
-    'Active Users' AS Category,
-    (SELECT COUNT(*) FROM AspNetUsers WHERE UserProfileID IS NOT NULL) AS Total,
-    (SELECT COUNT(*) FROM AspNetUsers WHERE UserProfileID IS NULL) AS Issues
-UNION ALL
-SELECT 
-    'Active Roles',
-    (SELECT COUNT(*) FROM AspNetUserRoles WHERE IsActive = 1),
-    (SELECT COUNT(*) FROM AspNetUserRoles WHERE IsActive = 1 AND ValidTo < GETDATE());
+-- عدد حسابات Google غير المُفعَّلة
+SELECT COUNT(*) AS UnconfirmedGoogleUsers
+FROM AspNetUsers u
+INNER JOIN AspNetUserLogins l ON l.UserId = u.Id
+WHERE l.LoginProvider = 'Google'
+  AND u.EmailConfirmed = 0;
 ```
 
----
-
-## CHECKLIST: عند التعامل مع الهوية
-
-### عند إنشاء صفحة تتعامل مع المستخدمين
-
-- [ ] هل استخدمت `UserContextService` لجلب المستخدم الحالي؟
-- [ ] هل تحققت من الصلاحية الزمنية للأدوار (`ValidTo`)?
-- [ ] هل استخدمت `UserRoleService` للتعامل مع `AspNetUserRoles`؟
-- [ ] ⭐ **هل راجعت شجرة القرار أعلاه لاختيار الخدمة الصحيحة؟**
-
-### عند إضافة مستخدم جديد
-
-- [ ] هل أنشأت `UserProfile` أولاً؟
-- [ ] هل ربطت `ApplicationUser.UserProfileID` بقيمة `UserProfile.UserProfileID`؟
-- [ ] هل أضفت الأدوار باستخدام `_userManager.AddToRoleAsync()`؟
-- [ ] ⭐ **هل العملية معقدة؟** → استخدم UseCase بدلاً من كود مباشر
-
-### عند تعديل أو حذف
-
-- [ ] هل أخذت نسخة احتياطية من قاعدة البيانات قبل التعديلات الكبيرة؟
-- [ ] هل تتبعت التسلسل الصحيح للحذف؟
-
-### عند التعامل مع الجلسات والكاش (جديد)
-
-- [ ] هل تمسح الكاش عند Logout باستخدام `ClearUserCacheUseCase`؟
-- [ ] هل تمسح `SecureStorage` و `_cachedSession` في الموبايل؟
-- [ ] هل `UserSessionService` هو المصدر الوحيد للكاش؟
+**النتيجة المتوقعة:** **0** — إذا كان الكود يعمل بشكل صحيح.
 
 ---
 
-## 🔗 روابط ذات صلة
+## 🔗 الجزء التاسع: روابط ذات صلة
 
-- [00 - الهيكل المعماري](00-architecture-overview.md) - يحتوي على شجرة القرار المعماري الكاملة ⭐
-- [01 - Program.cs والتسجيلات الأساسية](01-program-cs-foundation.md) - يحتوي على مصفوفة اختيار الخدمة ⭐
-- [04 - نظام القوائم الديناميكية](04-dynamic-menus.md)
-- [14 - نظام الكاش الموحد](14-caching-system.md) ⭐ جديد
-- [الملحق أ - مسرد المصطلحات](../appendix-a-glossary.md)
+- [00 — MASTER-INDEX](./00-MASTER-INDEX.md)
+- [00B — PROJECT-BACKLOG](./00B-PROJECT-BACKLOG.md)
+- [01 — ARCHITECTURE](./01-ARCHITECTURE.md)
+- [03 — MENUS](./03-MENUS.md)
+- [14 — CACHING](./14-CACHING.md)
+- [19 — PERMISSIONS](./19-PERMISSIONS.md)
+- [appendix-a-glossary](./appendix-a-glossary.md)
+
+---
+
+## 📝 الجزء العاشر: سجل التغييرات
+
+| الإصدار | التاريخ | التغييرات |
+|:---:|:---|:---|
+| **1.0** | **18 يوليو 2026** | الإصدار الأولي — `02-identity-system.md` |
+| **1.0** | **أكتوبر 2026** | الإصدار الأولي — `16-Google-Sign-In-Complete-Guide.md` |
+| **2.0** | **16 أكتوبر 2026** | **`02-IDENTITY` v2.0** — دمج `02` + `16` + ملاحظات جلسة 16 أكتوبر + إشارات `19-PERMISSIONS` |
+
+---
+
+**© 2026 RubikCare — للاستخدام الداخلي**
+
+**نهاية الوثيقة ✅**
 ```
-
----
-
-## 📊 ملخص التحديثات في هذه الوثيقة
-
-| القسم | التغيير |
-|-------|---------|
-| **المحتوى الأصلي** | ✅ محفوظ بالكامل دون أي حذف |
-| **القسم الجديد: 🧭 شجرة القرار المعماري للهوية** | ✅ إضافة كاملة مع Mermaid Diagram |
-| **مصفوفة اختيار خدمة الهوية** | ✅ 7 أنواع عمليات مع الخدمة المناسبة |
-| **أمثلة عملية** | ✅ 3 أمثلة كود (CRUD، معقدة، مشتركة) |
-| **CHECKLIST محدّث** | ✅ إضافة نقاط التحقق المعمارية |
-| **الروابط** | ✅ إضافة روابط للوثيقتين 00 و 01 المحدّثتين |
