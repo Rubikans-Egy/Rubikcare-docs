@@ -1,16 +1,4 @@
-# [#71] 📘 `16-TROUBLESHOOTING` — v2.0 (Unified Edition)
 
-**قرأتُ `06-troubleshooting-methodology`. سأدمجها بدقة مع قواعد AI + دروس MAUI Shell Navigation + إشارات للوثائق الأخرى.**
-
----
-
-## 🎯 منهجية الدمج
-
-> **"لا نحذف. نُضيف. النصوص الحرفية تُحفَظ. كل سطر مهم."**
-
----
-
-```markdown
 # 16 — TROUBLESHOOTING (منهجية تتبع المشاكل + قواعد AI)
 
 **الإصدار:** 2.0 (Unified Edition)
