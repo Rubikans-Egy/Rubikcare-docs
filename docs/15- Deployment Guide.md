@@ -1,61 +1,72 @@
 
----
+# 15 — DEPLOYMENT (دليل النشر والإنتاج)
 
-# 📄 12-deployment-guide.md — النسخة الموحدة الكاملة
-
-```markdown
-# 📖 12 - دليل النشر والإنتاج الشامل (Deployment Guide & SOP)
-
-**آخر تحديث:** 29 أغسطس 2026  
-**الحالة:** ✅ محدّث ليشمل Blazor WebAssembly PWA  
-**المؤلفون:** فريق RubikCare
+**الإصدار:** 2.0 (Unified Edition)
+**آخر تحديث:** 17 أكتوبر 2026
+**الحالة:** ✅ مرجع شامل — يدمج 12 + دروس مُتراكمة
+**الجمهور:** فريق التطوير + DevOps + AI Assistants
+**المرجع الإلزامي:** يُقرأ قبل أي نشر
 
 ---
 
-## 📌 مقدمة
+## 📌 الجزء صفر: مقدمة
+
+### 0.1 نطاق هذه الوثيقة
 
 هذا المرجع الشامل يغطي **كل ما يتعلق بنشر منصة RubikCare** على جميع البيئات:
 
-- **Web (IIS)** - Blazor Server + Blazor WebAssembly PWA
-- **Mobile (MAUI)** - Android APK/AAB + iOS IPA
-- **API (ASP.NET Core)** - Backend REST API
+- **Web (IIS)** — Blazor Server.
+- **PWA (IIS)** — Blazor WebAssembly.
+- **API (ASP.NET Core)** — Backend REST API.
+- **Mobile (MAUI)** — Android APK/AAB + iOS IPA.
 
-### 🎯 الأهداف
+### 0.2 الأهداف
 
-1. **توحيد إجراءات النشر** عبر جميع البيئات
-2. **توثيق الدروس المستفادة** من المشاكل الحقيقية
-3. **توفير سكربتات أتمتة** لتقليل الأخطاء اليدوية
-4. **إنشاء قوائم تحقق** لضمان الجودة
+1. **توحيد إجراءات النشر** عبر جميع البيئات.
+2. **توثيق الدروس المستفادة** من المشاكل الحقيقية.
+3. **توفير سكربتات أتمتة** لتقليل الأخطاء اليدوية.
+4. **إنشاء قوائم تحقق** لضمان الجودة.
 
-### 📚 الوثائق المرجعية
+### 0.3 الوثائق المرجعية
 
-قبل البدء، يُفضل مراجعة:
-- [00 - الهيكل المعماري](00-architecture-overview.md) - لفهم بنية المشاريع
-- [01 - Program.cs والتسجيلات الأساسية](01-program-cs-foundation.md) - لفهم الخدمات
-- [02 - نظام الهوية والمصادقة](02-identity-system.md) - لفهم إدارة الجلسات
+- **[01 — ARCHITECTURE](./01-ARCHITECTURE.md)** — لفهم بنية المشاريع.
+- **[02 — IDENTITY](./02-IDENTITY.md)** — لفهم إدارة الجلسات.
+- **[12 — CACHING](./12-CACHING.md)** — لفهم `IMemoryCache` + `IUserSessionService`.
+- **[14 — PWA](./14-PWA.md)** — لتفاصيل PWA.
+- **[13 — MAUI](./13-MAUI.md)** — لتفاصيل MAUI.
 
 ---
 
-## 🗺️ القسم 1: خريطة البيئات (Environment Map)
+## 🗺️ الجزء الأول: خريطة البيئات
 
-### 🌍 البيئات المعتمدة
+### 1.1 البيئات المعتمدة
 
 | البيئة | الغرض | رابط Web | رابط API | مسار السيرفر |
 |--------|-------|----------|----------|--------------|
 | **Local** | التطوير والاختبار المبدئي | `https://localhost:xxxx` | `https://localhost:yyyy` | `C:\Users\{user}\source\repos\...` |
 | **Test / UAT** | الاختبار الشامل قبل النشر | `https://test.rubikcare.com` | `https://uat.rubikcare.com` | Web: `C:\WebSite\RubikCareNew`<br>API: `C:\WebSite\RubikCareUat` |
 | **Stage (PWA)** | بيئة PWA للاختبار | `https://stagepu.rubikcare.com` | `https://uat.rubikcare.com` | PWA: `C:\WebSite\PU_RubicCareStage`<br>API: `C:\WebSite\RubikCareUat` |
-| **Production** | البيئة الفعلية للمستخدمين | `https://rubikcare.com` | `https://api.rubikcare.com` | Web: `C:\WebSite\RubikCareLive`<br>API: `C:\WebSite\RubikCareApi` |
+| **Production** | البيئة الفعلية | `https://rubikcare.com` | `https://api.rubikcare.com` | Web: `C:\WebSite\RubikCareLive`<br>API: `C:\WebSite\RubikCareApi` |
 
-### ⚠️ قاعدة ذهبية
+### 1.2 ⚠️ قاعدة ذهبية
 
 > **تطبيق الـ Web/PWA في بيئة الـ Test/Stage يجب أن يكون `ApiSettings:BaseUrl` فيه مساوياً لـ `https://uat.rubikcare.com` وليس الـ Live.**
 
+### 1.3 IIS Sites على VPS
+
+| الموقع | الدومين | App Pool |
+|:---|:---|:---|
+| `RubikCareNew` | `test.rubikcare.com` | `rubikcarenew` |
+| `RubikCareUat` | `uat.rubikcare.com` | `RubikCareUat` |
+| `PU_RubicCareStage` | `stagepu.rubikcare.com` | `PU_RubicCareStage` |
+| `RubikCareLive` | `rubikcare.com` | `RubikCareLive` |
+| `RubikCareApi` | `api.rubikcare.com` | `RubikCareApi` |
+
 ---
 
-## 🏗️ القسم 2: البنية التحتية المشتركة
+## 🏗️ الجزء الثاني: البنية التحتية المشتركة
 
-### 📋 المتطلبات الأساسية
+### 2.1 المتطلبات الأساسية
 
 | المكون | الإصدار الأدنى | الغرض |
 |--------|----------------|-------|
@@ -65,9 +76,9 @@
 | SQL Server | 2019+ | قاعدة البيانات |
 | URL Rewrite Module | 2.1+ | إعادة كتابة الروابط (ضروري لـ SPA) |
 
-### 🔧 إعداد IIS الأساسي
+### 2.2 🔧 إعداد IIS الأساسي
 
-#### 1. تثبيت URL Rewrite Module
+#### تثبيت URL Rewrite Module
 
 ```powershell
 # التحقق من وجود الوحدة
@@ -80,7 +91,7 @@ Get-WebGlobalModule | Where-Object { $_.Name -like "*Rewrite*" }
 Test-Path "C:\Windows\System32\inetsrv\rewrite.dll"
 ```
 
-#### 2. إنشاء Application Pool
+#### إنشاء Application Pool
 
 ```powershell
 # Blazor Server / API (ASP.NET Core)
@@ -96,9 +107,9 @@ C:\Windows\System32\inetsrv\appcmd add apppool `
     /managedPipelineMode:"Integrated"
 ```
 
-**ملاحظة مهمة:** `managedRuntimeVersion:""` يعني "No Managed Code" - ضروري لـ ASP.NET Core.
+**⚠️ ملاحظة مهمة:** `managedRuntimeVersion:""` يعني "No Managed Code" — ضروري لـ ASP.NET Core.
 
-#### 3. منح الصلاحيات
+#### منح الصلاحيات
 
 ```powershell
 # منح صلاحيات القراءة للمجلد
@@ -111,13 +122,13 @@ icacls "C:\WebSite\RubikCareApi\wwwroot\uploads" /grant "IIS_IUSRS:(OI)(CI)M" /T
 
 ---
 
-## 🔌 القسم 3: نشر API (ASP.NET Core)
+## 🔌 الجزء الثالث: نشر API (ASP.NET Core)
 
-### 📋 نظرة عامة
+### 3.1 نظرة عامة
 
-API هو **نقطة الدخول الوحيدة للبيانات** في المنصة. جميع العملاء (Web, Mobile, PWA) يتواصلون معه عبر HTTP/REST.
+**API هو نقطة الدخول الوحيدة للبيانات** في المنصة. جميع العملاء (Web, Mobile, PWA) يتواصلون معه عبر HTTP/REST.
 
-### 🚀 3.1 إجراءات ما قبل النشر
+### 3.2 🚀 إجراءات ما قبل النشر
 
 ```powershell
 # 1. تأكد من عدم وجود أخطاء بناء
@@ -131,7 +142,7 @@ dotnet ef migrations list --project RubikCare.Infrastructure --startup-project R
 dotnet run --project RubikCare.Api.Web
 ```
 
-### 📦 3.2 خطوات النشر
+### 3.3 📦 خطوات النشر
 
 #### الخطوة 1: إيقاف الـ App Pool
 
@@ -166,7 +177,7 @@ Get-ChildItem "E:\rubikans\Publish\ApiUat" -Exclude "appsettings.*.json" |
 C:\Windows\System32\inetsrv\appcmd start apppool "RubikCareUat"
 ```
 
-### 🧪 3.3 التحقق بعد النشر
+### 3.4 🧪 التحقق بعد النشر
 
 ```powershell
 try {
@@ -177,7 +188,7 @@ try {
 }
 ```
 
-### 🐛 3.4 الأخطاء الشائعة
+### 3.5 🐛 الأخطاء الشائعة
 
 #### ❌ الخطأ 1: `502.5 - Process Failure`
 
@@ -198,16 +209,15 @@ Get-ChildItem "C:\WebSite\RubikCareUat\logs" -Filter "stdout_*.log" |
 
 #### ❌ الخطأ 2: `401 Unauthorized`
 
-**الحل:** تحقق من JWT Key و CORS (راجع القسم 7)
+**الحل:** تحقق من JWT Key و CORS.
 
 #### ❌ الخطأ 3: `404 Not Found`
 
-**الحل:** تحقق من نشر الـ Controllers الجديدة
+**الحل:** تحقق من نشر الـ Controllers الجديدة.
 
-### 🚀 3.5 سكربت النشر الأوتوماتيكي
+### 3.6 🚀 سكربت النشر الأوتوماتيكي (`deploy-api-uat.ps1`)
 
 ```powershell
-# deploy-api-uat.ps1
 param(
     [string]$ProjectPath = "C:\RC\Rubikcare.Full.Migration",
     [string]$PublishPath = "E:\rubikans\Publish\ApiUat",
@@ -226,9 +236,8 @@ C:\Windows\System32\inetsrv\appcmd stop apppool $AppPoolName
 Start-Sleep -Seconds 2
 
 # الخطوة 2: نسخة احتياطية من appsettings
-Write-Host "`n💾 الخطوة 2: نسخة احتياطية من appsettings..." -ForegroundColor Yellow
+Write-Host "`n💾 الخطوة 2: نسخة احتياطية..." -ForegroundColor Yellow
 Copy-Item "$IISPath\appsettings.Test.json" "$IISPath\appsettings.Test.json.backup" -Force
-Write-Host "✅ تم الحفظ" -ForegroundColor Green
 
 # الخطوة 3: نشر المشروع
 Write-Host "`n📦 الخطوة 3: نشر المشروع..." -ForegroundColor Yellow
@@ -240,12 +249,11 @@ if ($LASTEXITCODE -ne 0) {
     C:\Windows\System32\inetsrv\appcmd start apppool $AppPoolName
     exit 1
 }
-Write-Host "✅ النشر نجح" -ForegroundColor Green
 
-# الخطوة 4: نسخ الملفات (باستثناء appsettings)
-Write-Host "`n📋 الخطوة 4: نسخ الملفات إلى IIS..." -ForegroundColor Yellow
-Get-ChildItem $PublishPath -Exclude "appsettings.*.json" | Copy-Item -Destination $IISPath -Recurse -Force
-Write-Host "✅ تم النسخ" -ForegroundColor Green
+# الخطوة 4: نسخ الملفات
+Write-Host "`n📋 الخطوة 4: نسخ الملفات..." -ForegroundColor Yellow
+Get-ChildItem $PublishPath -Exclude "appsettings.*.json" | 
+    Copy-Item -Destination $IISPath -Recurse -Force
 
 # الخطوة 5: تشغيل الـ App Pool
 Write-Host "`n▶️  الخطوة 5: تشغيل الـ App Pool..." -ForegroundColor Yellow
@@ -257,12 +265,11 @@ Start-Sleep -Seconds 5
 
 try {
     $r = Invoke-WebRequest -Uri "$ApiUrl/health" -UseBasicParsing -TimeoutSec 15
-    Write-Host "✅ Health Check: $($r.StatusCode) - $($r.Content)" -ForegroundColor Green
+    Write-Host "✅ Health Check: $($r.StatusCode)" -ForegroundColor Green
 } catch {
     Write-Host "❌ Health Check: $($_.Exception.Message)" -ForegroundColor Red
 }
 
-# النتيجة النهائية
 Write-Host "`n================================================" -ForegroundColor Cyan
 Write-Host "  🎉 تم نشر API بنجاح!" -ForegroundColor Green
 Write-Host "  🔗 الرابط: $ApiUrl" -ForegroundColor Green
@@ -271,15 +278,15 @@ Write-Host "================================================`n" -ForegroundColor
 
 ---
 
-## 🌐 القسم 4: نشر Web (Blazor Server)
+## 🌐 الجزء الرابع: نشر Web (Blazor Server)
 
-### 📋 نظرة عامة
+### 4.1 نظرة عامة
 
-تطبيق `RubikCare.Web` هو تطبيق **Blazor Server** يعمل عبر SignalR.
+**تطبيق `RubikCare.Web` هو تطبيق Blazor Server** يعمل عبر SignalR.
 
 > ⚠️ **ملاحظة معمارية:** يعتمد `RubikCare.Web` على `appsettings.{Environment}.json` لتحديد رابط الـ API المستهدف.
 
-### 🚀 4.1 إجراءات ما قبل النشر
+### 4.2 🚀 إجراءات ما قبل النشر
 
 ```powershell
 # تحقق من رابط الـ API
@@ -287,6 +294,7 @@ Get-Content "C:\RC\Rubikcare.Full.Migration\RubikCare.Web\appsettings.Test.json"
 ```
 
 **النتيجة الصحيحة لبيئة Test:**
+
 ```json
 {
   "ApiSettings": {
@@ -295,7 +303,7 @@ Get-Content "C:\RC\Rubikcare.Full.Migration\RubikCare.Web\appsettings.Test.json"
 }
 ```
 
-### 📦 4.2 خطوات النشر
+### 4.3 📦 خطوات النشر
 
 #### الخطوة 1: إيقاف الـ App Pool
 
@@ -326,7 +334,7 @@ Get-ChildItem "E:\rubikans\Publish\WebTest" -Exclude "web.config","appsettings.*
 C:\Windows\System32\inetsrv\appcmd start apppool "rubikcarenew"
 ```
 
-### ⚙️ 4.3 ملف `web.config` للـ Blazor Server
+### 4.4 ⚙️ ملف `web.config` للـ Blazor Server
 
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
@@ -351,7 +359,7 @@ C:\Windows\System32\inetsrv\appcmd start apppool "rubikcarenew"
 </configuration>
 ```
 
-### 🧪 4.4 التحقق بعد النشر
+### 4.5 🧪 التحقق بعد النشر
 
 ```powershell
 try {
@@ -365,22 +373,18 @@ Get-Content "C:\WebSite\RubikCareNew\appsettings.Test.json" | Select-String "Bas
 Get-Content "C:\WebSite\RubikCareNew\web.config" | Select-String "ASPNETCORE_ENVIRONMENT"
 ```
 
----
+### 4.6 🔴 القسم 4.5: نشر Web — تحديث حرج (28 سبتمبر 2026)
 
----
-`
-## 🔴 القسم 4.5: نشر Web — تحديث حرج (28 سبتمبر 2026)
+#### ⚠️ مشكلة "الصفحة فارغة + تحميل بطيء" — Root Cause
 
-### ⚠️ مشكلة "الصفحة فارغة + تحميل بطيء" — Root Cause
+**التاريخ:** 28 سبتمبر 2026
+**البيئة:** `test.rubikcare.com` (RubikCare.Web)
+**الأعراض:**
+- صفحة Dashboard والتقارير تفتح ببطء شديد (> دقيقتين).
+- ثم تفتح فارغة (بدون KPIs، Charts، Quick Access Data).
+- الأزرار تعمل، لكن لا تُحمَّل أي بيانات من API.
 
-**التاريخ:** 28 سبتمبر 2026  
-**البيئة:** `test.rubikcare.com` (RubikCare.Web)  
-**الأعراض:** 
-- صفحة Dashboard والتقارير تفتح ببطء شديد (> دقيقتين)
-- ثم تفتح فارغة (بدون KPIs، Charts، Quick Access Data)
-- الأزرار تعمل، لكن لا تُحمَّل أي بيانات من API
-
-### 🎯 الأسباب الجذرية (3 مشاكل متتالية)
+#### 🎯 الأسباب الجذرية (3 مشاكل متتالية)
 
 | # | السبب | التفصيل |
 |---|-------|---------|
@@ -388,9 +392,9 @@ Get-Content "C:\WebSite\RubikCareNew\web.config" | Select-String "ASPNETCORE_ENV
 | 2 | **`appcmd recycle` لا يُعيد تحميل `web.config`** | `recycle` يعيد تشغيل عملية `w3wp` **بدون** قطع الاتصالات النشطة → الإعدادات القديمة تبقى |
 | 3 | **`IUserSessionService` يُخزّن الجلسة في `IMemoryCache`** | `IMemoryCache` يبدأ فارغاً عند restart، لكن **الجلسة القديمة** تبقى في الكاش حتى Logout → `CurrentOrganizationId = null` |
 
-### 🔧 الحل الكامل
+#### 🔧 الحل الكامل
 
-#### الخطوة 1: تعديل `web.config` (إضافة `ASPNETCORE_ENVIRONMENT`)
+##### الخطوة 1: تعديل `web.config` (إضافة `ASPNETCORE_ENVIRONMENT`)
 
 **القالب الصحيح لـ `web.config`:**
 
@@ -417,11 +421,11 @@ Get-Content "C:\WebSite\RubikCareNew\web.config" | Select-String "ASPNETCORE_ENV
 ```
 
 **⚠️ القيم المسموحة لـ `value`:**
-- `Test` → لبيئة `test.rubikcare.com`
-- `Production` → لبيئة `rubikcare.com`
-- `Development` → للتطوير المحلي فقط
+- `Test` → لبيئة `test.rubikcare.com`.
+- `Production` → لبيئة `rubikcare.com`.
+- `Development` → للتطوير المحلي فقط.
 
-#### الخطوة 2: إعادة تشغيل نظيفة (Stop + Start)
+##### الخطوة 2: إعادة تشغيل نظيفة (Stop + Start)
 
 **❌ خطأ:**
 ```powershell
@@ -437,15 +441,15 @@ C:\Windows\System32\inetsrv\appcmd start apppool "rubikcarenew"
 
 **السبب:** `recycle` لا يُطبّق `web.config` الجديد بشكل موثوق.
 
-#### الخطوة 3: مسح الجلسة القديمة
+##### الخطوة 3: مسح الجلسة القديمة
 
 **بعد إعادة التشغيل:**
-1. افتح المتصفح على `https://test.rubikcare.com`
-2. **سجّل خروج** (Logout) — لمسح `IMemoryCache` للجلسة القديمة
-3. **سجّل دخول** من جديد — لبناء جلسة جديدة بالـ `BaseUrl` الصحيح
-4. اختبر صفحة التقارير
+1. افتح المتصفح على `https://test.rubikcare.com`.
+2. **سجّل خروج** (Logout) — لمسح `IMemoryCache` للجلسة القديمة.
+3. **سجّل دخول** من جديد — لبناء جلسة جديدة بالـ `BaseUrl` الصحيح.
+4. اختبر صفحة التقارير.
 
-### 📋 Checklist النشر الآمن للـ Web
+#### 📋 Checklist النشر الآمن للـ Web
 
 ```
 قبل النشر:
@@ -464,10 +468,19 @@ C:\Windows\System32\inetsrv\appcmd start apppool "rubikcarenew"
   [ ] اختبر صفحة Reports (يجب أن تُحمَّل البيانات)
 ```
 
-### 🚀 سكربت النشر الصحيح (`deploy-web-test.ps1`)
+#### 🎯 القاعدة الذهبية الجديدة
+
+> **بعد أي تعديل في `web.config` أو `appsettings.*.json`:**
+> 1. **`appcmd stop`** (وليس `recycle`).
+> 2. **`Start-Sleep -Seconds 5`**.
+> 3. **`appcmd start`**.
+> 4. **تسجيل خروج ودخول** في المتصفح.
+>
+> **بدون هذه الخطوات:** التعديلات **لن تُطبَّق**، وستستمر الصفحات فارغة.
+
+#### 🚀 سكربت النشر الصحيح (`deploy-web-test.ps1`)
 
 ```powershell
-# deploy-web-test.ps1 — النشر الآمن لـ RubikCare.Web إلى Test
 param(
     [string]$ProjectPath = "C:\RC\Rubikcare.Full.Migration",
     [string]$PublishPath = "E:\rubikans\Publish\WebTest",
@@ -484,7 +497,6 @@ Write-Host "================================================`n" -ForegroundColor
 Write-Host "⏸️  الخطوة 1: إيقاف App Pool (Stop كامل)..." -ForegroundColor Yellow
 C:\Windows\System32\inetsrv\appcmd stop apppool $AppPoolName
 Start-Sleep -Seconds 5
-Write-Host "✅ تم الإيقاف" -ForegroundColor Green
 
 # ─── 2. التحقق من الإعدادات ───
 Write-Host "`n🔍 الخطوة 2: التحقق من appsettings.Test.json..." -ForegroundColor Yellow
@@ -492,11 +504,9 @@ $testSettings = Get-Content "$IISPath\appsettings.Test.json" -Raw | ConvertFrom-
 $baseUrl = $testSettings.ApiSettings.BaseUrl
 if ($baseUrl -ne "https://uat.rubikcare.com") {
     Write-Host "❌ BaseUrl خاطئ: $baseUrl" -ForegroundColor Red
-    Write-Host "⚠️  يجب أن يكون: https://uat.rubikcare.com" -ForegroundColor Yellow
     C:\Windows\System32\inetsrv\appcmd start apppool $AppPoolName
     exit 1
 }
-Write-Host "✅ BaseUrl = $baseUrl" -ForegroundColor Green
 
 # ─── 3. التحقق من ASPNETCORE_ENVIRONMENT ───
 Write-Host "`n🔍 الخطوة 3: التحقق من ASPNETCORE_ENVIRONMENT..." -ForegroundColor Yellow
@@ -506,31 +516,26 @@ if ($webConfig -notmatch 'value="Test"') {
     C:\Windows\System32\inetsrv\appcmd start apppool $AppPoolName
     exit 1
 }
-Write-Host "✅ ASPNETCORE_ENVIRONMENT = Test" -ForegroundColor Green
 
 # ─── 4. النشر ───
 Write-Host "`n📦 الخطوة 4: نشر المشروع..." -ForegroundColor Yellow
 Set-Location $ProjectPath
 dotnet publish RubikCare.Web -c Release -o $PublishPath
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "❌ فشل النشر!" -ForegroundColor Red
     C:\Windows\System32\inetsrv\appcmd start apppool $AppPoolName
     exit 1
 }
-Write-Host "✅ النشر نجح" -ForegroundColor Green
 
-# ─── 5. نسخ الملفات (باستثناء web.config و appsettings) ───
-Write-Host "`n📋 الخطوة 5: نسخ الملفات إلى IIS..." -ForegroundColor Yellow
+# ─── 5. نسخ الملفات ───
+Write-Host "`n📋 الخطوة 5: نسخ الملفات..." -ForegroundColor Yellow
 Get-ChildItem $PublishPath -Exclude "web.config","appsettings.*.json" | 
     Copy-Item -Destination $IISPath -Recurse -Force
-Write-Host "✅ تم النسخ (بدون المساس بـ web.config و appsettings)" -ForegroundColor Green
 
 # ─── 6. تشغيل App Pool ───
-Write-Host "`n▶️  الخطوة 6: تشغيل App Pool (Start نظيف)..." -ForegroundColor Yellow
+Write-Host "`n▶️  الخطوة 6: تشغيل App Pool..." -ForegroundColor Yellow
 C:\Windows\System32\inetsrv\appcmd start apppool $AppPoolName
-Write-Host "✅ تم التشغيل" -ForegroundColor Green
 
-# ─── 7. اختبار Health Check ───
+# ─── 7. اختبار ───
 Write-Host "`n🧪 الخطوة 7: اختبار الموقع..." -ForegroundColor Yellow
 Start-Sleep -Seconds 8
 try {
@@ -540,153 +545,19 @@ try {
     Write-Host "❌ الموقع لا يعمل: $($_.Exception.Message)" -ForegroundColor Red
 }
 
-# ─── 8. اختبار API ───
-Write-Host "`n🧪 الخطوة 8: اختبار الاتصال بـ API..." -ForegroundColor Yellow
-try {
-    $r = Invoke-WebRequest -Uri "https://uat.rubikcare.com/api/ping" -UseBasicParsing -TimeoutSec 15
-    Write-Host "✅ API يعمل: $($r.StatusCode)" -ForegroundColor Green
-} catch {
-    Write-Host "❌ API لا يعمل: $($_.Exception.Message)" -ForegroundColor Red
-}
-
-# ─── النتيجة النهائية ───
 Write-Host "`n================================================" -ForegroundColor Cyan
 Write-Host "  🎉 تم النشر بنجاح!" -ForegroundColor Green
-Write-Host "  🔗 الرابط: $SiteUrl" -ForegroundColor Green
-Write-Host "" -ForegroundColor White
-Write-Host "  ⚠️  تذكير:" -ForegroundColor Yellow
-Write-Host "  1. سجّل خروج ثم دخول في المتصفح (لمسح IMemoryCache)" -ForegroundColor Yellow
-Write-Host "  2. اختبر صفحة Dashboard والتقارير" -ForegroundColor Yellow
+Write-Host "  ⚠️  تذكير: سجّل خروج ثم دخول في المتصفح (لمسح IMemoryCache)" -ForegroundColor Yellow
 Write-Host "================================================`n" -ForegroundColor Cyan
 ```
 
-### 🎯 القاعدة الذهبية الجديدة
-
-> **بعد أي تعديل في `web.config` أو `appsettings.*.json`:**
-> 1. **`appcmd stop`** (وليس `recycle`)
-> 2. **`Start-Sleep -Seconds 5`**
-> 3. **`appcmd start`**
-> 4. **تسجيل خروج ودخول** في المتصفح
->
-> **بدون هذه الخطوات:** التعديلات **لن تُطبَّق**، وستستمر الصفحات فارغة.
-
----
-```
-
 ---
 
-### 2. إضافة تحذير في قسم "الأخطاء الشائعة" (4.4 أو 5.7)
+## 📱 الجزء الخامس: نشر PWA (Blazor WebAssembly)
 
-**أضف تحت `❌ الخطأ 4`:**
+### 5.1 نظرة عامة
 
-```markdown
-#### ❌ الخطأ 5: الصفحة تفتح فارغة + تحميل بطيء (Test/UAT)
-
-**الأعراض:**
-- الصفحة تستغرق > دقيقتين للفتح
-- تفتح بدون بيانات (KPIs، Charts، Tables فارغة)
-- الأزرار تعمل (Quick Access) لكن لا تُحمَّل البيانات
-
-**السبب:**
-1. `ASPNETCORE_ENVIRONMENT` غير محدد في `web.config`
-2. `appcmd recycle` بدل `stop` + `start`
-3. الجلسة القديمة في `IMemoryCache` لم تُمسح
-
-**الحل السريع:**
-```powershell
-# 1. تحقق من البيئة
-Get-Content "C:\WebSite\RubikCareNew\web.config" | Select-String "ASPNETCORE_ENVIRONMENT"
-
-# 2. تحقق من BaseUrl
-Get-Content "C:\WebSite\RubikCareNew\appsettings.Test.json" | Select-String "BaseUrl"
-# يجب أن يكون: https://uat.rubikcare.com
-
-# 3. إعادة تشغيل نظيفة
-C:\Windows\System32\inetsrv\appcmd stop apppool "rubikcarenew"
-Start-Sleep -Seconds 5
-C:\Windows\System32\inetsrv\appcmd start apppool "rubikcarenew"
-
-# 4. في المتصفح: سجّل خروج ثم دخول
-```
-```
-
----
-
-### 3. إضافة قسم كامل في نهاية الوثيقة
-
-**أضف قبل "Lessons Learned" (القسم 11):**
-
-```markdown
----
-
-## 🔬 القسم 10.5: تشخيص متقدم — صفحة فارغة في Test
-
-### 🔍 خطوات التشخيص السريع (5 دقائق)
-
-```powershell
-# ═══════════════════════════════════════════════════════
-# 1. هل البيئة محددة؟
-# ═══════════════════════════════════════════════════════
-Get-Content "C:\WebSite\RubikCareNew\web.config" | Select-String "ASPNETCORE_ENVIRONMENT"
-# النتيجة المتوقعة: value="Test"
-
-# ═══════════════════════════════════════════════════════
-# 2. ما هو BaseUrl الفعلي المستخدم؟
-# ═══════════════════════════════════════════════════════
-Get-Content "C:\WebSite\RubikCareNew\appsettings.Test.json" | Select-String "BaseUrl"
-# النتيجة المتوقعة: "BaseUrl": "https://uat.rubikcare.com"
-
-# ═══════════════════════════════════════════════════════
-# 3. هل كل ملفات appsettings لها نفس BaseUrl؟
-# ═══════════════════════════════════════════════════════
-Get-ChildItem "C:\WebSite\RubikCareNew\appsettings*.json" | ForEach-Object { 
-    "--- $($_.Name) ---"
-    (Get-Content $_.FullName -Raw) -split "`n" | Select-String "BaseUrl"
-}
-
-# ═══════════════════════════════════════════════════════
-# 4. هل API يعمل؟
-# ═══════════════════════════════════════════════════════
-Invoke-WebRequest -Uri "https://uat.rubikcare.com/api/ping" -UseBasicParsing
-# النتيجة المتوقعة: {"success":true,...}
-
-# ═══════════════════════════════════════════════════════
-# 5. هل App Pool يعمل؟
-# ═══════════════════════════════════════════════════════
-Get-IISAppPool | Where-Object { $_.Name -eq "rubikcarenew" } | Select-Object Name, State, ProcessId
-# State يجب أن تكون Started
-```
-
-### 🎯 شجرة القرار
-
-```
-الصفحة فارغة؟
-│
-├── هل ASPNETCORE_ENVIRONMENT = Test?
-│   ├── لا → عدّل web.config + stop/start
-│   └── نعم → 
-│       │
-│       ├── هل BaseUrl في appsettings.Test.json = https://uat.rubikcare.com?
-│       │   ├── لا → عدّل الملف + stop/start
-│       │   └── نعم → 
-│       │       │
-│       │       ├── هل API يعمل؟ (api/ping)
-│       │       │   ├── لا → افحص App Pool + Event Log
-│       │       │   └── نعم → 
-│       │       │       │
-│       │       │       └── ✅ المشكلة في IMemoryCache
-│       │       │           → سجّل خروج ودخول
-```
-
----
-```
-
-
-## 📱 القسم 5: نشر PWA (Blazor WebAssembly) ⭐
-
-### 📋 نظرة عامة
-
-تطبيق `RubikCare.PWA` هو **Blazor WebAssembly Standalone**. يختلف نشره كلياً عن الـ Web والـ API:
+**تطبيق `RubikCare.PWA` هو Blazor WebAssembly Standalone.** يختلف نشره كلياً عن الـ Web والـ API:
 
 | الجانب | Web / API | PWA (Blazor WASM) |
 |--------|-----------|-------------------|
@@ -697,7 +568,7 @@ Get-IISAppPool | Where-Object { $_.Name -eq "rubikcarenew" } | Select-Object Nam
 
 > 🔴 **القاعدة المحورية:** تطبيق الـ PWA لا يحتاج خادم .NET، لكنه يحتاج **إعداد IIS دقيقاً** ليخدم ملفات `.wasm` و `.dat` و `.js` بشكل صحيح.
 
-### 🏗️ 5.1 المتطلبات الأساسية
+### 5.2 🏗️ المتطلبات الأساسية
 
 ```powershell
 # التحقق من URL Rewrite Module
@@ -711,7 +582,7 @@ C:\Windows\System32\inetsrv\appcmd add apppool `
     /managedPipelineMode:"Integrated"
 ```
 
-### 🎯 5.2 القاعدة الذهبية: المسار الفيزيائي
+### 5.3 🎯 القاعدة الذهبية: المسار الفيزيائي
 
 > 🔴 **أكبر خطأ:** المسار الفيزيائي يشير إلى `wwwroot` بدلاً من الجذر.
 
@@ -733,7 +604,7 @@ C:\Windows\System32\inetsrv\appcmd list vdir "PU_RubicCareStage/" /text:physical
 C:\Windows\System32\inetsrv\appcmd set vdir "PU_RubicCareStage/" /physicalPath:"C:\WebSite\PU_RubicCareStage"
 ```
 
-### 📄 5.3 ملف `web.config` الكامل للـ PWA
+### 5.4 📄 ملف `web.config` الكامل للـ PWA
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -784,9 +655,9 @@ C:\Windows\System32\inetsrv\appcmd set vdir "PU_RubicCareStage/" /physicalPath:"
 </configuration>
 ```
 
-### 🔢 5.4 مشكلة الأسماء المُجزّأة (Hashed Filenames)
+### 5.5 🔢 مشكلة الأسماء المُجزّأة (Hashed Filenames)
 
-أضف هذا الـ Target في `RubikCare.PWA.csproj`:
+**أضف هذا الـ Target في `RubikCare.PWA.csproj`:**
 
 ```xml
 <Target Name="CopyBlazorAssets" AfterTargets="Publish">
@@ -818,7 +689,7 @@ C:\Windows\System32\inetsrv\appcmd set vdir "PU_RubicCareStage/" /physicalPath:"
 </Target>
 ```
 
-### 📦 5.5 خطوات النشر
+### 5.6 📦 خطوات النشر
 
 ```powershell
 # 1. إيقاف الـ App Pool
@@ -839,10 +710,9 @@ Copy-Item -Path "E:\rubikans\Publish\PWA\*" -Destination "C:\WebSite\PU_RubicCar
 C:\Windows\System32\inetsrv\appcmd start apppool "PU_RubicCareStage"
 ```
 
-### 🤖 5.6 سكربت النشر الأوتوماتيكي (`deploy-stage.ps1`)
+### 5.7 🤖 سكربت النشر الأوتوماتيكي (`deploy-stage.ps1`)
 
 ```powershell
-# deploy-stage.ps1
 param(
     [string]$ProjectPath = "C:\RC\Rubikcare.Full.Migration",
     [string]$PublishPath = "E:\rubikans\Publish\PWA",
@@ -863,7 +733,6 @@ Start-Sleep -Seconds 2
 # الخطوة 2: مسح المجلد (باستثناء web.config)
 Write-Host "`n🗑️  الخطوة 2: مسح المجلد القديم..." -ForegroundColor Yellow
 Get-ChildItem "$IISPath" -Exclude "web.config" | Remove-Item -Recurse -Force
-Write-Host "✅ تم المسح (احتفظنا بـ web.config)" -ForegroundColor Green
 
 # الخطوة 3: نشر المشروع
 Write-Host "`n📦 الخطوة 3: نشر المشروع..." -ForegroundColor Yellow
@@ -871,22 +740,19 @@ Set-Location $ProjectPath
 dotnet publish RubikCare.PWA -c Release -o $PublishPath
 
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "❌ فشل النشر!" -ForegroundColor Red
     C:\Windows\System32\inetsrv\appcmd start apppool $AppPoolName
     exit 1
 }
-Write-Host "✅ النشر نجح" -ForegroundColor Green
 
-# الخطوة 4: نسخ الملفات إلى IIS
-Write-Host "`n📋 الخطوة 4: نسخ الملفات إلى IIS..." -ForegroundColor Yellow
+# الخطوة 4: نسخ الملفات
+Write-Host "`n📋 الخطوة 4: نسخ الملفات..." -ForegroundColor Yellow
 Copy-Item -Path "$PublishPath\*" -Destination $IISPath -Recurse -Force
-Write-Host "✅ تم النسخ" -ForegroundColor Green
 
 # الخطوة 5: تشغيل الـ App Pool
 Write-Host "`n▶️  الخطوة 5: تشغيل الـ App Pool..." -ForegroundColor Yellow
 C:\Windows\System32\inetsrv\appcmd start apppool $AppPoolName
 
-# الخطوة 6: اختبار الروابط
+# الخطوة 6: اختبار
 Write-Host "`n🧪 الخطوة 6: اختبار الروابط..." -ForegroundColor Yellow
 Start-Sleep -Seconds 3
 
@@ -917,7 +783,7 @@ if ($allPassed) {
 }
 ```
 
-### 🐛 5.7 الأخطاء الشائعة في PWA
+### 5.8 🐛 الأخطاء الشائعة في PWA
 
 #### ❌ الخطأ 1: شاشة زرقاء + `Unexpected token '<'`
 
@@ -925,10 +791,7 @@ if ($allPassed) {
 
 **الحل:**
 ```powershell
-# تحقق من وجود الملف
 Test-Path "C:\WebSite\PU_RubicCareStage\wwwroot\_framework\blazor.webassembly.js"
-
-# تحقق من المسار الفيزيائي
 C:\Windows\System32\inetsrv\appcmd list vdir "PU_RubicCareStage/" /text:physicalPath
 ```
 
@@ -936,42 +799,31 @@ C:\Windows\System32\inetsrv\appcmd list vdir "PU_RubicCareStage/" /text:physical
 
 **السبب:** ملفات قديمة بـ hash مختلف، أو المسار الفيزيائي خاطئ.
 
-**الحل:**
-```powershell
-# امسح المجلد وأعد النشر
-C:\Windows\System32\inetsrv\appcmd stop apppool "PU_RubicCareStage"
-Get-ChildItem "C:\WebSite\PU_RubicCareStage" -Exclude "web.config" | Remove-Item -Recurse -Force
-Copy-Item -Path "E:\rubikans\Publish\PWA\*" -Destination "C:\WebSite\PU_RubicCareStage\" -Recurse -Force
-C:\Windows\System32\inetsrv\appcmd start apppool "PU_RubicCareStage"
-```
+**الحل:** امسح المجلد وأعد النشر.
 
 #### ❌ الخطأ 3: `manifest.webmanifest` يرجع 404
 
-**الحل:** تأكد من MIME type في `web.config`:
-```xml
-<mimeMap fileExtension=".webmanifest" mimeType="application/manifest+json" />
-```
+**الحل:** تأكد من MIME type في `web.config`.
 
 #### ❌ الخطأ 4: الموقع لا يفتح (خطأ 500)
 
-**الحل:** تحقق من URL Rewrite Module:
-```powershell
-Get-WebGlobalModule | Where-Object { $_.Name -like "*Rewrite*" }
-```
+**الحل:** تحقق من URL Rewrite Module.
 
 #### ❌ الخطأ 5: Service Worker يخدم ملفات قديمة
 
-**الحل:** اختبر دائماً في **InPrivate** (`Ctrl + Shift + N`)
+**الحل:** اختبر دائماً في **InPrivate** (`Ctrl + Shift + N`).
 
 #### ❌ الخطأ 6: صورة البروفايل لا تظهر + CORS
 
-**الحل:** أضف CORS في الـ API (راجع القسم 7)
+**الحل:** أضف CORS في الـ API.
+
+**⚠️ التفاصيل الكاملة في `14-PWA`.**
 
 ---
 
-## 📲 القسم 6: نشر Mobile (MAUI)
+## 📲 الجزء السادس: نشر Mobile (MAUI)
 
-### 🤖 6.1 نشر Android (APK / AAB)
+### 6.1 🤖 نشر Android (APK / AAB)
 
 ```bash
 # إنشاء Keystore (مرة واحدة)
@@ -985,18 +837,20 @@ dotnet publish RubikCare.Mobile -f net10.0-android -c Release /p:AndroidPackageF
 dotnet publish RubikCare.Mobile -f net10.0-android -c Release /p:AndroidPackageFormat=aab
 ```
 
-### 🍎 6.2 نشر iOS (IPA)
+### 6.2 🍎 نشر iOS (IPA)
 
 ```bash
 # من Mac
 dotnet publish RubikCare.Mobile -f net10.0-ios -c Release /p:ArchiveOnBuild=true
 ```
 
-### 🐛 6.3 أخطاء شائعة في Mobile
+### 6.3 🐛 أخطاء شائعة في Mobile
 
 #### ❌ `Ambiguous routes matched`
 
-**الحل:** الصفحات الرئيسية في `AppShell.xaml` فقط، الفرعية في `AppShell.xaml.cs`
+**الحل:** الصفحات الرئيسية في `AppShell.xaml` فقط، الفرعية في `AppShell.xaml.cs`.
+
+**⚠️ التفاصيل في `13-MAUI`.**
 
 #### ❌ `JavaProxyThrowable`
 
@@ -1008,9 +862,9 @@ dotnet publish RubikCare.Mobile -f net10.0-ios -c Release /p:ArchiveOnBuild=true
 
 ---
 
-## 🔐 القسم 7: إعدادات الأمان
+## 🔐 الجزء السابع: إعدادات الأمان
 
-### 🔑 7.1 مفاتيح الإنتاج
+### 7.1 مفاتيح الإنتاج
 
 ```bash
 # للتطوير
@@ -1020,7 +874,7 @@ dotnet user-secrets set "Jwt:Key" "dev-key-12345678" --project RubikCare.Api.Web
 setx Jwt__Key "production-key-32-chars-minimum" /M
 ```
 
-### 🛡️ 7.2 حماية البيانات (Data Protection)
+### 7.2 حماية البيانات (Data Protection)
 
 ```csharp
 builder.Services.AddDataProtection()
@@ -1028,7 +882,7 @@ builder.Services.AddDataProtection()
     .SetApplicationName("RubikCare");
 ```
 
-### 🌐 7.3 سياسات CORS
+### 7.3 سياسات CORS
 
 ```csharp
 builder.Services.AddCors(options =>
@@ -1053,9 +907,9 @@ app.UseCors("AllowWebApp");
 
 ---
 
-## 💾 القسم 8: النسخ الاحتياطي
+## 💾 الجزء الثامن: النسخ الاحتياطي
 
-### 🗄️ 8.1 قاعدة البيانات
+### 8.1 قاعدة البيانات
 
 ```sql
 BACKUP DATABASE RubikCare 
@@ -1063,7 +917,7 @@ TO DISK = 'C:\Backups\RubikCare_Full.bak'
 WITH INIT, COMPRESSION;
 ```
 
-### 📂 8.2 نسخ ملفات الموقع
+### 8.2 نسخ ملفات الموقع
 
 ```powershell
 $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
@@ -1073,7 +927,7 @@ Compress-Archive -Path "C:\WebSite\PU_RubicCareStage\*" `
 
 ---
 
-## 🔍 القسم 9: Health Checks
+## 🔍 الجزء التاسع: Health Checks
 
 ```csharp
 builder.Services.AddHealthChecks()
@@ -1088,17 +942,17 @@ Invoke-WebRequest -Uri "https://api.rubikcare.com/health" -UseBasicParsing
 
 ---
 
-## 🔴 القسم 10: Root Cause Analysis (الفشل الصامت)
+## 🔴 الجزء العاشر: Root Cause Analysis — الفشل الصامت
 
-**Date:** August 20, 2026  
-**Developer:** Youssef Shady  
+**Date:** August 20, 2026
+**Developer:** Youssef Shady
 **Status:** Resolved
 
-### وصف المشكلة
+### 10.1 وصف المشكلة
 
-"Silent Failure" — عمليات الحفظ تفشل بدون أي رسالة خطأ في UI أو Console.
+**"Silent Failure"** — عمليات الحفظ تفشل بدون أي رسالة خطأ في UI أو Console.
 
-### السبب الجذري (3 عوامل)
+### 10.2 السبب الجذري (3 عوامل)
 
 | # | العامل | التفاصيل |
 |---|--------|----------|
@@ -1106,7 +960,7 @@ Invoke-WebRequest -Uri "https://api.rubikcare.com/health" -UseBasicParsing
 | 2 | **Misconfigured BaseUrl** | `appsettings.Test.json` يشير إلى Live API بدلاً من UAT |
 | 3 | **API Environment Conflict** | كود Web جديد منشور بينما API المستهدف قديم |
 
-### الحل
+### 10.3 الحل
 
 ```csharp
 // ❌ قبل: فشل صامت
@@ -1135,7 +989,7 @@ public async Task<T> GetAsync<T>(string endpoint)
 
 ---
 
-## 📚 القسم 11: Lessons Learned (الدروس المستفادة)
+## 📚 الجزء الحادي عشر: Lessons Learned (الدروس المستفادة)
 
 ### 🔴 الدرس 1: الفشل الصامت
 
@@ -1157,9 +1011,17 @@ public async Task<T> GetAsync<T>(string endpoint)
 
 **الدرس:** اختبر دائماً في InPrivate بعد كل نشر.
 
+### 🔴 الدرس 6: `appcmd stop` بدل `recycle`
+
+**الدرس:** `recycle` لا يُطبّق `web.config` الجديد بشكل موثوق. استخدم `stop` + `start`.
+
+### 🔴 الدرس 7: `ASPNETCORE_ENVIRONMENT`
+
+**الدرس:** بدون تحديد `ASPNETCORE_ENVIRONMENT`، التطبيق يقرأ `Production` افتراضياً — مما يسبب فشلاً صامتاً.
+
 ---
 
-## 🚫 القسم 12: Critical Prohibitions (الممنوعات المطلقة)
+## 🚫 الجزء الثاني عشر: Critical Prohibitions (الممنوعات المطلقة)
 
 | # | المحظور | السبب | البديل |
 |---|---------|-------|--------|
@@ -1167,13 +1029,16 @@ public async Task<T> GetAsync<T>(string endpoint)
 | 2 | ❌ نسخ الملفات فوق القديمة بدون مسح | تضارب hash → `SRI failed` | امسح أولاً ثم انسخ |
 | 3 | ❌ تعديل `web.config` يدوياً على السيرفر | ستفقده في النشر القادم | اجعله جزءاً من المشروع |
 | 4 | ❌ تغيير المسار الفيزيائي إلى `wwwroot` | تضارب مع `Serve subdir` | المسار = الجذر دائماً |
-| 5 | ❌ اختبار في المتصفح العادي بعد نشر | Service Worker قديم | InPrivate دائماً |
+| 5 | ❌ اختبار في المتصفح العادي بعد نشر PWA | Service Worker قديم | InPrivate دائماً |
 | 6 | ❌ نشر بدون إيقاف App Pool | قفل الملفات | أوقف أولاً |
 | 7 | ❌ نشر API إلى مجلد PWA | تطبيقان منفصلان | لكلٍ مجلده |
+| 8 | ⭐ ❌ `appcmd recycle` بعد تعديل `web.config` | لا يُعيد التحميل | `stop` + `start` |
+| 9 | ⭐ ❌ الاعتماد على `appsettings.Production.json` في Test | BaseUrl خاطئ | `ASPNETCORE_ENVIRONMENT = "Test"` |
+| 10 | ⭐ ❌ نسيان تسجيل خروج/دخول بعد النشر | `IMemoryCache` قديم | Logout + Login |
 
 ---
 
-## 📋 القسم 13: Master Deployment Checklist
+## 📋 الجزء الثالث عشر: Master Deployment Checklist
 
 ### قبل أي نشر
 
@@ -1181,12 +1046,14 @@ public async Task<T> GetAsync<T>(string endpoint)
 - [ ] هل تم اختبار التطبيق محلياً؟
 - [ ] هل تم أخذ نسخة احتياطية من قاعدة البيانات؟
 - [ ] هل ملفات البيئة تشير إلى الروابط الصحيحة؟
+- [ ] ⭐ **هل `ASPNETCORE_ENVIRONMENT` مضبوط في `web.config`؟**
 
 ### أثناء النشر
 
 - [ ] هل تم إيقاف الـ App Pool؟
 - [ ] هل تم حفظ نسخة احتياطية من `web.config` و `appsettings`؟
 - [ ] هل تم نسخ الملفات بنجاح؟
+- [ ] ⭐ **هل استخدمت `stop` + `start` (وليس `recycle`)؟**
 
 ### بعد النشر
 
@@ -1195,10 +1062,11 @@ public async Task<T> GetAsync<T>(string endpoint)
 - [ ] هل تم الاختبار من InPrivate (للـ PWA)؟
 - [ ] هل السجلات خالية من الأخطاء؟
 - [ ] هل العمليات الرئيسية تعمل؟
+- [ ] ⭐ **هل تم تسجيل خروج ودخول (لمسح `IMemoryCache`)?**
 
 ---
 
-## 🔍 القسم 14: Troubleshooting Cheatsheet
+## 🔍 الجزء الرابع عشر: Troubleshooting Cheatsheet
 
 ```powershell
 # 1. Verify Web app is reading correct API URL
@@ -1225,23 +1093,29 @@ Get-WebGlobalModule | Where-Object { $_.Name -like "*Rewrite*" }
 
 ---
 
-## 🔗 روابط ذات صلة
+## 🔗 الجزء الخامس عشر: روابط ذات صلة
 
-- [00 - الهيكل المعماري](00-architecture-overview.md)
-- [01 - Program.cs والتسجيلات الأساسية](01-program-cs-foundation.md)
-- [02 - نظام الهوية والمصادقة](02-identity-system.md)
-- [14 - نظام الكاش الموحد](14-caching-system.md)
+- [00 — MASTER-INDEX](./00-MASTER-INDEX.md)
+- [00B — PROJECT-BACKLOG](./00B-PROJECT-BACKLOG.md)
+- [01 — ARCHITECTURE](./01-ARCHITECTURE.md)
+- [02 — IDENTITY](./02-IDENTITY.md)
+- [12 — CACHING](./12-CACHING.md)
+- [13 — MAUI](./13-MAUI.md)
+- [14 — PWA](./14-PWA.md)
+- [16 — TROUBLESHOOTING](./16-TROUBLESHOOTING.md)
 
 ---
 
-**آخر تحديث:** 29 أغسطس 2026 | **الملف:** `12-deployment-guide.md`
+## 📝 الجزء السادس عشر: سجل التغييرات
+
+| الإصدار | التاريخ | التغييرات |
+|:---:|:---|:---|
+| **1.0** | **29 أغسطس 2026** | الإصدار الأولي — `12-deployment-guide.md` |
+| **2.0** | **17 أكتوبر 2026** | **`15-DEPLOYMENT` v2.0** — دمج `12` + القسم 4.5 الحرج (`ASPNETCORE_ENVIRONMENT` + `appcmd stop`) + الدرس 6 + 7 + إشارات |
+
+---
+
+**© 2026 RubikCare — للاستخدام الداخلي**
+
+**نهاية الوثيقة ✅**
 ```
-
----
-
-## ✅ تم!
-
-ده المحتوى الكامل للوثيقة الموحدة. **انسخه كله** وحطه في `12-deployment-guide.md` في GitHub.
-
-
-**قولي لما تخلص عشان نتأكد إن كل حاجة تمام!** 🚀
