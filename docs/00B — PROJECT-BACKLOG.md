@@ -108,6 +108,52 @@ RubikCare في مرحلة **Pre-Launch**. الهدف الحالي:
 
 ## 📅 Sprint History
 
+### Sprint 1 — Points-PSP Integration (20-22 أكتوبر 2026) 🔴 Critical
+
+**الهدف:** سد الفجوات بين نظام النقاط و PSP والتقارير — معالجة 9 عقود تكامل (IC-01 → IC-09).
+
+**السياق:**
+جلسة #136 كشفت أن:
+- نظام النقاط Backend كامل (40 Handler) لكن غير مُستدعى بشكل صحيح من `DispenseController`.
+- التقارير لا تعرف عن نظام النقاط أصلاً.
+- `GenerateNextToken` به 6 فجوات حرجة.
+- `ConfirmDispense` يتجاهل الخصم.
+- زر "استخدم نقاطي" لا يخصم فعلياً (0 معاملات REDEEM_DISPENSATION).
+
+**المهام:**
+
+| # | المهمة | SP | الحالة |
+|---|--------|----|----|
+| P1 | توثيق Integration Contracts في `01-ARCHITECTURE.md` | 2 | 🟡 In Progress |
+| P2.1 | Migration: `REDEEM_DISPENSATION` (ID=9) | 1 | ⏳ Pending |
+| P2.2 | إعادة كتابة `GenerateNextToken` (ذرية + Idempotency + ReferenceType) | 5 | ⏳ Pending |
+| P2.3 | إصلاح `ConfirmDispense` (احترام الخصم) | 3 | ⏳ Pending |
+| P2.4 | إصلاح `PspController.patientdetails.cs` | 2 | ⏳ Pending |
+| P2.5 | إضافة `MonetaryValuePerPoint` إلى DTO | 1 | ⏳ Pending |
+| P3.1 | `PspDetailComponent.razor` (Disabled + Dialog + Success) | 3 | ⏳ Pending |
+| P3.2 | CSS: `_shared/dialogs.css` + `.psp-redeem-card` | 2 | ⏳ Pending |
+| P3.3 | إصلاح `PspStatsBar` | 1 | ⏳ Pending |
+| P4.1 | Idempotency في `TryAwardPointsViaOrchestratorAsync` | 2 | ⏳ Pending |
+| P4.2 | Idempotency في `AcknowledgeReminderHandler` | 1 | ⏳ Pending |
+| P5.1 | `GetAdherenceHandler` — إضافة Points | 2 | ⏳ Pending |
+| P5.2 | `GetPharmacyFinancialHandler` — فصل PointsDiscount | 3 | ⏳ Pending |
+| P5.3 | `GetProgramLifecycleHandler` — إضافة Points | 2 | ⏳ Pending |
+| P6.1 | إشعار عند كسب/خصم نقاط | 2 | ⏳ Pending |
+| P7.1 | الترجمة (SQL MERGE) | 1 | ⏳ Pending |
+| P7.2 | اختبار E2E | 3 | ⏳ Pending |
+
+**المجموع:** 36 SP
+
+**Acceptance Criteria:**
+- [ ] كل عقد (IC-01 → IC-09) موثق في `01-ARCHITECTURE.md`.
+- [ ] `GenerateNextToken` يُنشئ `PSPProgramPointTransaction` صحيحة مع `ReferenceType="DISPENSATION"` + `ReferenceID=DispensationID`.
+- [ ] `ConfirmDispense` يحتفظ بالخصم (لا يعيد حسابه).
+- [ ] زر "استخدم نقاطي" يعمل: Disabled إذا توكن جديد، Dialog إذا مصروف، Success message بعد النجاح.
+- [ ] التقارير تُظهر النقاط (Adherence + Financial + Lifecycle).
+- [ ] 0 معاملات `REDEEM_DISPENSATION` → بعد الاختبار: N معاملة (بحسب السيناريوهات).
+- [ ] `ProgramLifecycle` لا يحتوي على "لا شيء عن Points".
+
+
 ### Sprint 0 — Foundation (16-22 أكتوبر 2026)
 
 - **الهدف:** تأسيس الأساسات
