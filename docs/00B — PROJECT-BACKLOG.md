@@ -3,7 +3,7 @@
 
 **الاسم:** PROJECT-BACKLOG — سجل التطوير الحي
 **الإصدار:** 1.0
-**آخر تحديث:** 16 أكتوبر 2026
+**آخر تحديث:** 20 أكتوبر 2026
 **Sprint الحالي:** Sprint 0 — Foundation
 **الحالة:** 🟢 حي — يُحدَّث كل جلسة
 **الجمهور:** فريق التطوير + AI Assistants
@@ -449,12 +449,67 @@ RubikCare في مرحلة **Pre-Launch**. الهدف الحالي:
 - تحديث Deployment Guide.
 
 ---
+## 🔴 Sprint 1 — Points-PSP Integration (Planned)
 
+### Epic: Points-PSP Integration Gap
+
+**السياق:**
+نظام النقاط مُصمم كـ Reusable Service. تكامل "استخدام النقاط" مع `PspDetail` غير مكتمل:
+- لا تُنشأ `PSPProgramPointTransaction` عند الخصم.
+- لا يوجد `ReferenceType` / `ReferenceID` يربط المعاملة بالـ Dispensation.
+- `PspController.patientdetails.cs` يعتمد على `Description.Contains(TokenCode)` — هشّ.
+
+**User Story #101 — تكامل نقاط الصرف (Backend)**
+- **كـ** مريض، **أريد** استخدام نقاطي كخصم على الدواء عند تجديد التوكن، **لكي** أوفّر تكلفة الدواء.
+- **Acceptance Criteria:**
+  1. عند `POST /api/dispense/generate-next-token` مع `PointsToRedeem > 0`:
+     - تُنشأ `PSPProgramPointTransaction` واحدة بـ `Points = -X`، `TransactionTypeID = REDEEM_DISPENSATION`، `ReferenceType = "DISPENSATION"`، `ReferenceID = newDispensation.DispensationID`.
+     - يُحدّث `PSPProgramPointBalance.Balance -= X` و `TotalRedeemed += X`.
+     - يُحدّث `PSPDispensation.PatientPayment` و `PSPCoverage` بناءً على الخصم.
+     - يُمنع الخصم المزدوج لنفس Dispensation (Idempotency).
+  2. `PspController.patientdetails.cs` يحسب `PointsUsedInCurrentToken` من `PSPProgramPointTransaction` (وليس من `Description`).
+- **SP:** 5
+
+**User Story #102 — زر "استخدم نقاطي" (Frontend)**
+- **كـ** مريض، **أريد** زراً واضحاً **لكي** أعرف متى وكيف أستخدم نقاطي.
+- **Acceptance Criteria:**
+  1. الزر يظهر فقط إذا `TotalPoints > 0 && !PointsUsedInCurrentToken`.
+  2. الزر **Disabled** إذا كان التوكن نشطاً ولم يُصرف (GENERATED/ACTIVE)، مع tooltip "اصرف التوكن الحالي أولاً".
+  3. عند الضغط: Dialog يعرض الرصيد + قيمة الخصم المتوقعة.
+  4. بعد النجاح: رسالة توضح "تم استخدام X نقطة، خصم Y ج.م".
+  5. لا يوجد زر مكرر (حذف الزر من `psp-renew-card`).
+- **SP:** 3
+
+**User Story #103 — إصلاح `PspStatsBar` (Frontend)**
+- **كـ** مريض، **أريد** رؤية إحصائيات حقيقية، **لكي** أعرف وضعي الفعلي.
+- **Acceptance Criteria:** ربط `TotalPoints`، `TakenDosesToday`، `TotalDosesToday` من `_program` بدلاً من قيم ثابتة.
+- **SP:** 1
+
+**User Story #104 — الترجمة (Backend/DB)**
+- **كـ** مطور، **أريد** مفاتيح ترجمة كاملة، **لكي** لا تظهر مفاتيح خام.
+- **Acceptance Criteria:** إضافة `PSP.POINTS.REDEEM.*`، `PSP.STATS.*`، `PSP.POINTS.DASHBOARD.*`، `COMMON.CANCEL`، `COMMON.OK`، `COMMON.PLEASE_WAIT`، `PSP.STATUS.*`، `PSP.FORM.EGP` عبر `MERGE`.
+- **SP:** 1
+
+**User Story #105 — توحيد CSS (Refactoring)**
+- **كـ** مطور، **أريد** تنظيم CSS، **لكي** يسهل الصيانة.
+- **Acceptance Criteria:**
+  1. إنشاء `_shared/dialogs.css` ببادئة `rubik-` (نقل `.psp-dialog-*` و `.pdash-dialog-*` إليها).
+  2. إضافة تعليق مسار CSS في رأس كل `.razor` (نمط موحّد).
+  3. لا تكرار بين `psp-detail.css` و `point-dashboard.css`.
+- **SP:** 2
+
+### Epic: Technical Debt (مضافة)
+
+- **TD-01**: `PspController.patientdetails.cs` — إزالة الاعتماد على `Description.Contains(TokenCode)`.
+- **TD-02**: `PspDetailComponent.razor` — إزالة `ToString("N0").100.00` (خطأ الصيغة).
+- **TD-03**: `Resources` — توحيد حالة الأحرف (`Common.*` vs `COMMON.*`).
+- 
 ## 📝 سجل التحديثات
 
 | التاريخ | التحديث |
 |:---:|:---|
 | 16 أكتوبر 2026 | إنشاء الوثيقة — دمج 18 + 23 + Changelog |
+| 20 أكتوبر 2026 |oints-PSP Integration (Planned)  Changelog |
 
 ---
 
