@@ -449,60 +449,84 @@ RubikCare في مرحلة **Pre-Launch**. الهدف الحالي:
 - تحديث Deployment Guide.
 
 ---
-## 🔴 Sprint 1 — Points-PSP Integration (Planned)
+## 🔴 Sprint 1 — Points-PSP Integration Fix (Critical)
 
 ### Epic: Points-PSP Integration Gap
 
-**السياق:**
-نظام النقاط مُصمم كـ Reusable Service. تكامل "استخدام النقاط" مع `PspDetail` غير مكتمل:
-- لا تُنشأ `PSPProgramPointTransaction` عند الخصم.
-- لا يوجد `ReferenceType` / `ReferenceID` يربط المعاملة بالـ Dispensation.
-- `PspController.patientdetails.cs` يعتمد على `Description.Contains(TokenCode)` — هشّ.
+**السياق المكتشف (جلسة #136):**
+بعد تحليل `DispenseController` والبيانات، تبيّن أن تكامل "استخدام النقاط" مع تجديد التوكن **يعمل جزئياً** لكن به 5 ثغرات خطيرة:
 
-**User Story #101 — تكامل نقاط الصرف (Backend)**
-- **كـ** مريض، **أريد** استخدام نقاطي كخصم على الدواء عند تجديد التوكن، **لكي** أوفّر تكلفة الدواء.
+| # | الثغرة | التأثير |
+|---|--------|---------|
+| 1 | `TransactionTypeID = 2` (REDEEM_REQUEST) بدلاً من نوع مخصص | تقارير خاطئة، خلط مع طلبات الاسترداد |
+| 2 | لا `ReferenceType` / `ReferenceID` | لا تتبع أي Dispensation |
+| 3 | `ConfirmDispense` يعيد حساب `PatientPayment` ويتجاهل الخصم | **ضياع الخصم المالي** |
+| 4 | `balance` بدون `SchemeID` | خصم من Scheme خاطئ |
+| 5 | لا Idempotency | خصم متكرر ممكن |
+| 6 | `SaveChangesAsync` مرتين (غير ذري) | قد تُخصم النقاط دون تحديث Dispensation |
+| 7 | `GenerateNextToken` لا يُعيّن `TotalAmount` / `PatientPayment` | التوكن يظهر NULL |
+
+### User Story #201 — إضافة نوع معاملة مخصص (Backend)
+- **كـ** مسؤول مالي، **أريد** TransactionTypeID مخصص للخصم على الصرف، **لكي** تكون التقارير دقيقة.
 - **Acceptance Criteria:**
-  1. عند `POST /api/dispense/generate-next-token` مع `PointsToRedeem > 0`:
-     - تُنشأ `PSPProgramPointTransaction` واحدة بـ `Points = -X`، `TransactionTypeID = REDEEM_DISPENSATION`، `ReferenceType = "DISPENSATION"`، `ReferenceID = newDispensation.DispensationID`.
-     - يُحدّث `PSPProgramPointBalance.Balance -= X` و `TotalRedeemed += X`.
-     - يُحدّث `PSPDispensation.PatientPayment` و `PSPCoverage` بناءً على الخصم.
-     - يُمنع الخصم المزدوج لنفس Dispensation (Idempotency).
-  2. `PspController.patientdetails.cs` يحسب `PointsUsedInCurrentToken` من `PSPProgramPointTransaction` (وليس من `Description`).
-- **SP:** 5
-
-**User Story #102 — زر "استخدم نقاطي" (Frontend)**
-- **كـ** مريض، **أريد** زراً واضحاً **لكي** أعرف متى وكيف أستخدم نقاطي.
-- **Acceptance Criteria:**
-  1. الزر يظهر فقط إذا `TotalPoints > 0 && !PointsUsedInCurrentToken`.
-  2. الزر **Disabled** إذا كان التوكن نشطاً ولم يُصرف (GENERATED/ACTIVE)، مع tooltip "اصرف التوكن الحالي أولاً".
-  3. عند الضغط: Dialog يعرض الرصيد + قيمة الخصم المتوقعة.
-  4. بعد النجاح: رسالة توضح "تم استخدام X نقطة، خصم Y ج.م".
-  5. لا يوجد زر مكرر (حذف الزر من `psp-renew-card`).
-- **SP:** 3
-
-**User Story #103 — إصلاح `PspStatsBar` (Frontend)**
-- **كـ** مريض، **أريد** رؤية إحصائيات حقيقية، **لكي** أعرف وضعي الفعلي.
-- **Acceptance Criteria:** ربط `TotalPoints`، `TakenDosesToday`، `TotalDosesToday` من `_program` بدلاً من قيم ثابتة.
+  - إضافة `REDEEM_DISPENSATION` (ID=9) إلى `PSPProgramPointTransactionTypes`.
+  - تحديث `DispenseController` لاستخدامه.
 - **SP:** 1
 
-**User Story #104 — الترجمة (Backend/DB)**
-- **كـ** مطور، **أريد** مفاتيح ترجمة كاملة، **لكي** لا تظهر مفاتيح خام.
-- **Acceptance Criteria:** إضافة `PSP.POINTS.REDEEM.*`، `PSP.STATS.*`، `PSP.POINTS.DASHBOARD.*`، `COMMON.CANCEL`، `COMMON.OK`، `COMMON.PLEASE_WAIT`، `PSP.STATUS.*`، `PSP.FORM.EGP` عبر `MERGE`.
-- **SP:** 1
-
-**User Story #105 — توحيد CSS (Refactoring)**
-- **كـ** مطور، **أريد** تنظيم CSS، **لكي** يسهل الصيانة.
+### User Story #202 — ربط المعاملة بالـ Dispensation (Backend)
 - **Acceptance Criteria:**
-  1. إنشاء `_shared/dialogs.css` ببادئة `rubik-` (نقل `.psp-dialog-*` و `.pdash-dialog-*` إليها).
-  2. إضافة تعليق مسار CSS في رأس كل `.razor` (نمط موحّد).
-  3. لا تكرار بين `psp-detail.css` و `point-dashboard.css`.
+  - `PSPProgramPointTransaction.ReferenceType = "DISPENSATION"`.
+  - `PSPProgramPointTransaction.ReferenceID = newDispensation.DispensationID`.
+  - تحديث `PspController.patientdetails.cs` ليعتمد على `ReferenceType/ReferenceID` بدلاً من `Description.Contains`.
 - **SP:** 2
 
-### Epic: Technical Debt (مضافة)
+### User Story #203 — إصلاح `ConfirmDispense` (Backend) 🔴
+- **Acceptance Criteria:**
+  - `ConfirmDispense` **لا يعيد حساب** `PatientPayment` إذا كانت `PointsToRedeem > 0` سابقاً.
+  - أو: يقرأ `PatientPayment` المخزّن ويستخدمه.
+- **SP:** 2
 
-- **TD-01**: `PspController.patientdetails.cs` — إزالة الاعتماد على `Description.Contains(TokenCode)`.
-- **TD-02**: `PspDetailComponent.razor` — إزالة `ToString("N0").100.00` (خطأ الصيغة).
-- **TD-03**: `Resources` — توحيد حالة الأحرف (`Common.*` vs `COMMON.*`).
+### User Story #204 — Idempotency (Backend) 🔴
+- **Acceptance Criteria:**
+  - قبل الخصم: `AnyAsync(t => t.ReferenceType == "DISPENSATION" && t.ReferenceID == newDispensation.DispensationID)`.
+  - إذا وُجد → لا خصم جديد.
+- **SP:** 1
+
+### User Story #205 — تحديد `SchemeID` من `ProgramID` (Backend) 🔴
+- **Acceptance Criteria:**
+  - `balance` يُفلتر بـ `SchemeID` المشتق من `SourceEntityID = request.ProgramId && PointSystemTypeID = 1`.
+  - إذا لا يوجد Scheme → لا خصم (رسالة واضحة).
+- **SP:** 1
+
+### User Story #206 — ذرية (Atomicity) — Transaction Scope (Backend)
+- **Acceptance Criteria:**
+  - خصم النقاط + تحديث Dispensation + إنشاء Transaction **في Context واحد** (`ExecuteWithNewContextAsync` فقط).
+  - إذا فشل أي جزء → rollback.
+- **SP:** 2
+
+### User Story #207 — تعيين `TotalAmount` / `PatientPayment` عند التوليد
+- **Acceptance Criteria:**
+  - `GenerateNextToken` يحسب السعر المبدئي (`unitPrice × quantity`) ويملأ `TotalAmount`.
+  - `PatientPayment` يُحسب بعد تطبيق `PSPCoverage` + خصم النقاط.
+- **SP:** 2
+
+### User Story #208 — زر "استخدم نقاطي" (Frontend)
+- كما في الخطة السابقة (Disabled + Dialog + Success Message + إصلاح صيغة).
+- **SP:** 3
+
+### User Story #209 — إصلاح `PspStatsBar`
+- ربط `TotalPoints` / `TakenDosesToday` / `TotalDosesToday`.
+- **SP:** 1
+
+### User Story #210 — الترجمة
+- إضافة `PSP.POINTS.REDEEM.*`, `PSP.STATS.*`, `COMMON.CANCEL`, `COMMON.OK`, `PSP.FORM.EGP`, `PSP.STATUS.*`.
+- **SP:** 1
+
+### User Story #211 — توحيد CSS
+- `_shared/dialogs.css`, تعليقات المسارات، لا تكرار.
+- **SP:** 2
+
+**المجموع: 18 SP**
 - 
 ## 📝 سجل التحديثات
 
