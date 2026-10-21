@@ -735,6 +735,418 @@ public interface IPointEngineService
 - [09 — API-GUIDE](./09-API-GUIDE.md)
 - [19 — PERMISSIONS](./19-PERMISSIONS.md)
 
+# [#90] تحديث `06-POINTS.md` — قسم "دورة حياة النقاط" (جاهز للنسخ)
+
+سأرسل لك **القسم الكامل** الجاهز للنسخ إلى ملف `docs/06-POINTS.md`. هذا القسم يوثق **دورة حياة النقاط** بالكامل (من الكسب إلى الاستخدام إلى الصرف)، ويكشف النمط الجديد الذي يجب اتباعه في أي تعديل مستقبلي.
+
+---
+
+## 📄 مكان التعديل
+
+**أضف هذا القسم** في نهاية `06-POINTS.md`، **قبل** قسم "سجل التغييرات" مباشرة (أو في أي مكان مناسب بعد الأقسام الأساسية).
+
+---
+
+## 📄 المحتوى (جاهز للنسخ)
+
+```markdown
+## 🎯 الجزء الحادي عشر: دورة حياة النقاط (Points Lifecycle) — v3.0 (21 أكتوبر 2026)
+
+> ⚠️ **هذا القسم يوثق التصميم الحالي بعد إصلاح `PatientID → CaseID` في جلسة #136.**
+> **لا تعدل هذا القسم إلا بعد اختبار E2E كامل.**
+
+### 11.1 المبادئ الأساسية (Core Principles)
+
+#### 11.1.1 `PatientProfileID` = "الشخص" (Person)
+- **لا يتكرر أبداً.** هو `UserProfileID` من `AspNetUsers`.
+- هو المرجع الأساسي لأي عملية تخص "الشخص" (وليس "الحالة").
+
+#### 11.1.2 `CaseID` = "الحالة" (Case)
+- **يتكرر** لكل برنامج يشترك فيه الشخص.
+- هو `PSPPatients.CaseID` (المفتاح الأساسي).
+- **مثال:** shadyelzaher@rubikcare.com قد يكون لديه `CaseID=18` (Infertility) و `CaseID=1083` (pregnant case).
+
+#### 11.1.3 `BeneficiaryID` في `PointsContext` = `PatientProfileID`
+- **هذا هو المفتاح الحاسم.** `EarnPointsHandler` يبحث عن `Balance` باستخدام:
+  - `BeneficiaryTypeID = 5` (Patient).
+  - `BeneficiaryID = context.CaseID` (الذي يجب أن يكون `PatientProfileID`).
+  - `SchemeID = scheme.SchemeID`.
+- **النتيجة:** كل شخص لديه **رصيد واحد** لكل `Scheme`، بغض النظر عن عدد الـ `CaseID`.
+
+#### 11.1.4 `Scheme` = "نظام النقاط" لكل برنامج
+- كل `ProgramID` قد يكون له `Scheme` خاص (أو مشترك).
+- **مثال:**
+  - `Scheme 1` → `ProgramID = 1` (pregnant case) → 1 ج.م/نقطة.
+  - `Scheme 7` → `ProgramID = 2` (Infertility) → 1 ج.م/نقطة.
+  - `Scheme 6` → `ProgramID = 4` (devartpoint) → 5 ج.م/نقطة.
+
+---
+
+### 11.2 خريطة الأحداث (Activity Types) — 11 حدثاً
+
+| ID | ActivityTypeCode | الاسم | يُمنح عند | السيناريو |
+|:--:|------------------|-------|-----------|-----------|
+| 1 | `PATIENT_INVITED` | دعوة مريض | إنشاء دعوة (Doctor → Patient) | `CreateInvitationAsync` |
+| 2 | `PATIENT_ENROLLED` | تسجيل مريض | قبول الدعوة | `AcceptInvitationAsync` / `EnrollUserInProgramAsync` |
+| 3 | `ERX_CREATED` | إنشاء روشتة | إنشاء `PSPeRX` | `AcceptInvitationAsync` (لكل دواء) |
+| 4 | `DISPENSATION_COMPLETED` | إتمام صرف | `ConfirmDispense` / `ScanAndDispense` | `DispenseController` |
+| 5 | `REFILL_COMPLETED` | تكرار صرف | `ConfirmDispense` (RefillNumber > 0) | `DispenseController` |
+| 6 | `PROGRAM_COMPLETED` | إكمال البرنامج | ⏸️ مؤجل | — |
+| 7 | `LAB_TEST_UPLOADED` | رفع تحليل طبي | ⏸️ مؤجل | — |
+| **8** | **`DAILY_DOSE_TAKEN`** | **تأكيد تناول الجرعة** | **`UpdateScheduleStatusAsync` (Status = "Taken")** | **`PatientMedicationService`** |
+| 9 | `CONTENT_VIEWED_VIDEO` | مشاهدة فيديو تعليمي | ⏸️ مؤجل | — |
+| 10 | `CONTENT_READ_ARTICLE` | قراءة مقال تعليمي | ⏸️ مؤجل | — |
+| 11 | `CONTENT_DOWNLOADED` | تحميل ملف تعليمي | ⏸️ مؤجل | — |
+
+**⚠️ ملاحظة:** `DAILY_DOSE_TAKEN` (8) هو الحدث الجديد الذي أضفناه في جلسة #136 لدعم نقاط التناول اليومي.
+
+---
+
+### 11.3 تدفق الكسب (Earning Flow)
+
+#### 11.3.1 حدث `DAILY_DOSE_TAKEN` (نقاط التناول اليومي)
+
+```
+1. المريض يضغط "تم التناول" في MedicationSchedulePage
+   ↓
+2. PUT /api/patient/medications/status
+   {
+     "ScheduleID": 12345,
+     "Status": "Taken",
+     "TakenDateTime": "2026-10-21T15:30:00"
+   }
+   ↓
+3. PatientMedicationsController.UpdateScheduleStatus
+   ↓
+4. PatientMedicationService.UpdateScheduleStatusAsync
+   ↓
+5. if (dto.Status == "Taken")
+     ↓
+6. TryAwardDailyDosePointsAsync(schedule)
+     ├── جلب PSPPatient حيث PatientProfileID = schedule.PatientProfileID
+     │   و Participation.ProgramID = schedule.ProgramID
+     │   → targetPatient (CaseID = 1083, ProfileID = 15)
+     │
+     ├── بناء PointsContext:
+     │   OrganizationID = targetPatient.InvitedByOrganizationID (1267)
+     │   CaseID = targetPatient.PatientProfileID (15)  ← مهم جداً
+     │   UserID = targetPatient.PatientProfileID (15)
+     │
+     └── AwardByCampaignAsync(
+           campaignId: schedule.ProgramID (1),
+           pointSystemTypeID: 1,
+           activityTypeId: 8 (DAILY_DOSE_TAKEN),
+           context,
+           referenceType: "SCHEDULE",
+           referenceId: schedule.ScheduleID
+         )
+         ↓
+7. EarnPointsOrchestrator.AwardAsync
+   ├── جلب Scheme حيث SourceEntityID = 1 و PointSystemTypeID = 1
+   │   → Scheme 1 (PSP.CUP)
+   ├── جلب Rules النشطة حيث SchemeID = 1 و ActivityTypeID = 8
+   │   → Rule (Points = 5, BeneficiaryTypeID = 5)
+   ├── context.GetBeneficiaryIdFor(5) → PatientID = 15
+   └── EarnPointsHandler.HandleAsync(...)
+       ├── جلب/إنشاء Balance حيث BeneficiaryID = 15, SchemeID = 1
+       ├── Balance += 5
+       └── إنشاء PSPProgramPointTransaction (Points = +5)
+```
+
+**⚠️ نقاط حساسة:**
+- **`CaseID = PatientProfileID`** في `PointsContext` (وليس `CaseID` من `PSPPatient`).
+- **`Scheme` يُحدد تلقائياً** من `campaignId` (وليس من `CaseID`).
+- **`BeneficiaryID` في `Balance`** هو `PatientProfileID` (وليس `CaseID`).
+
+#### 11.3.2 حدث `DISPENSATION_COMPLETED` (نقاط الصرف)
+
+```
+1. الصيدلي يضغط "تأكيد الصرف" أو "مسح QR"
+   ↓
+2. POST /api/dispense/confirm أو POST /api/dispense/scan-and-dispense
+   ↓
+3. DispenseController.ConfirmDispense / ScanAndDispense
+   ├── تحديث PSPDispensation.Status = "USED"
+   ├── حساب PSPCoverage و PatientPayment
+   └── TryAwardPointsViaOrchestratorAsync(
+         patientId: eRx.PatientID,        ← CaseID
+         programId: eRx.ProgramID,
+         activityTypeId: 4 (DISPENSATION_COMPLETED),
+         referenceType: "DISPENSATION",
+         referenceId: dispensation.DispensationID
+       )
+       ↓
+4. (نفس الخطوة 7 أعلاه) → منح النقاط
+```
+
+#### 11.3.3 حدث `REFILL_COMPLETED` (نقاط تكرار الصرف)
+
+```
+(نفس DISPENSATION_COMPLETED، لكن:)
+- activityTypeId = 5 (REFILL_COMPLETED)
+- الشرط: (dispensation.RefillNumber ?? 0) > 0
+```
+
+#### 11.3.4 أحداث `PATIENT_ENROLLED` و `ERX_CREATED` (نقاط التسجيل)
+
+```
+1. المريض يقبل الدعوة
+   ↓
+2. POST /api/psp/accept-invitation
+   ↓
+3. PSPEnrollmentService.AcceptInvitationAsync
+   ├── إنشاء/جلب PSPPatient (CaseID)
+   ├── TryAwardPointsViaOrchestratorAsync(
+   │     activityTypeId: 2 (PATIENT_ENROLLED),
+   │     referenceType: "PATIENT",
+   │     referenceId: pspPatient.CaseID
+   │   )
+   ├── إنشاء PSPeRX لكل دواء
+   └── TryAwardPointsViaOrchestratorAsync(
+         activityTypeId: 3 (ERX_CREATED),
+         referenceType: "ERX",
+         referenceId: eRx.ERxID
+       ) ← لكل eRx
+```
+
+---
+
+### 11.4 تدفق الاستخدام (Redeeming Flow)
+
+#### 11.4.1 حدث `REDEEM_DISPENSATION` (خصم النقاط على الصرف)
+
+```
+1. المريض يضغط "استخدم نقاطي" في PspDetail
+   ↓
+2. POST /api/dispense/apply-points (الخيار ب — التوكن الحالي)
+   أو
+   POST /api/dispense/generate-next-token (مع PointsToRedeem > 0)
+   ↓
+3. DispenseController.ApplyPointsToCurrentToken / GenerateNextToken
+   ├── جلب Scheme (SourceEntityID = programId)
+   ├── جلب Balance (BeneficiaryID = patientId, SchemeID = scheme.SchemeID)
+   ├── التحقق: Balance >= PointsToRedeem
+   ├── حساب Discount = PointsToRedeem × Scheme.MonetaryValuePerPoint
+   ├── Balance -= PointsToRedeem
+   ├── TotalRedeemed += PointsToRedeem
+   ├── إنشاء PSPProgramPointTransaction (
+   │     TransactionTypeID: 9 (REDEEM_DISPENSATION),
+   │     Points: -PointsToRedeem,
+   │     ReferenceType: "DISPENSATION",
+   │     ReferenceID: newDispensation.DispensationID
+   │   )
+   └── تحديث PSPDispensation:
+         PSPCoverage += Discount
+         PatientPayment -= Discount
+```
+
+**⚠️ قواعد صارمة:**
+- `TransactionTypeID = 9` (REDEEM_DISPENSATION) — **وليس 2 (REDEEM_REQUEST)**.
+- `ReferenceType = "DISPENSATION"` + `ReferenceID = DispensationID`.
+- **Idempotency:** التحقق من `AnyAsync(ReferenceType = "DISPENSATION" && ReferenceID = id && TransactionTypeID = 9)` قبل الخصم.
+
+#### 11.4.2 `RedeemRequest` (طلب استرداد نقدي) — منفصل
+
+- هذا **ليس** خصم على الدواء.
+- هو طلب استرداد نقدي (Cash Redeem).
+- يستخدم `TransactionTypeID = 2, 3, 4, 5, 6, 7, 8` (حسب حالة الطلب).
+- **لا تخلط بينه وبين `REDEEM_DISPENSATION`**.
+
+---
+
+### 11.5 مخططات التكامل (Integration Diagrams)
+
+#### 11.5.1 منح النقاط (Earning)
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│  PSP Event (enrollment, dispensation, daily dose)            │
+└──────────────┬───────────────────────────────────────────────┘
+               │
+               ▼
+┌──────────────────────────────────────────────────────────────┐
+│  TryAwardPointsViaOrchestratorAsync / TryAwardDailyDose...   │
+│  (يحسب PointsContext + BeneficiaryID)                        │
+└──────────────┬───────────────────────────────────────────────┘
+               │
+               ▼
+┌──────────────────────────────────────────────────────────────┐
+│  IEarnPointsOrchestrator.AwardByCampaignAsync                │
+│  (يجد Scheme + Rules)                                        │
+└──────────────┬───────────────────────────────────────────────┘
+               │
+               ▼
+┌──────────────────────────────────────────────────────────────┐
+│  EarnPointsHandler.HandleAsync                               │
+│  (ينشئ/يحدّث Balance + PSPProgramPointTransaction)           │
+└──────────────┬───────────────────────────────────────────────┘
+               │
+               ▼
+┌──────────────────────────────────────────────────────────────┐
+│  PSPProgramPointBalance  +  PSPProgramPointTransaction       │
+│  (Balance += Points, Transaction.Points = +Points)           │
+└──────────────────────────────────────────────────────────────┘
+```
+
+#### 11.5.2 استخدام النقاط (Redeeming)
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│  Patient clicks "استخدم نقاطي"                                │
+└──────────────┬───────────────────────────────────────────────┘
+               │
+               ▼
+┌──────────────────────────────────────────────────────────────┐
+│  POST /api/dispense/apply-points                             │
+│  أو POST /api/dispense/generate-next-token (PointsToRedeem)  │
+└──────────────┬───────────────────────────────────────────────┘
+               │
+               ▼
+┌──────────────────────────────────────────────────────────────┐
+│  Atomic Transaction (BeginTransaction + Commit)              │
+│  ├── قفل Balance (UPDLOCK)                                   │
+│  ├── Idempotency Check                                       │
+│  ├── Balance -= PointsToRedeem                               │
+│  ├── TotalRedeemed += PointsToRedeem                         │
+│  ├── Transaction (Type=9, ReferenceType="DISPENSATION")      │
+│  ├── Update PSPDispensation (PSPCoverage += Discount)        │
+│  └── Update PSPDispensation (PatientPayment -= Discount)     │
+└──────────────┬───────────────────────────────────────────────┘
+               │
+               ▼
+┌──────────────────────────────────────────────────────────────┐
+│  PSPProgramPointBalance  +  PSPProgramPointTransaction       │
+│  (Balance -= Points, Transaction.Points = -Points)           │
+└──────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### 11.6 قواعد Idempotency (منع التكرار)
+
+| # | العملية | المفتاح | كيف نمنع التكرار |
+|---|---------|---------|-------------------|
+| 1 | `DAILY_DOSE_TAKEN` | `SCHEDULE/{scheduleId}` | التحقق: `AnyAsync(ReferenceType="SCHEDULE" && ReferenceID=scheduleId && ActivityTypeID=8)` |
+| 2 | `DISPENSATION_COMPLETED` | `DISPENSATION/{dispensationId}` | التحقق: `AnyAsync(ReferenceType="DISPENSATION" && ReferenceID=dispensationId && ActivityTypeID=4)` |
+| 3 | `REFILL_COMPLETED` | `DISPENSATION/{dispensationId}` | التحقق: `AnyAsync(ReferenceType="DISPENSATION" && ReferenceID=dispensationId && ActivityTypeID=5)` |
+| 4 | `PATIENT_ENROLLED` | `PATIENT/{caseId}` | التحقق: `AnyAsync(ReferenceType="PATIENT" && ReferenceID=caseId && ActivityTypeID=2)` |
+| 5 | `REDEEM_DISPENSATION` | `DISPENSATION/{dispensationId}` | التحقق: `AnyAsync(ReferenceType="DISPENSATION" && ReferenceID=dispensationId && TransactionTypeID=9)` |
+
+**⚠️ القاعدة:** أي حدث يخصم أو يمنح نقاطاً، **يجب** أن يكون له Idempotency Check.
+
+---
+
+### 11.7 المشاكل المعروفة والحلول (Troubleshooting)
+
+#### مشكلة 1: "لا توجد قواعد نشطة لهذا الحدث"
+
+**الأعراض:**
+- `AwardByCampaignAsync` يرجع `TotalAwarded = 0`.
+- الرسالة: "لا توجد قواعد نشطة لهذا الحدث".
+
+**الأسباب المحتملة:**
+1. `Rule` مفقود لـ `ActivityTypeID` في `Scheme` المحدد.
+2. `Rule.IsActive = 0`.
+3. `Rule.Points <= 0`.
+
+**الحل:**
+```sql
+-- التحقق من Rules
+SELECT RuleID, ActivityTypeID, Points, BeneficiaryTypeID, IsActive
+FROM PSPProgramPointRules
+WHERE SchemeID = @SchemeId AND ActivityTypeID = @ActivityTypeId;
+
+-- إذا لم توجد، أضف:
+INSERT INTO PSPProgramPointRules 
+    (SchemeID, ActivityTypeID, Points, BeneficiaryTypeID, IsActive, DisplayOrder, CreatedDate)
+VALUES 
+    (@SchemeId, @ActivityTypeId, @Points, 5, 1, 100, GETDATE());
+```
+
+#### مشكلة 2: "النقاط لا تزيد بعد تأكيد التناول"
+
+**الأعراض:**
+- المريض يؤكد التناول، لكن الرصيد لا يتغير.
+
+**الأسباب المحتملة:**
+1. `schedule.ProgramID` مختلف عن `Scheme.SourceEntityID` (مثلاً، الموعد للبرنامج 1، لكن `Scheme 7` للبرنامج 2).
+2. `PointsContext.CaseID` خطأ (يجب أن يكون `PatientProfileID`).
+3. `Balance` غير موجود (يجب أن يُنشأ تلقائياً).
+
+**الحل:**
+- تحقق من `schedule.ProgramID` → `Scheme.SourceEntityID`.
+- تحقق من `PSPProgramPointBalances` للمريض.
+- راجع سجلات `dailydose_debug.log`.
+
+#### مشكلة 3: "النقاط تذهب لمريض آخر"
+
+**الأعراض:**
+- المريض A يؤكد التناول، لكن النقاط تذهب لمريض B.
+
+**السبب:**
+- `PointsContext.CaseID` يستخدم `FirstOrDefault()` بدلاً من `FirstOrDefault(p => p.Participation.ProgramID == schedule.ProgramID)`.
+
+**الحل:**
+```csharp
+var targetPatient = pspPatients.FirstOrDefault(p =>
+    p.Participation != null &&
+    p.Participation.ProgramID == schedule.ProgramID.Value);
+```
+
+#### مشكلة 4: "الخصم على الدواء لا يظهر في الفاتورة"
+
+**الأعراض:**
+- المريض استخدم النقاط، لكن `PatientPayment` لم ينخفض.
+
+**السبب:**
+- `ConfirmDispense` يعيد حساب `PatientPayment` من الصفر (بدون احترام `PointsDiscount`).
+
+**الحل:**
+- اقرأ `PSPProgramPointTransaction` حيث `ReferenceType="DISPENSATION" && ReferenceID=dispensationId && TransactionTypeID=9`.
+- احسب `pointsDiscount = (-transaction.Points) × scheme.MonetaryValuePerPoint`.
+- اطرح `pointsDiscount` من `PatientPayment` وأضفه إلى `PSPCoverage`.
+
+#### مشكلة 5: "زر استخدم نقاطي لا يظهر"
+
+**الأسباب المحتملة:**
+1. `TotalPoints = 0` (لا يوجد رصيد).
+2. `PointsUsedInCurrentToken = true` (تم استخدام النقاط بالفعل).
+3. `ShowRedeemCard = false` (منطق الزر في `PspDetailComponent`).
+
+**الحل:**
+- تحقق من `PatientProgramDetailsResponse` (TotalPoints, PointsUsedInCurrentToken).
+- تحقق من `ShowRedeemCard` في `PspDetailComponent.razor`.
+
+---
+
+### 11.8 Checklist لأي تعديل مستقبلي على نظام النقاط
+
+قبل أي تعديل على نظام النقاط، تأكد من:
+
+- [ ] قراءة هذا القسم بالكامل.
+- [ ] فهم `PatientProfileID` vs `CaseID` vs `BeneficiaryID`.
+- [ ] التحقق من وجود `Scheme` و `Rules` لكل حدث.
+- [ ] إضافة Idempotency Check لكل خصم/منح.
+- [ ] استخدام `TransactionTypeID` الصحيح:
+  - `1` = EARN.
+  - `9` = REDEEM_DISPENSATION.
+  - `2-8` = REDEEM_REQUEST lifecycle.
+- [ ] استخدام `ReferenceType` + `ReferenceID` الصحيحين:
+  - `"DISPENSATION"` + `DispensationID` (للصرف).
+  - `"SCHEDULE"` + `ScheduleID` (للتناول).
+  - `"PATIENT"` + `CaseID` (للتسجيل).
+  - `"ERX"` + `ERxID` (للروشتة).
+- [ ] اختبار E2E لكل حدث (Earning + Redeeming).
+- [ ] تحديث `dailydose_debug.log` (إذا لزم).
+
+---
+
+---
+
+| 11.9 سجل التغييرات | ✅ |
+
+**⏭️ الخطوة التالية:** انسخ القسم إلى `06-POINTS.md`، ثم قل لي إذا كنت تريد أن أرسل تعديلات `01-ARCHITECTURE.md` و `20-USER-JOURNEY.md` و `00B-PROJECT-BACKLOG.md`. 🚀
+
 ### 10.2 سجل التغييرات
 
 | الإصدار | التاريخ | التغييرات |
@@ -746,6 +1158,7 @@ public interface IPointEngineService
 | **5.0** | **10 أكتوبر 2026** | نص المؤلف الحرفي + Backend الكامل |
 | **6.0** | **13 أكتوبر 2026** | Campaign Reference Architecture |
 | **7.0** | **17 أكتوبر 2026** | **`06-POINTS` v7.0** — دمج `26` v6.0 + migrations 14-15 أكتوبر (4 جديدة) + فصل `07-REPORTS` + `08-NOTIFICATIONS` |
+| **3.0** | **21 أكتوبر 2026** | **إضافة "دورة حياة النقاط" (11.1-11.9) + إصلاح `PatientID → CaseID` + `DAILY_DOSE_TAKEN` + Idempotency + Troubleshooting** |
 
 ---
 
