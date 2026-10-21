@@ -574,6 +574,19 @@ RubikCare في مرحلة **Pre-Launch**. الهدف الحالي:
 
 **المجموع: 18 SP**
 - 
+### 🔴 درس مستفاد (22 أكتوبر 2026) — فقدان ربط PSP بعد Migration
+
+**المشكلة:** Migration `RenamePatientIdToCaseId` أعادت تسمية العمود لكن لم تُنشئ سجلات `PSPPatients` للحالات التي كانت موجودة قبل التعديل. النتيجة: 22 حالة مفقودة، 15 مستخدماً فقدوا الربط ببرامجهم.
+
+**الحل:** إدراج 22 سجلاً من النسخة الاحتياطية #19 (2026-10-21) مع `PatientProfileID` + `ParticipationID` الصحيحين.
+
+**الإجراء الوقائي:**
+1. أي Migration تعيد تسمية FK يجب أن تتحقق من البيانات المرتبطة.
+2. إضافة `FK` constraint على `PSPPatients.ParticipationID` (موجود بالفعل، لكن `ON DELETE RESTRICT`).
+3. اختبار E2E لكل Migration تعيد تسمية أعمدة FK.
+
+**الملفات المتأثرة:** `PSPPatients`, `PSPParticipations`, `PspController.GetUserActivePrograms`
+
 ## 📝 سجل التحديثات
 
 | التاريخ | التحديث |
