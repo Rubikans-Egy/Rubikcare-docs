@@ -718,7 +718,7 @@ public interface IPointEngineService
 - [08 — NOTIFICATIONS](./08-NOTIFICATIONS.md)
 - [09 — API-GUIDE](./09-API-GUIDE.md)
 - [19 — PERMISSIONS](./19-PERMISSIONS.md)
-
+---
 ## 🎯 الجزء الحادي عشر: دورة حياة النقاط (Points Lifecycle) — v3.0 (21 أكتوبر 2026)
 
 > ⚠️ **هذا القسم يوثق التصميم الحالي بعد إصلاح `PatientID → CaseID` في جلسة #136.**
@@ -773,7 +773,7 @@ public interface IPointEngineService
 ### 11.3 تدفق الكسب (Earning Flow)
 
 #### 11.3.1 حدث `DAILY_DOSE_TAKEN` (نقاط التناول اليومي)
-
+---
 
 1. المريض يضغط "تم التناول" في MedicationSchedulePage
    ↓
@@ -820,7 +820,7 @@ public interface IPointEngineService
        ├── Balance += 5
        └── إنشاء PSPProgramPointTransaction (Points = +5)
 
-
+---
 **⚠️ نقاط حساسة:**
 - **`CaseID = PatientProfileID`** في `PointsContext` (وليس `CaseID` من `PSPPatient`).
 - **`Scheme` يُحدد تلقائياً** من `campaignId` (وليس من `CaseID`).
