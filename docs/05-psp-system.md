@@ -102,6 +102,7 @@ PSPProgram
               └── PSPDispensationPlanPhaseMedication ⭐ جديد
                     └── PSPProgramMedication
 ```
+```
 ### 1.4 ⭐ إصلاح الجذور المعمارية: `PatientID` vs `CaseID` (جلسة #136)
 
 #### 1.4.1 المشكلة الجذرية (Root Cause)
@@ -115,13 +116,14 @@ PSPProgram
 #### 1.4.2 الإصلاح الجذري (Root Fix)
 
 **البنية الجديدة:**
----
 UserProfile (شخص واحد)
 └── PSPPatient (سجل واحد — CaseID)
 ├── PSPParticipation (البرنامج 1)
 ├── PSPParticipation (البرنامج 2)
 └── PSPParticipation (البرنامج 3)
-```
+
+text
+
 **التغييرات الرئيسية:**
 
 | # | التغيير | الملف | التفاصيل |
@@ -144,7 +146,6 @@ UserProfile (شخص واحد)
 | **R5** | **في `GetUserActivePrograms`، لا تتخطى البرنامج إذا لم يجد `eRx` أو `Dispensation`.** | البرنامج موجود حتى لو لم يُصرف بعد. |
 
 #### 1.4.4 كيف يعمل نظام النقاط الآن (بعد الإصلاح)
-```
 تأكيد التناول (ScheduleID من البرنامج 1)
 ↓
 UpdateScheduleStatusAsync
@@ -162,7 +163,8 @@ EarnPointsHandler
 ├── Balance(BeneficiaryID=15, SchemeID=1)
 └── PSPProgramPointTransaction (Points=+5)
 
-```
+text
+
 #### 1.4.5 سيناريوهات اختبار القبول (Acceptance Tests)
 
 | # | السيناريو | النتيجة المتوقعة |
@@ -184,9 +186,8 @@ EarnPointsHandler
 | **API** | `PspController.Helpers.cs`, `PspController.patientdetails.cs`, `DispenseController.cs`, `PatientMedicationsController.cs` |
 | **Migrations** | `20261021XXXXXX_RenamePatientIdToCaseId.cs` |
 | **Shared.UI** | `PspDetailComponent.razor`, `MedicationSchedulePage.razor`, `PspEntry.razor` |
+
 ```
-
-
 ## 🎯 الجزء الثاني: نظام مراحل خطة الصرف (Phase System)
 
 ### 2.1 الهدف
