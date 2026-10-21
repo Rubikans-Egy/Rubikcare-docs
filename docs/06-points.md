@@ -767,14 +767,14 @@ public interface IPointEngineService
 | 10 | `CONTENT_READ_ARTICLE` | قراءة مقال تعليمي | ⏸️ مؤجل | — |
 | 11 | `CONTENT_DOWNLOADED` | تحميل ملف تعليمي | ⏸️ مؤجل | — |
 
----
 
+---
 
 ### 11.3 تدفق الكسب (Earning Flow)
 
 #### 11.3.1 حدث `DAILY_DOSE_TAKEN` (نقاط التناول اليومي)
----
 
+```
 1. المريض يضغط "تم التناول" في MedicationSchedulePage
    ↓
 2. PUT /api/patient/medications/status
@@ -819,8 +819,8 @@ public interface IPointEngineService
        ├── جلب/إنشاء Balance حيث BeneficiaryID = 15, SchemeID = 1
        ├── Balance += 5
        └── إنشاء PSPProgramPointTransaction (Points = +5)
-
 ```
+
 **⚠️ نقاط حساسة:**
 - **`CaseID = PatientProfileID`** في `PointsContext` (وليس `CaseID` من `PSPPatient`).
 - **`Scheme` يُحدد تلقائياً** من `campaignId` (وليس من `CaseID`).
@@ -1109,11 +1109,16 @@ var targetPatient = pspPatients.FirstOrDefault(p =>
 
 ---
 
+### 11.9 سجل التغييرات (Changelog)
+
+| الإصدار | التاريخ | التغييرات |
+|---------|---------|-----------|
+| 1.0 | 17 أكتوبر 2026 | الإصدار الأولي — 06-POINTS (Backend) |
+| 2.0 | 17 أكتوبر 2026 | إضافة Integration Points (5 أحداث) |
+| **3.0** | **21 أكتوبر 2026** | **إضافة "دورة حياة النقاط" (11.1-11.9) + إصلاح `PatientID → CaseID` + `DAILY_DOSE_TAKEN` + Idempotency + Troubleshooting** |
+```
+
 ---
-
-| 11.9 سجل التغييرات | ✅ |
-
-**⏭️ الخطوة التالية:** انسخ القسم إلى `06-POINTS.md`، ثم قل لي إذا كنت تريد أن أرسل تعديلات `01-ARCHITECTURE.md` و `20-USER-JOURNEY.md` و `00B-PROJECT-BACKLOG.md`. 🚀
 
 ### 10.2 سجل التغييرات
 
