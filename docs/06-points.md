@@ -774,7 +774,7 @@ public interface IPointEngineService
 
 #### 11.3.1 حدث `DAILY_DOSE_TAKEN` (نقاط التناول اليومي)
 
-```
+
 1. المريض يضغط "تم التناول" في MedicationSchedulePage
    ↓
 2. PUT /api/patient/medications/status
@@ -819,7 +819,7 @@ public interface IPointEngineService
        ├── جلب/إنشاء Balance حيث BeneficiaryID = 15, SchemeID = 1
        ├── Balance += 5
        └── إنشاء PSPProgramPointTransaction (Points = +5)
-```
+
 
 **⚠️ نقاط حساسة:**
 - **`CaseID = PatientProfileID`** في `PointsContext` (وليس `CaseID` من `PSPPatient`).
