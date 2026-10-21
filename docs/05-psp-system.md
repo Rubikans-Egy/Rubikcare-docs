@@ -1,13 +1,4 @@
-# 📘 `05-PSP` — v2.0 (Part 1)
 
-1. **`07-psp-system.md`** — نظام PSP الكامل.
-2. **`USERS STEP FLOW`** — تدفق المستخدمين (4 أدوار).
-3. **جرد Endpoints الفعلي** (من `09-API-GUIDE`).
-4. **الكود الفعلي** (من فحص سابق).
-
----
-
-```markdown
 # 05 — PSP (نظام برامج دعم المرضى)
 
 **الإصدار:** 2.0 (Unified Edition)
@@ -111,8 +102,90 @@ PSPProgram
               └── PSPDispensationPlanPhaseMedication ⭐ جديد
                     └── PSPProgramMedication
 ```
+### 1.4 ⭐ إصلاح الجذور المعمارية: `PatientID` vs `CaseID` (جلسة #136)
 
+#### 1.4.1 المشكلة الجذرية (Root Cause)
+
+**قبل الإصلاح:**
+- كان `PSPPatient` يُنشأ **جديداً** لكل مشاركة (Participation) في برنامج جديد.
+- هذا أدى إلى وجود **عدة `PatientID` لنفس الشخص** (`UserProfileID`).
+- مثال حقيقي: shadyelzaher@rubikcare.com كان لديه `PatientID = 18` (Infertility) و `PatientID = 1081` (pregnant case).
+- **النتيجة:** فوضى في نظام النقاط (النقاط تذهب لـ `PatientID` عشوائي)، والتقارير، والمواعيد.
+
+#### 1.4.2 الإصلاح الجذري (Root Fix)
+
+**البنية الجديدة:**
 ---
+UserProfile (شخص واحد)
+└── PSPPatient (سجل واحد — CaseID)
+├── PSPParticipation (البرنامج 1)
+├── PSPParticipation (البرنامج 2)
+└── PSPParticipation (البرنامج 3)
+```
+**التغييرات الرئيسية:**
+
+| # | التغيير | الملف | التفاصيل |
+|---|---------|-------|-----------|
+| 1 | `PatientID` → `CaseID` | كل الكيانات (`PSPPatient`, `PSPeRX`, `PSPReminder`, `PSPTestResult`, `PSPFollowUpRecord`, `PSPAdverseEvent`, `DoctorNote`) | إعادة تسمية عبر Migration (RenameColumn) |
+| 2 | Migration `RenamePatientIdToCaseId` | `RubikCare.Infrastructure/Migrations/` | RenameColumn + تحديث الـ FKs |
+| 3 | `UNIQUE INDEX` على `PatientProfileID` | `PSPPatients` | منع تكرار المريض نهائياً |
+| 4 | `PSPEnrollmentService` | `RubikCare.Application/Services/PSP/` | البحث عن `PSPPatient` بـ `PatientProfileID` (وليس إنشاء جديد) |
+| 5 | `PspController.GetUserActivePrograms` | `Api.Web/Controllers/PSP/PspController.Helpers.cs` | إرجاع كل البرامج حتى لو لم يكن لها `eRx` أو `Dispensation` |
+| 6 | `TryAwardDailyDosePointsAsync` | `PatientMedicationService.cs` | البحث عن `CaseID` الصحيح بناءً على `ProgramID` |
+
+#### 1.4.3 القواعد الصارمة (Rules) — لا تكسرها أبداً
+
+| # | القاعدة | السبب |
+|---|---------|-------|
+| **R1** | **لا تنشئ `PSPPatient` جديداً إذا كان `PatientProfileID` موجوداً.** | هذا هو أصل الفوضى. استخدم `Participations` للتعدد. |
+| **R2** | **استخدم `PatientProfileID` (وليس `CaseID` أو `PatientID`) للبحث عن "الشخص".** | `CaseID` يمثل "حالة"، وليس "شخصاً". |
+| **R3** | **في `PointsContext`، استخدم `CaseID` كـ `BeneficiaryID` (لأن `EarnPointsHandler` يعتمد عليه).** | هذا هو التصميم الحالي. |
+| **R4** | **`PSPPatient.ParticipationID` يشير إلى "أول مشاركة" فقط (موروث).** | لا تعتمد عليه للبحث عن "كل المشاركات". استخدم `PSPParticipations` مباشرة. |
+| **R5** | **في `GetUserActivePrograms`، لا تتخطى البرنامج إذا لم يجد `eRx` أو `Dispensation`.** | البرنامج موجود حتى لو لم يُصرف بعد. |
+
+#### 1.4.4 كيف يعمل نظام النقاط الآن (بعد الإصلاح)
+```
+تأكيد التناول (ScheduleID من البرنامج 1)
+↓
+UpdateScheduleStatusAsync
+↓
+TryAwardDailyDosePointsAsync
+├── جلب PSPPatient (CaseID=1083, ProgramID=1)
+├── بناء PointsContext (CaseID=15, OrganizationID=1267)
+└── AwardByCampaignAsync(campaignId=1, ...)
+↓
+Scheme 1 (PSP.CUP)
+↓
+Rule (ActivityTypeID=8, Points=5)
+↓
+EarnPointsHandler
+├── Balance(BeneficiaryID=15, SchemeID=1)
+└── PSPProgramPointTransaction (Points=+5)
+
+```
+#### 1.4.5 سيناريوهات اختبار القبول (Acceptance Tests)
+
+| # | السيناريو | النتيجة المتوقعة |
+|---|-----------|-------------------|
+| 1 | المريض مشترك في برنامجين | `PSPPatients` يحتوي سجلاً واحداً فقط (`CaseID` واحد) |
+| 2 | فتح PspEntry | يظهر **كل** البرامج النشطة (حتى لو لم تُصرف) |
+| 3 | تأكيد التناول في البرنامج 1 | النقاط تزيد في `Scheme 1` (وليس `Scheme 7`) |
+| 4 | تأكيد التناول في البرنامج 2 | النقاط تزيد في `Scheme 7` (وليس `Scheme 1`) |
+| 5 | صرف الدواء | النقاط تزيد بناءً على `ActivityTypeID` للصرف |
+| 6 | استخدام النقاط (ApplyPoints) | `Balance` ينخفض، `PatientPayment` ينخفض |
+
+#### 1.4.6 الملفات المتأثرة (للمراجعة المستقبلية)
+
+| الطبقة | الملفات |
+|--------|---------|
+| **Domain** | `PSPPatient.cs`, `PSPeRX.cs`, `PSPReminder.cs`, `PSPTestResult.cs`, `PSPFollowUpRecord.cs`, `PSPAdverseEvent.cs`, `DoctorNote.cs`, `PointsContext.cs` |
+| **Infrastructure** | `BusinessDbContext.cs` (ConfigurePSPModels), `EarnPointsHandler.cs` |
+| **Application** | `PSPEnrollmentService.cs`, `PatientMedicationService.cs` |
+| **API** | `PspController.Helpers.cs`, `PspController.patientdetails.cs`, `DispenseController.cs`, `PatientMedicationsController.cs` |
+| **Migrations** | `20261021XXXXXX_RenamePatientIdToCaseId.cs` |
+| **Shared.UI** | `PspDetailComponent.razor`, `MedicationSchedulePage.razor`, `PspEntry.razor` |
+```
+
 
 ## 🎯 الجزء الثاني: نظام مراحل خطة الصرف (Phase System)
 
