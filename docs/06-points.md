@@ -773,7 +773,7 @@ public interface IPointEngineService
 ### 11.3 تدفق الكسب (Earning Flow)
 
 #### 11.3.1 حدث `DAILY_DOSE_TAKEN` (نقاط التناول اليومي)
-```
+---
 
 1. المريض يضغط "تم التناول" في MedicationSchedulePage
    ↓
@@ -820,7 +820,7 @@ public interface IPointEngineService
        ├── Balance += 5
        └── إنشاء PSPProgramPointTransaction (Points = +5)
 
----
+```
 **⚠️ نقاط حساسة:**
 - **`CaseID = PatientProfileID`** في `PointsContext` (وليس `CaseID` من `PSPPatient`).
 - **`Scheme` يُحدد تلقائياً** من `campaignId` (وليس من `CaseID`).
