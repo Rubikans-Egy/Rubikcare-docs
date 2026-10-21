@@ -767,13 +767,13 @@ public interface IPointEngineService
 | 10 | `CONTENT_READ_ARTICLE` | قراءة مقال تعليمي | ⏸️ مؤجل | — |
 | 11 | `CONTENT_DOWNLOADED` | تحميل ملف تعليمي | ⏸️ مؤجل | — |
 
-
+---
 ---
 
 ### 11.3 تدفق الكسب (Earning Flow)
 
 #### 11.3.1 حدث `DAILY_DOSE_TAKEN` (نقاط التناول اليومي)
----
+
 
 1. المريض يضغط "تم التناول" في MedicationSchedulePage
    ↓
