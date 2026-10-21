@@ -1,8 +1,7 @@
-
 # 06 — POINTS (نظام النقاط وروبيكا)
 
 **الإصدار:** 7.0 (Campaign Reference + Extended Beneficiaries)
-**آخر تحديث:** 17 أكتوبر 2026
+**آخر تحديث:** 21 أكتوبر 2026
 **الحالة:** ✅ Backend مكتمل — Frontend جزئي
 **الجمهور:** فريق التطوير + AI Assistants
 **المرجع الإلزامي:** يُقرأ قبل أي تعديل على النقاط
@@ -566,14 +565,6 @@ public interface IPointEngineService
 
 ---
 
-## 📌 نهاية Part 1
-
-**⚠️ Part 2 سيحتوي على:**
-
--# [#63] 📘 `06-POINTS` — v7.0 (Part 2) + `07-REPORTS` + `08-NOTIFICATIONS`
-
----
-
 ## 📌 الجزء الثامن: ملخص الحالة
 
 ### 8.1 مكتمل ✅
@@ -718,7 +709,22 @@ public interface IPointEngineService
 - [08 — NOTIFICATIONS](./08-NOTIFICATIONS.md)
 - [09 — API-GUIDE](./09-API-GUIDE.md)
 - [19 — PERMISSIONS](./19-PERMISSIONS.md)
+
+### 10.2 سجل التغييرات
+
+| الإصدار | التاريخ | التغييرات |
+|:---:|:---|:---|
+| **1.0** | **29 سبتمبر 2026** | الإصدار الأولي |
+| **2.0** | **3 أكتوبر 2026** | التفاصيل الكاملة |
+| **3.0** | **8 أكتوبر 2026** | Beneficiary Types + Organization Groups + Rubika |
+| **4.0** | **9 أكتوبر 2026** | Stage 1-3 منفّذة |
+| **5.0** | **10 أكتوبر 2026** | نص المؤلف الحرفي + Backend الكامل |
+| **6.0** | **13 أكتوبر 2026** | Campaign Reference Architecture |
+| **7.0** | **17 أكتوبر 2026** | **`06-POINTS` v7.0** — دمج `26` v6.0 + migrations 14-15 أكتوبر (4 جديدة) + فصل `07-REPORTS` + `08-NOTIFICATIONS` |
+| **3.0** | **21 أكتوبر 2026** | **إضافة "دورة حياة النقاط" (11.1-11.9) + إصلاح `PatientID → CaseID` + `DAILY_DOSE_TAKEN` + Idempotency + Troubleshooting** |
+
 ---
+
 ## 🎯 الجزء الحادي عشر: دورة حياة النقاط (Points Lifecycle) — v3.0 (21 أكتوبر 2026)
 
 > ⚠️ **هذا القسم يوثق التصميم الحالي بعد إصلاح `PatientID → CaseID` في جلسة #136.**
@@ -766,7 +772,6 @@ public interface IPointEngineService
 | 9 | `CONTENT_VIEWED_VIDEO` | مشاهدة فيديو تعليمي | ⏸️ مؤجل | — |
 | 10 | `CONTENT_READ_ARTICLE` | قراءة مقال تعليمي | ⏸️ مؤجل | — |
 | 11 | `CONTENT_DOWNLOADED` | تحميل ملف تعليمي | ⏸️ مؤجل | — |
-
 
 ---
 
@@ -988,7 +993,7 @@ public interface IPointEngineService
 └──────────────────────────────────────────────────────────────┘
 ```
 
-
+---
 
 ### 11.6 قواعد Idempotency (منع التكرار)
 
@@ -1116,22 +1121,6 @@ var targetPatient = pspPatients.FirstOrDefault(p =>
 | 1.0 | 17 أكتوبر 2026 | الإصدار الأولي — 06-POINTS (Backend) |
 | 2.0 | 17 أكتوبر 2026 | إضافة Integration Points (5 أحداث) |
 | **3.0** | **21 أكتوبر 2026** | **إضافة "دورة حياة النقاط" (11.1-11.9) + إصلاح `PatientID → CaseID` + `DAILY_DOSE_TAKEN` + Idempotency + Troubleshooting** |
-```
-
----
-
-### 10.2 سجل التغييرات
-
-| الإصدار | التاريخ | التغييرات |
-|:---:|:---|:---|
-| **1.0** | **29 سبتمبر 2026** | الإصدار الأولي |
-| **2.0** | **3 أكتوبر 2026** | التفاصيل الكاملة |
-| **3.0** | **8 أكتوبر 2026** | Beneficiary Types + Organization Groups + Rubika |
-| **4.0** | **9 أكتوبر 2026** | Stage 1-3 منفّذة |
-| **5.0** | **10 أكتوبر 2026** | نص المؤلف الحرفي + Backend الكامل |
-| **6.0** | **13 أكتوبر 2026** | Campaign Reference Architecture |
-| **7.0** | **17 أكتوبر 2026** | **`06-POINTS` v7.0** — دمج `26` v6.0 + migrations 14-15 أكتوبر (4 جديدة) + فصل `07-REPORTS` + `08-NOTIFICATIONS` |
-| **3.0** | **21 أكتوبر 2026** | **إضافة "دورة حياة النقاط" (11.1-11.9) + إصلاح `PatientID → CaseID` + `DAILY_DOSE_TAKEN` + Idempotency + Troubleshooting** |
 
 ---
 
@@ -1139,6 +1128,4 @@ var targetPatient = pspPatients.FirstOrDefault(p =>
 
 **نهاية وثيقة `06-POINTS` ✅**
 ```
-
----
 
