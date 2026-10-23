@@ -1577,7 +1577,54 @@ private async Task ShareToken()
         await RepNavigationBridge.ShareToken(_token, _programName);
 }
 ```
+### 17.4 ✅ ربط جميع دوال الـ Bridge في OnAppearing
 
+**القاعدة الذهبية:** أي دالة في `PspDetailNavigationBridge` (أو أي Bridge آخر) **يجب** ربطها من الصفحة المضيفة (`.xaml.cs`) قبل استخدامها في المكون. ربط بعض الدوال ونسيان البعض الآخر هو سبب شائع لـ "زر لا يعمل".
+
+**Checklist سريعة:**
+- [ ] افتح ملف الـ Bridge (`PspDetailNavigationBridge.cs`).
+- [ ] لكل `Action` أو `Func` في الـ Bridge، تأكد من وجود سطر ربط مقابل في `OnAppearing` في الصفحة المضيفة.
+- [ ] استخدم `Dispatcher.DispatchAsync` أو `MainThread.BeginInvokeOnMainThread` داخل كل `Action` لتجنب `JavaProxyThrowable`.
+- [ ] تأكد من أن المسارات (`medication-schedule`, `pharmacy-search`) مسجلة في `AppShell.xaml.cs`.
+
+**مثال:**
+```csharp
+// في PspDetailFlow.xaml.cs - OnAppearing
+PspDetailNavigationBridge.GoToSchedule = async () =>
+{
+    await Dispatcher.DispatchAsync(async () =>
+    {
+        try { await Shell.Current.GoToAsync("medication-schedule"); }
+        catch (Exception ex) { Debug.WriteLine($"❌ {ex}"); }
+    });
+};
+
+PspDetailNavigationBridge.GoToPharmacySearch = async (token) =>
+{
+    await Dispatcher.DispatchAsync(async () =>
+    {
+        try
+        {
+            var parameters = new Dictionary<string, object> { { "token", token } };
+            await Shell.Current.GoToAsync("pharmacy-search", parameters);
+        }
+        catch (Exception ex) { Debug.WriteLine($"❌ {ex}"); }
+    });
+};
+
+
+---
+
+### 📊 الخلاصة
+
+| العنصر | الحالة |
+|--------|--------|
+| **صفحة النقاط** | ✅ تعمل (بعد حل `InvalidCastException` بتحويل `userId` إلى `string`) |
+| **زر جدول الأدوية** | ❌ لا يعمل — يحتاج ربط `GoToSchedule` في `PspDetailFlow` |
+| **زر البحث عن صيدلية** | ❌ لا يعمل — يحتاج ربط `GoToPharmacySearch` في `PspDetailFlow` |
+| **التوثيق** | ✅ موجود جزئيًا (Bridges + Dispatcher) — يحتاج إضافة "ربط جميع الدوال" في Checklist |
+
+**أضف ربط الزرين في `PspDetailFlow.xaml.cs`، وتأكد من المسارات، ثم جرب.** 🚀
 ---
 
 ## 🚀 الجزء الثامن عشر: النشر (Publishing)
