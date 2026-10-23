@@ -1625,7 +1625,6 @@ PspDetailNavigationBridge.GoToPharmacySearch = async (token) =>
 | **زر البحث عن صيدلية** | ❌ لا يعمل — يحتاج ربط `GoToPharmacySearch` في `PspDetailFlow` |
 | **التوثيق** | ✅ موجود جزئيًا (Bridges + Dispatcher) — يحتاج إضافة "ربط جميع الدوال" في Checklist |
 
-**أضف ربط الزرين في `PspDetailFlow.xaml.cs`، وتأكد من المسارات، ثم جرب.** 🚀
 ---
 ---
 
