@@ -1691,26 +1691,296 @@ dotnet publish -f net10.0-ios -c Release
 - [ ] هل `HasClinic`/`HasPharmacy` تستخدمان `Memberships` وليس `Clinics`/`Pharmacies`؟
 
 ---
+---
 
-## 📝 الجزء العشرون: نقاط تحتاج توثيقاً (TODO)
+## **الجزء 20 — [جديد] دروس مستفادة من معركة `JavaProxyThrowable` (23 أكتوبر 2026)**
 
-1. **لماذا يعمل النمط 2 (`QueryProperty + Setter`)** رغم تحذير القسم الرابع؟
-   - هل بسبب `CustomBlazorWebView`؟
-   - هل بسبب `RootComponents.Clear()` الذي يعمل فعلياً؟
+#### 20.1 🎯 قاعدة ذهبية: `JavaProxyThrowable` ليس الخطأ — إنه الغلاف
 
-2. **ما الفرق الدقيق بين `CustomBlazorWebView` و `BlazorWebView`؟**
-   - ما الميزات الإضافية؟
-   - ما المشاكل التي يحلها؟
+**`JavaProxyThrowable`** هو غلاف يلف أي `Exception` يحدث داخل الكود المُدار (C#) عند عبوره إلى بيئة Android. **الخطأ الحقيقي موجود في `Output Window` (Visual Studio) — في السطور التي تسبق `JavaProxyThrowable` مباشرة.**
 
-3. **هل `static variables` في النمط 3 مقصودة؟**
-   - ما الفائدة المعمارية؟
+**مثال حقيقي (من جلستنا):**
+```
+android.runtime.JavaProxyThrowable: [System.InvalidCastException]: Arg_InvalidCastException
+   at Microsoft.Maui.Controls.ShellContent.ApplyQueryAttributes(ShellContent.cs:416)
+   at Microsoft.Maui.Controls.ShellNavigationManager.ApplyQueryAttributes(...)
+   at Microsoft.Maui.Controls.ShellSection.GoToAsync(...)
+   at RubikCare.Mobile.Features.PSP.Patient.Views.PspDetailFlow.GoToPatientPointsDashboard()
+```
 
-4. **✅ النمط الهجين (5) — تم التحقق منه (8 أكتوبر 2026).**
+**كيف تقرأه:**
+1. `InvalidCastException` ← **الخطأ الحقيقي**.
+2. `ShellContent.ApplyQueryAttributes` ← **المكان الذي حدث فيه الخطأ**.
+3. `PspDetailFlow.GoToPatientPointsDashboard` ← **الكود الذي استدعى الخطأ**.
 
-5. **ما هو `IBackButtonHandler`؟**
-   - كيف يعمل؟
-   - متى نستخدمه؟
+**القاعدة:**
+> **قبل أي تخمين، افتح `Output Window` وابحث عن أول `Exception` (وليس `JavaProxyThrowable`). هذا هو السبب الحقيقي.**
 
+---
+
+#### 20.2 ⚠️ فخ `[QueryProperty]` — التحويل يجب أن يكون من **الطرفين**
+
+**المشكلة:** `[QueryProperty]` في MAUI يستخدم `Convert.ChangeType` داخلياً. عندما يمرر **المرسل** `int` ويستقبل **المستقبل** `string` (أو العكس)، يفشل `Convert.ChangeType` بـ `InvalidCastException` — ويظهر كـ `JavaProxyThrowable`.
+
+**السيناريو الخاطئ (من جلستنا):**
+```csharp
+// ❌ PspDetailFlow (المرسل) — يرسل int
+var parameters = new Dictionary<string, object> 
+{ 
+    { "userProfileId", userId }  // userId هو int
+};
+await Shell.Current.GoToAsync("patient-points", parameters);
+
+// ❌ PatientPointsFlow (المستقبل) — يستقبل string
+[QueryProperty(nameof(UserProfileIdRaw), "userProfileId")]
+public string? UserProfileIdRaw { get; set; }  // ← string
+```
+
+**النتيجة:** `InvalidCastException` (لأن `Convert.ChangeType(int, string)` تفشل في MAUI 10).
+
+**الحل الصحيح (من الطرفين):**
+```csharp
+// ✅ PspDetailFlow (المرسل) — يحول إلى string
+var parameters = new Dictionary<string, object> 
+{ 
+    { "userProfileId", userId.ToString() }  // ← string
+};
+await Shell.Current.GoToAsync("patient-points", parameters);
+
+// ✅ PatientPointsFlow (المستقبل) — يستقبل string
+[QueryProperty(nameof(UserProfileIdRaw), "userProfileId")]
+public string? UserProfileIdRaw { get; set; }
+```
+
+**القاعدة:**
+> **`[QueryProperty]` يجب أن يستقبل `string` من الطرفين. المرسل يحوّل `int` (أو أي نوع) إلى `string` باستخدام `.ToString()`. المستقبل يستقبل `string` ويحوّل يدوياً (`int.TryParse`).**
+
+---
+
+#### 20.3 ⚠️ `GoToAsync` — يجب أن يكون داخل `Dispatcher.DispatchAsync`
+
+**المشكلة:** `Shell.Current.GoToAsync` قد يسبب `JavaProxyThrowable` إذا استُدعي من سياق غير متزامن (أو من داخل `Action` عادي).
+
+**السيناريو الخاطئ (من جلستنا):**
+```csharp
+// ❌ Action عادي — قد يسبب JavaProxyThrowable
+PspDetailNavigationBridge.GoToPatientPointsDashboard = (userId) =>
+{
+    Shell.Current.GoToAsync("patient-points", ...);  // ← بدون Dispatcher
+};
+```
+
+**الحل الصحيح:**
+```csharp
+// ✅ Action مع Dispatcher.DispatchAsync
+PspDetailNavigationBridge.GoToPatientPointsDashboard = async (userId) =>
+{
+    await Dispatcher.DispatchAsync(async () =>
+    {
+        try
+        {
+            var parameters = new Dictionary<string, object> 
+            { 
+                { "userProfileId", userId.ToString() } 
+            };
+            await Shell.Current.GoToAsync("patient-points", parameters);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"❌ [GoToPatientPointsDashboard] {ex}");
+        }
+    });
+};
+```
+
+**القاعدة:**
+> **كل استدعاء `Shell.Current.GoToAsync` من داخل `Action` (في `Bridge` أو `Parameter`) يجب أن يكون داخل `Dispatcher.DispatchAsync` — مع `try/catch` يطبع `ex.Message`.**
+
+---
+
+#### 20.4 ⚠️ Bridge — يجب ربط **كل** الدوال في `OnAppearing` (وليس بعضها)
+
+**المشكلة:** `PspDetailNavigationBridge` يحتوي على 9 دوال (`GoBack`, `GoHome`, `GoToSchedule`, `GoToPharmacySearch`, `ShareToken`, `CopyToken`, `GoToTests`, `GoToPatientPointsDashboard`, `GoToProgramDetails`). إذا ربطت `GoToPatientPointsDashboard` **فقط**، فإن `GoToSchedule` (زر جدول الأدوية) يظل `null` → الزر لا يعمل.
+
+**السيناريو الخاطئ (من جلستنا):**
+```csharp
+// ❌ PspDetailFlow — ربط جزئي
+PspDetailNavigationBridge.GoToPatientPointsDashboard = async (userId) => { ... };
+// ← لم نربط GoToSchedule, GoToPharmacySearch, GoBack, GoHome ...
+```
+
+**النتيجة:** زر "جدول الأدوية" و "البحث عن صيدلية" **لا يعملان** (لأن `GoToSchedule` و `GoToPharmacySearch` = `null`).
+
+**الحل الصحيح (ربط كل الدوال):**
+```csharp
+// ✅ PspDetailFlow — ربط شامل في OnAppearing
+protected override void OnAppearing()
+{
+    base.OnAppearing();
+    if (_isLoaded) return;
+    _isLoaded = true;
+
+    // 1. زر "لوحة نقاطي"
+    PspDetailNavigationBridge.GoToPatientPointsDashboard = async (userId) =>
+    {
+        await Dispatcher.DispatchAsync(async () =>
+        {
+            try
+            {
+                var parameters = new Dictionary<string, object> 
+                { 
+                    { "userProfileId", userId.ToString() } 
+                };
+                await Shell.Current.GoToAsync("patient-points", parameters);
+            }
+            catch (Exception ex) { Debug.WriteLine($"❌ [GoToPatientPointsDashboard] {ex}"); }
+        });
+    };
+
+    // 2. زر "جدول الأدوية"
+    PspDetailNavigationBridge.GoToSchedule = async () =>
+    {
+        await Dispatcher.DispatchAsync(async () =>
+        {
+            try { await Shell.Current.GoToAsync("medication-schedule"); }
+            catch (Exception ex) { Debug.WriteLine($"❌ [GoToSchedule] {ex}"); }
+        });
+    };
+
+    // 3. زر "البحث عن صيدلية"
+    PspDetailNavigationBridge.GoToPharmacySearch = async (tokenCode) =>
+    {
+        await Dispatcher.DispatchAsync(async () =>
+        {
+            try
+            {
+                var parameters = new Dictionary<string, object> 
+                { 
+                    { "token", tokenCode } 
+                };
+                await Shell.Current.GoToAsync("pharmacy-search", parameters);
+            }
+            catch (Exception ex) { Debug.WriteLine($"❌ [GoToPharmacySearch] {ex}"); }
+        });
+    };
+
+    // 4. زر "الرجوع"
+    PspDetailNavigationBridge.GoBack = async () =>
+    {
+        await Dispatcher.DispatchAsync(async () =>
+        {
+            try { await Shell.Current.GoToAsync(".."); }
+            catch (Exception ex) { Debug.WriteLine($"❌ [GoBack] {ex}"); }
+        });
+    };
+
+    // 5. زر "الرئيسية"
+    PspDetailNavigationBridge.GoHome = async () =>
+    {
+        await Dispatcher.DispatchAsync(async () =>
+        {
+            try { await Shell.Current.GoToAsync("//MainDashboard"); }
+            catch (Exception ex) { Debug.WriteLine($"❌ [GoHome] {ex}"); }
+        });
+    };
+
+    // 6. زر "التحاليل"
+    PspDetailNavigationBridge.GoToTests = async (patientId, programId) =>
+    {
+        await Dispatcher.DispatchAsync(async () =>
+        {
+            try
+            {
+                var parameters = new Dictionary<string, object> 
+                { 
+                    { "patientId", patientId.ToString() },
+                    { "programId", programId.ToString() }
+                };
+                await Shell.Current.GoToAsync("patient-tests", parameters);
+            }
+            catch (Exception ex) { Debug.WriteLine($"❌ [GoToTests] {ex}"); }
+        });
+    };
+
+    // 7. زر "تفاصيل البرنامج" (من صفحة النقاط)
+    PspDetailNavigationBridge.GoToProgramDetails = async (programId) =>
+    {
+        await Dispatcher.DispatchAsync(async () =>
+        {
+            try
+            {
+                var parameters = new Dictionary<string, object> 
+                { 
+                    { "programId", programId.ToString() } 
+                };
+                await Shell.Current.GoToAsync("PspDetailFlow", parameters);
+            }
+            catch (Exception ex) { Debug.WriteLine($"❌ [GoToProgramDetails] {ex}"); }
+        });
+    };
+
+    // ... تحميل المكون ...
+}
+```
+
+**القاعدة:**
+> **في `OnAppearing` (أو `Constructor`)، راجع `Bridge` واربط **كل** دواله (`Action` و `Func`). أي دالة غير مربوطة = زر لا يعمل = `NullReferenceException` صامت.**
+
+---
+
+#### 20.5 📋 Checklist "زر لا يعمل في MAUI"
+
+**عندما يكون الزر لا يعمل (أو لا يفتح صفحة):**
+
+| # | السؤال | الإجراء |
+|---|--------|--------|
+| **1** | هل دالة الـ Bridge مربوطة في `OnAppearing`؟ | راجع `PspDetailNavigationBridge` — هل **كل** الدوال مربوطة؟ |
+| **2** | هل المسار مسجل في `AppShell.xaml.cs`؟ | `Routing.RegisterRoute("patient-points", typeof(PatientPointsFlow))` |
+| **3** | هل `GoToAsync` داخل `Dispatcher.DispatchAsync`؟ | أضف `Dispatcher.DispatchAsync` حول `GoToAsync` |
+| **4** | هل `[QueryProperty]` يستخدم `string` من الطرفين؟ | المرسل: `userId.ToString()`. المستقبل: `string?` |
+| **5** | هل هناك `try/catch` يطبع `ex.Message`؟ | أضف `Debug.WriteLine` في `catch` |
+
+**إذا كانت الإجابة "لا" على أي سؤال، فهذا هو السبب.**
+
+---
+
+#### 20.6 🆕 جدول: الفرق بين "زر لا يعمل" و "زر لا يفتح"
+
+| المظهر | السبب المحتمل | الحل |
+|--------|----------------|------|
+| **الزر لا يستجيب (لا يحدث شيء)** | دالة الـ Bridge `null` (لم تُربط) | راجع `OnAppearing` — اربط كل الدوال |
+| **الزر يعمل لكن الصفحة لا تفتح (شاشة سوداء)** | المسار غير مسجل (`Routing.RegisterRoute`) | أضف `Routing.RegisterRoute` في `AppShell.xaml.cs` |
+| **الزر يعمل لكن `JavaProxyThrowable`** | `InvalidCastException` (QueryProperty) أو `GoToAsync` بدون `Dispatcher` | تحقق من `[QueryProperty]` (string) + أضف `Dispatcher` |
+| **الزر يعمل لكن الصفحة فارغة (لا بيانات)** | `[Parameter]` مفقود أو `ApiService` غير مسجل | راجع `Parameters` + `MauiProgram.cs` |
+
+---
+
+#### 20.7 ✅ Checklist "قبل تشغيل التطبيق" (لأي صفحة MAUI جديدة)
+
+**قبل أن تختبر أي صفحة MAUI جديدة، تأكد من:**
+
+- [ ] الصفحة مسجلة في `MauiProgram.cs` (`AddTransient`) ✅
+- [ ] الصفحة مسجلة في `AppShell.xaml.cs` (`Routing.RegisterRoute`) ✅
+- [ ] كل دوال الـ Bridge مربوطة في `OnAppearing` (وليس بعضها) ✅
+- [ ] كل `GoToAsync` داخل `Dispatcher.DispatchAsync` + `try/catch` ✅
+- [ ] كل `[QueryProperty]` يستخدم `string` من الطرفين ✅
+- [ ] كل `[Parameter]` في المكون المشترك موجود في `Parameters` ✅
+- [ ] `IApiService` مسجل في `MauiProgram.cs` ✅
+
+**إذا اكتملت كل هذه، فلن يحدث `JavaProxyThrowable`.**
+
+---
+
+## 🔗 روابط ذات صلة
+
+- [13-MAUI (النسخة الأصلية)](13-maui-development-guide.md)
+- [Part 2 — أنماط MAUI الخمسة](13-maui-development-guide.md#الجزء-السادس-الأنماط-الأربعة-الفعلية-في-المشروع)
+
+---
+
+**© 2026 RubikCare — للاستخدام الداخلي**
+
+---
 ---
 
 ## 🔗 الجزء الحادي والعشرون: روابط ذات صلة
