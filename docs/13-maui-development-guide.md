@@ -1614,6 +1614,7 @@ PspDetailNavigationBridge.GoToPharmacySearch = async (token) =>
 
 
 ---
+---
 
 ### 📊 الخلاصة
 
@@ -1625,7 +1626,7 @@ PspDetailNavigationBridge.GoToPharmacySearch = async (token) =>
 | **التوثيق** | ✅ موجود جزئيًا (Bridges + Dispatcher) — يحتاج إضافة "ربط جميع الدوال" في Checklist |
 
 **أضف ربط الزرين في `PspDetailFlow.xaml.cs`، وتأكد من المسارات، ثم جرب.** 🚀
----
+
 
 ## 🚀 الجزء الثامن عشر: النشر (Publishing)
 
