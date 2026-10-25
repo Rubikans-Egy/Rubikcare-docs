@@ -1691,13 +1691,11 @@ dotnet publish -f net10.0-ios -c Release
 - [ ] هل `HasClinic`/`HasPharmacy` تستخدمان `Memberships` وليس `Clinics`/`Pharmacies`؟
 
 ---
----
-
-## **الجزء 20 — [جديد] دروس مستفادة من معركة `JavaProxyThrowable` (23 أكتوبر 2026)**
+## الجزء 20 — [جديد] دروس مستفادة من معركة `JavaProxyThrowable` (23-25 أكتوبر 2026)
 
 #### 20.1 🎯 قاعدة ذهبية: `JavaProxyThrowable` ليس الخطأ — إنه الغلاف
 
-**`JavaProxyThrowable`** هو غلاف يلف أي `Exception` يحدث داخل الكود المُدار (C#) عند عبوره إلى بيئة Android. **الخطأ الحقيقي موجود في `Output Window` (Visual Studio) — في السطور التي تسبق `JavaProxyThrowable` مباشرة.**
+`JavaProxyThrowable` هو غلاف يلف أي `Exception` يحدث داخل الكود المُدار (C#) عند عبوره إلى بيئة Android. **الخطأ الحقيقي موجود في `Output Window` (Visual Studio) — في السطور التي تسبق `JavaProxyThrowable` مباشرة.**
 
 **مثال حقيقي (من جلستنا):**
 ```
@@ -1709,9 +1707,9 @@ android.runtime.JavaProxyThrowable: [System.InvalidCastException]: Arg_InvalidCa
 ```
 
 **كيف تقرأه:**
-1. `InvalidCastException` ← **الخطأ الحقيقي**.
-2. `ShellContent.ApplyQueryAttributes` ← **المكان الذي حدث فيه الخطأ**.
-3. `PspDetailFlow.GoToPatientPointsDashboard` ← **الكود الذي استدعى الخطأ**.
+- `InvalidCastException` ← **الخطأ الحقيقي**.
+- `ShellContent.ApplyQueryAttributes` ← **المكان الذي حدث فيه الخطأ**.
+- `PspDetailFlow.GoToPatientPointsDashboard` ← **الكود الذي استدعى الخطأ**.
 
 **القاعدة:**
 > **قبل أي تخمين، افتح `Output Window` وابحث عن أول `Exception` (وليس `JavaProxyThrowable`). هذا هو السبب الحقيقي.**
@@ -1794,7 +1792,7 @@ PspDetailNavigationBridge.GoToPatientPointsDashboard = async (userId) =>
 ```
 
 **القاعدة:**
-> **كل استدعاء `Shell.Current.GoToAsync` من داخل `Action` (في `Bridge` أو `Parameter`) يجب أن يكون داخل `Dispatcher.DispatchAsync` — مع `try/catch` يطبع `ex.Message`.**
+> **كل استدعاء `Shell.Current.GoToAsync` من داخل `Action` (في Bridge أو Parameter) يجب أن يكون داخل `Dispatcher.DispatchAsync` — مع `try/catch` يطبع `ex.Message`.**
 
 ---
 
@@ -1924,7 +1922,7 @@ protected override void OnAppearing()
 ```
 
 **القاعدة:**
-> **في `OnAppearing` (أو `Constructor`)، راجع `Bridge` واربط **كل** دواله (`Action` و `Func`). أي دالة غير مربوطة = زر لا يعمل = `NullReferenceException` صامت.**
+> **في `OnAppearing` (أو `Constructor`)، راجع `Bridge` واربط كل دواله (`Action` و `Func`). أي دالة غير مربوطة = زر لا يعمل = `NullReferenceException` صامت.**
 
 ---
 
@@ -1933,7 +1931,7 @@ protected override void OnAppearing()
 **عندما يكون الزر لا يعمل (أو لا يفتح صفحة):**
 
 | # | السؤال | الإجراء |
-|---|--------|--------|
+|---|--------|---------|
 | **1** | هل دالة الـ Bridge مربوطة في `OnAppearing`؟ | راجع `PspDetailNavigationBridge` — هل **كل** الدوال مربوطة؟ |
 | **2** | هل المسار مسجل في `AppShell.xaml.cs`؟ | `Routing.RegisterRoute("patient-points", typeof(PatientPointsFlow))` |
 | **3** | هل `GoToAsync` داخل `Dispatcher.DispatchAsync`؟ | أضف `Dispatcher.DispatchAsync` حول `GoToAsync` |
@@ -1971,17 +1969,234 @@ protected override void OnAppearing()
 
 ---
 
-## 🔗 روابط ذات صلة
+#### 20.8 ⚠️ `patientId=0` — `CaseID` مفقود في `DispensationScheduleDto` (25 أكتوبر 2026)
 
-- [13-MAUI (النسخة الأصلية)](13-maui-development-guide.md)
-- [Part 2 — أنماط MAUI الخمسة](13-maui-development-guide.md#الجزء-السادس-الأنماط-الأربعة-الفعلية-في-المشروع)
+**المشكلة:** عند فتح `PspDetailFlow` من `MedicationSchedulePage` (تبويب "مواعيد الصرف")، يُرسل `patientId=0` (بدلاً من `CaseID`).
+
+**السبب:** `DispensationScheduleDto` لا يحتوي على `CaseID` (أو لم يُعبَّأ في `GetDispensationSchedulesAsync`).
+
+**الحل:**
+1. إضافة `CaseID` إلى `DispensationScheduleDto`.
+2. تعبئته في `GetDispensationSchedulesAsync` (من `eRx.CaseID`).
+3. تعديل `MedicationSchedulePage.OnRefillRowClick` لاستخدام `d.CaseID` (بدلاً من `d.PatientId`).
+
+**الإجراء الوقائي:**
+- أي `DTO` يمرر `CaseID` (أو `PatientId`) يجب أن يُعبَّأ في `Service` (وليس في `Controller`).
+- اختبار E2E لكل مسار تنقل بين الصفحات (MAUI + PWA).
+
+---
+
+#### 20.9 ⚠️ `PspDetailFlow` — تحويل `PatientIdRaw` (string) + `OnAppearing` (25 أكتوبر 2026)
+
+**المشكلة:** `PspDetailFlow` يستقبل `PatientIdRaw` كـ `string`، لكنه يستخدم `PatientId` (int) في `OnAppearing` — و `PatientId` = 0 (لأن `PatientIdRaw` = `null` أو لم يُعيَّن).
+
+**الحل:**
+1. استقبال `PatientIdRaw` كـ `string` (وليس `int`).
+2. تحويله يدوياً: `int.TryParse(PatientIdRaw, out var id)`.
+3. استخدام `PatientId` (int) في `OnAppearing` — بعد التأكد من تعيين `PatientIdRaw`.
+
+**السيناريو الصحيح:**
+```csharp
+[QueryProperty(nameof(PatientIdRaw), "patientId")]
+[QueryProperty(nameof(ParticipationIdRaw), "participationId")]
+public partial class PspDetailFlow : ContentPage
+{
+    public string? PatientIdRaw { get; set; }
+    public string? ParticipationIdRaw { get; set; }
+    
+    private int PatientId => int.TryParse(PatientIdRaw, out var id) ? id : 0;
+    private int ParticipationId => int.TryParse(ParticipationIdRaw, out var id) ? id : 0;
+    
+    protected override void OnAppearing()
+    {
+        base.OnAppearing();
+        if (_isLoaded) return;
+        _isLoaded = true;
+        
+        // ⭐ استخدام PatientId (int) — بعد تعيين PatientIdRaw
+        var effectiveUserId = PatientId > 0 ? PatientId : _sessionService.PatientId;
+        
+        blazorWebView.RootComponents.Add(new RootComponent
+        {
+            Selector = "#app",
+            ComponentType = typeof(PspDetailComponent),
+            Parameters = new Dictionary<string, object?>
+            {
+                { "PatientId", effectiveUserId },
+                { "ParticipationId", ParticipationId },
+                { "ApiService", _apiService }
+            }
+        });
+    }
+}
+```
+
+**القاعدة:** `[QueryProperty]` يُعيَّن **بعد** `Constructor` و **قبل** `OnAppearing` — لذلك استخدم `OnAppearing` (مع `_isLoaded` flag).
+
+---
+
+#### 20.10 ⚠️ `MedicationScheduleFlow` — ربط `OnNavigateToPsp` مع `Dispatcher` + `CaseID` (25 أكتوبر 2026)
+
+**المشكلة:** `MedicationScheduleFlow` يربط `OnNavigateToPsp` كـ `Action<string, string>` — لكن بدون `Dispatcher.DispatchAsync` (يسبب `JavaProxyThrowable`). **بالإضافة:** `navParam` يحتوي على `CaseID` (وليس `PatientId`).
+
+**الحل:**
+```csharp
+{ "OnNavigateToPsp", new Action<string, string>(async (navParam, token) =>
+{
+    await Dispatcher.DispatchAsync(async () =>
+    {
+        try
+        {
+            // navParam = "CaseID|ParticipationId"
+            int patientId = 0;
+            int participationId = 0;
+
+            if (navParam.Contains('|'))
+            {
+                var parts = navParam.Split('|');
+                if (parts.Length > 0 && int.TryParse(parts[0], out var pId))
+                    patientId = pId;
+                if (parts.Length > 1 && int.TryParse(parts[1], out var partId))
+                    participationId = partId;
+            }
+            else if (int.TryParse(navParam, out var singleId))
+            {
+                patientId = singleId;
+            }
+
+            var parameters = new Dictionary<string, object>
+            {
+                { "patientId", patientId.ToString() },
+                { "participationId", participationId.ToString() },
+                { "programId", "0" }
+            };
+            await Shell.Current.GoToAsync("PspDetailFlow", parameters);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"❌ [OnNavigateToPsp] {ex}");
+        }
+    });
+})}
+```
+
+**القاعدة:** كل `Action` في `Parameters` يحتوي على `async` **يجب** أن يكون داخل `Dispatcher.DispatchAsync` + `try/catch`.
+
+---
+
+#### 20.11 ⚠️ `PatientPointsFlow` (MAUI) — Wrapper + `PspDetailNavigationBridge` (25 أكتوبر 2026)
+
+**المشكلة:** `PatientPointsDashboard.razor` (المكون) يستخدم `EventCallback OnGoBack` — وهذا **لا يعمل في MAUI** (لأن `ContentPage` ليس `ComponentBase`).
+
+**الحل:**
+1. تعديل `PatientPointsDashboard.razor` — استخدام `PspDetailNavigationBridge.GoBack` (بدلاً من `EventCallback`).
+2. إنشاء `PatientPointsFlow.xaml` + `.xaml.cs` (Wrapper) — يستدعي `PatientPointsDashboard`.
+3. ربط `PspDetailNavigationBridge.GoBack` (و `GoToProgramDetails`) في `OnAppearing` — مع `Dispatcher.DispatchAsync`.
+
+**مثال (PatientPointsFlow.xaml.cs):**
+```csharp
+public PatientPointsFlow()
+{
+    InitializeComponent();
+    _apiService = IPlatformApplication.Current!.Services.GetRequiredService<IApiService>();
+    _sessionService = IPlatformApplication.Current!.Services.GetRequiredService<IPatientSessionService>();
+}
+
+protected override void OnAppearing()
+{
+    base.OnAppearing();
+    if (_componentLoaded) return;
+    _componentLoaded = true;
+
+    var effectiveUserId = UserProfileId > 0 ? UserProfileId : _sessionService.PatientId;
+
+    blazorWebView.RootComponents.Clear();
+    blazorWebView.RootComponents.Add(new RootComponent
+    {
+        Selector = "#app",
+        ComponentType = typeof(PatientPointsDashboard),
+        Parameters = new Dictionary<string, object?>
+        {
+            { "UserProfileId", effectiveUserId },
+            { "ApiService", _apiService },
+            { "ShowBackButton", true }
+        }
+    });
+}
+
+protected override void OnDisappearing()
+{
+    base.OnDisappearing();
+    _componentLoaded = false;
+    try { blazorWebView.RootComponents.Clear(); } catch { }
+}
+```
+
+**القاعدة:** المكونات المشتركة (`Shared.UI`) **يجب** ألا تستخدم `EventCallback` للتنقل (لأنها تفشل في MAUI). استخدم `Bridge` (static `Action`).
+
+---
+
+#### 20.12 ⚠️ `ScanTokenPage.razor` (القديم) — حذفه واستخدام `PharmacyScanTokenPage` (25 أكتوبر 2026)
+
+**المشكلة:** `PharmacyGateway` يوجه إلى `/scan-token/dispense` — الذي يفتح `ScanTokenPage.razor` (القديم). هذا الملف يحتوي على `PharmacyId = 1274` (ثابت) + `PostAsync<string>` (بدلاً من `PostAsync<T>`) — مما يسبب `DeserializeUnableToConvertValue`.
+
+**الحل:**
+1. حذف `ScanTokenPage.razor` نهائياً.
+2. تعديل `PharmacyGateway` — توجيه إلى `/pharmacy/scan-token/{PharmacyId}` (بدلاً من `/scan-token/dispense`).
+3. استخدام `PharmacyScanTokenPage` (الموجود في `Shared.UI`) — الذي يستخدم `PostAsync<T>` (آمن).
+
+**مثال (PharmacyGateway.razor):**
+```csharp
+PharmacyGatewayNavigationBridge.NavigateToScan = () =>
+{
+    var pharmacyId = OrgState.OrganizationId;
+    Navigation.NavigateTo($"/pharmacy/scan-token/{pharmacyId}");
+};
+```
+
+**القاعدة:** لا تستخدم `PostAsync<string>` + `JsonSerializer.Deserialize` يدوياً. استخدم `PostAsync<T>` — لضمان التحويل الآمن.
+
+---
+
+#### 20.13 ⚠️ `PspSchedulePageFlow` — تمرير `PatientId` (25 أكتوبر 2026)
+
+**المشكلة:** `PspSchedulePageFlow` لا يمرر `PatientId` إلى `PspSchedulePage` — فيسبب `NullReferenceException` أو صفحة فارغة.
+
+**الحل:**
+```csharp
+public PspSchedulePageFlow()
+{
+    InitializeComponent();
+    
+    // ⭐ تمرير PatientId (إذا كان موجوداً)
+    var sessionService = IPlatformApplication.Current!.Services.GetRequiredService<IPatientSessionService>();
+    var apiService = IPlatformApplication.Current!.Services.GetRequiredService<IApiService>();
+    
+    blazorWebView.RootComponents.Add(new RootComponent
+    {
+        Selector = "#app",
+        ComponentType = typeof(PspSchedulePage),
+        Parameters = new Dictionary<string, object?>
+        {
+            { "PatientId", sessionService.PatientId },
+            { "ApiService", apiService },
+            { "IsModal", false }
+        }
+    });
+}
+```
+
+**القاعدة:** أي مكون يحتوي على `[Parameter] public int PatientId` يجب تمريره من الـ Wrapper (وليس الاعتماد على `@inject`).
 
 ---
 
 **© 2026 RubikCare — للاستخدام الداخلي**
 
+**نهاية الجزء 20 ✅**
+```
+
 ---
----
+
 
 ## 🔗 الجزء الحادي والعشرون: روابط ذات صلة
 
@@ -1996,20 +2211,20 @@ protected override void OnAppearing()
 - [16 — TROUBLESHOOTING](./16-TROUBLESHOOTING.md)
 
 ---
-
 ## 📝 الجزء الثاني والعشرون: سجل التغييرات
 
 | الإصدار | التاريخ | التغييرات |
-|:---:|:---|:---|
-| **1.0** | **24 مايو 2026** | الإصدار الأولي — `10-maui-development-guide.md` |
-| **1.0** | **8 يوليو 2026** | الإصدار الأولي — `11-blazor-webview-guide.md` v1.0 |
-| **2.0** | **8 أكتوبر 2026** | `[QueryProperty]` + Nullable + `Action<T>` + async + قصة نجاح `PointsDashboardPage` |
-| **3.0** | **10 أكتوبر 2026** | `SafeAsyncAction` Helper + جدول مقارنة `[QueryProperty]` vs `IQueryAttributable` |
-| **2.0** | **17 أكتوبر 2026** | **`13-MAUI` v2.0** — دمج `10` + `11` + قاعدة تسجيل الصفحات + Bridges + إشارات |
+|---------|---------|-----------|
+| 1.0 | 24 مايو 2026 | الإصدار الأولي — 10-maui-development-guide.md |
+| 1.0 | 8 يوليو 2026 | الإصدار الأولي — 11-blazor-webview-guide.md v1.0 |
+| 2.0 | 8 أكتوبر 2026 | [QueryProperty] + Nullable + Action<T> + async + قصة نجاح PointsDashboardPage |
+| 3.0 | 10 أكتوبر 2026 | SafeAsyncAction Helper + جدول مقارنة [QueryProperty] vs IQueryAttributable |
+| 2.0 | 17 أكتوبر 2026 | 13-MAUI v2.0 — دمج 10 + 11 + قاعدة تسجيل الصفحات + Bridges + إشارات |
+| **3.1** | **23 أكتوبر 2026** | **الجزء 20 — إضافة 7 أقسام (20.1 → 20.7): `JavaProxyThrowable` + `[QueryProperty]` من الطرفين + `Dispatcher.DispatchAsync` + ربط Bridge الشامل + Checklist "زر لا يعمل" + جدول "زر لا يعمل vs زر لا يفتح" + Checklist "قبل التشغيل"** |
+| **3.2** | **25 أكتوبر 2026** | **الجزء 20 — إضافة 6 أقسام (20.8 → 20.13): `patientId=0` (CaseID مفقود) + `PspDetailFlow` (QueryProperty + OnAppearing) + `MedicationScheduleFlow` (Dispatcher + CaseID) + `PatientPointsFlow` (Wrapper + Bridge بدلاً من EventCallback) + `ScanTokenPage` (حذف + استخدام PharmacyScanTokenPage) + `PspSchedulePageFlow` (تمرير PatientId)** |
 
 ---
 
 **© 2026 RubikCare — للاستخدام الداخلي**
 
 **نهاية الوثيقة ✅**
-```
