@@ -416,7 +416,126 @@
 | 1.0 | 16 أكتوبر 2026 | الإصدار الأولي — فهرس شامل + Snapshot + Dark Areas + خريطة الجلسات |
 | 2.0 | 18 أكتوبر 2026 | 00-MASTER-INDEX v2.0 — تحديث الفهرس ليعكس الهيكل النهائي (20 وثيقة بدل 34) + إضافة 19-PERMISSIONS + تحديث القواعد للـ 14 + تحديث الأولويات + Modules Snapshot |
 | **2.1** | **25 أكتوبر 2026** | **v2.1 — إغلاق Sprint 1 (Points-PSP) + Sprint 2 (MAUI) + 5 دروس مستفادة + 2 قاعدة جديدة (15, 16) + تحديث Dark Areas (3 ميزات MAUI) + تحديث Stable vs Unstable (3 موديولات) + تحديث خريطة الجلسات (جلستين جديدتين) + تحديث الأولويات + تحديث جدول التقديرات (Sprint 1 + 2)** |
+---
 
+
+## 📖 الجزء السادس عشر: قاموس الاختصارات (Glossary)
+
+هذا القاموس يشرح كل الاختصارات المستخدمة في `00B-PROJECT-BACKLOG.md` والوثائق الأخرى.
+
+### 🎯 اختصارات التخطيط (Planning)
+
+| الاختصار | المعنى (عربي) | المعنى (إنجليزي) | مثال |
+|-----------|----------------|-------------------|------|
+| **SP** | **نقطة قصة** — وحدة قياس حجم المهمة. | **Story Point** | P5.1 = 2 SP |
+| **SP (Sprint)** | **نقاط Sprint** — مجموع نقاط Sprint. | **Sprint Points** | Sprint 1 = 36 SP |
+| **P0** | **أولوية قصوى** — حرجة (يجب أن تُنجز فوراً). | **Priority 0** | S3-P0.1 = 3 SP |
+| **P1** | **أولوية عالية** — مهمة ولكن ليست حرجة. | **Priority 1** | P1 = 2 SP |
+| **P2** | **أولوية متوسطة** — يمكن تأجيلها. | **Priority 2** | P2 = 5 SP |
+| **P3** | **أولوية منخفضة** — تحسينات. | **Priority 3** | P7.1 = 1 SP |
+| **ETA** | **الوقت المتوقع للإنجاز** — تاريخ التسليم. | **Estimated Time of Arrival** | ETA: 26 أكتوبر |
+| **E2E** | **اختبار شامل** — من البداية للنهاية. | **End-to-End** | P7.2 = E2E |
+
+### 🎯 اختصارات Sprint (Sprint Markers)
+
+| الاختصار | المعنى (عربي) | المعنى (إنجليزي) | مثال |
+|-----------|----------------|-------------------|------|
+| **M1, M2, ...** | **مرحلة/مهمة** — ترتيب المهمة في Sprint 2. | **Milestone** | M1 = إنشاء `PatientPointsFlow` |
+| **D1, D2, ...** | **مهمة منجزة** — إضافية (خارج Sprint). | **Done** | D1 = IRefreshService |
+| **P5.1, P5.2** | **المرحلة 5 — المهمة 1** — مهام فرعية. | **Phase 5 — Task 1** | P5.1 = GetAdherenceHandler |
+| **S3-P0.1** | **Sprint 3 — الأولوية 0 — المهمة 1** | **Sprint 3 — P0 — Task 1** | S3-P0.1 = Deploy-FromStage.ps1 |
+
+### 🎯 اختصارات التكامل (Integration)
+
+| الاختصار | المعنى (عربي) | المعنى (إنجليزي) | مثال |
+|-----------|----------------|-------------------|------|
+| **IC-01 → IC-09** | **عقود التكامل** — 9 عقود بين نظام النقاط و PSP. | **Integration Contracts** | IC-04 = خصم النقاط على الصرف |
+| **PSP** | **برامج دعم المرضى** | **Patient Support Programs** | PSPProgram |
+| **PSPeRX** | **وصفة إلكترونية** | **PSP Electronic Prescription** | PSPeRX |
+| **eRx** | **وصفة إلكترونية** | **Electronic Prescription** | eRxID |
+| **DTO** | **كائن نقل البيانات** | **Data Transfer Object** | DispensationScheduleDto |
+| **DI** | **حقن التبعية** | **Dependency Injection** | `builder.Services.Add...` |
+| **DbContext** | **سياق قاعدة البيانات** | **Database Context** | BusinessDbContext |
+
+### 🎯 اختصارات النظام (System)
+
+| الاختصار | المعنى (عربي) | المعنى (إنجليزي) | مثال |
+|-----------|----------------|-------------------|------|
+| **PWA** | **تطبيق ويب تقدمي** | **Progressive Web App** | RubikCare.PWA |
+| **MAUI** | **واجهة تطبيقات متعددة المنصات** | **Multi-platform App UI** | RubikCare.Mobile |
+| **RCL** | **مكتبة فئات Razor** | **Razor Class Library** | Shared.UI |
+| **EF Core** | **إطار كيان** | **Entity Framework Core** | BusinessDbContext |
+| **SQL** | **لغة الاستعلامات** | **Structured Query Language** | `SELECT * FROM ...` |
+| **API** | **واجهة برمجة التطبيقات** | **Application Programming Interface** | Api.Web |
+
+### 🎯 اختصارات التطوير (Development)
+
+| الاختصار | المعنى (عربي) | المعنى (إنجليزي) | مثال |
+|-----------|----------------|-------------------|------|
+| **UI** | **واجهة المستخدم** | **User Interface** | Shared.UI |
+| **UX** | **تجربة المستخدم** | **User Experience** | PspDetailComponent |
+| **DB** | **قاعدة البيانات** | **Database** | RubikCare_Dev_V2 |
+| **IIS** | **خادم معلومات الإنترنت** | **Internet Information Services** | App Pools |
+| **VPS** | **خادم افتراضي خاص** | **Virtual Private Server** | 161.97.105.83 |
+| **CI/CD** | **التكامل/النشر المستمر** | **Continuous Integration/Deployment** | (مستقبلاً) |
+| **SSR** | **العرض من الخادم** | **Server-Side Rendering** | Blazor Server |
+| **WASM** | **WebAssembly** | **WebAssembly** | PWA |
+
+### 🎯 اختصارات المجال (Domain)
+
+| الاختصار | المعنى (عربي) | المعنى (إنجليزي) | مثال |
+|-----------|----------------|-------------------|------|
+| **PSP** | **برامج دعم المرضى** | **Patient Support Programs** | PSPProgram |
+| **Loyalty** | **الولاء** — نظام النقاط والمكافآت. | **Loyalty** | LoyaltyScheme |
+| **Scheme** | **نظام نقاط** — قواعد كسب/استبدال النقاط. | **Point Scheme** | PSPProgramPointScheme |
+| **Balance** | **رصيد** — رصيد نقاط المستفيد. | **Balance** | PSPProgramPointBalance |
+| **Rule** | **قاعدة** — قاعدة منح نقاط (حدث + مستفيد + نقاط). | **Rule** | PSPProgramPointRule |
+| **Beneficiary** | **مستفيد** — من يحصل على النقاط (مريض، طبيب، منظمة). | **Beneficiary** | BeneficiaryTypeID = 5 (Patient) |
+
+### 🎯 اختصارات الاختبار (Testing)
+
+| الاختصار | المعنى (عربي) | المعنى (إنجليزي) | مثال |
+|-----------|----------------|-------------------|------|
+| **E2E** | **اختبار شامل** | **End-to-End** | P7.2 = E2E |
+| **Unit Test** | **اختبار وحدة** | **Unit Test** | RubikCare.Tests |
+| **Moq** | **مكتبة محاكاة** | **Mocking Library** | `new Mock<IApiService>()` |
+| **xUnit** | **إطار اختبار** | **xUnit Framework** | `[Fact]` |
+
+### 🎯 اختصارات مكافحة الأخطاء (Troubleshooting)
+
+| الاختصار | المعنى (عربي) | المعنى (إنجليزي) | مثال |
+|-----------|----------------|-------------------|------|
+| **JavaProxyThrowable** | **استثناء Java** — غلاف يخفي `Exception` الحقيقي. | **JavaProxyThrowable** | الجزء 20.1 |
+| **NullReferenceException** | **استثناء مرجع فارغ** | **Null Reference Exception** | — |
+| **InvalidCastException** | **استثناء تحويل غير صالح** | **Invalid Cast Exception** | QueryProperty |
+| **Forbidden (403)** | **ممنوع** — المستخدم لا يملك صلاحية. | **Forbidden** | `PspController` |
+| **BadRequest (400)** | **طلب غير صالح** — البيانات ناقصة. | **Bad Request** | `ValidateToken` |
+| **InternalServerError (500)** | **خطأ داخلي** — خطأ في الكود. | **Internal Server Error** | `try/catch` |
+
+### 🎯 اختصارات الأنساب (Naming)
+
+| الاختصار | المعنى (عربي) | المعنى (إنجليزي) | مثال |
+|-----------|----------------|-------------------|------|
+| **Entity** | **كيان** — جدول قاعدة بيانات. | **Entity** | `PSPPatient` |
+| **DTO** | **كائن نقل البيانات** | **Data Transfer Object** | `DispensationScheduleDto` |
+| **Service** | **خدمة** — منطق أعمال. | **Service** | `PatientMedicationService` |
+| **Handler** | **معالج** — حالة استخدام. | **Handler** | `GetRemindersHandler` |
+| **Controller** | **متحكم** — Endpoint API. | **Controller** | `DispenseController` |
+| **Repository** | **مستودع** — طبقة الوصول للبيانات. | **Repository** | `PatientMedicationScheduleRepository` |
+| **Migration** | **هجرة** — تغيير قاعدة البيانات. | **Migration** | `RenamePatientIdToCaseId` |
+
+### 🎯 اختصارات Bridges (MAUI)
+
+| الاختصار | المعنى (عربي) | المعنى (إنجليزي) | مثال |
+|-----------|----------------|-------------------|------|
+| **Bridge** | **جسر** — `static Action` للتنقل بين MAUI و Blazor. | **Bridge** | `PspDetailNavigationBridge` |
+| **RootComponent** | **مكون جذري** — المكون الذي يُحمَّل في BlazorWebView. | **Root Component** | `PspDetailComponent` |
+| **Wrapper** | **غلاف** — صفحة MAUI تستدعي مكون Blazor. | **Wrapper** | `PspDetailFlow` |
+| **QueryProperty** | **خاصية استعلام** — معامل يُمرَّر عبر URL. | **Query Property** | `[QueryProperty(nameof(PatientIdRaw), "patientId")]` |
+
+### 📌 ملاحظة أخيرة
+
+**هذا القاموس مرجع حي** — إذا ظهر اختصار جديد في `00B` أو أي وثيقة، **أضفه هنا** (مع الحفاظ على الترتيب الهجائي أو الموضوعي).
 © 2026 RubikCare — للاستخدام الداخلي
 
 نهاية الوثيقة ✅
