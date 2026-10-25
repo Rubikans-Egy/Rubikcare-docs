@@ -2,8 +2,8 @@
 # 00B — PROJECT-BACKLOG
 
 الاسم: PROJECT-BACKLOG — سجل التطوير الحي
-الإصدار: 2.0 (نهاية Sprint 1)
-آخر تحديث: 23 أكتوبر 2026
+الإصدار: 3.0 (ما بعد Sprint 1 + حل مشاكل MAUI)
+آخر تحديث: 25 أكتوبر 2026
 Sprint الحالي: مكتمل — Sprint 1 (Points-PSP Integration)
 الحالة: 🟢 حي — يُحدَّث كل جلسة
 الجمهور: فريق التطوير + AI Assistants
@@ -84,6 +84,46 @@ RubikCare في مرحلة Pre-Launch. الهدف الحالي:
 
 ---
 
+## 🎯 Sprint 2 — MAUI Stabilization & Integration (24-25 أكتوبر 2026) — ✅ مكتمل
+
+**الهدف:** حل مشاكل MAUI (فشل الصفحات، `JavaProxyThrowable`، `QueryProperty`، `InvalidCastException`، `patientId=0`، `participationId=0`).
+
+**السياق:** بعد إغلاق Sprint 1، ظهرت مشاكل متعددة عند اختبار MAUI (Android) — خاصة في صفحة النقاط (`PatientPointsFlow`)، وصفحة تفاصيل البرنامج (`PspDetailFlow`)، والتنقل من `MedicationScheduleFlow`.
+
+### ✅ Done (13 مهمة)
+
+| # | المهمة | SP | ملاحظات |
+|---|--------|----|---------|
+| M1 | إنشاء `PatientPointsFlow.xaml` + `.xaml.cs` (Wrapper لصفحة نقاط المريض) | 2 | + ربط `PspDetailNavigationBridge` |
+| M2 | تعديل `PspDetailComponent.razor` — استخدام `Action` (بدلاً من `EventCallback`) | 2 | `GoToPatientPointsDashboard` |
+| M3 | تعديل `PatientPointsDashboard.razor` — استخدام `PspDetailNavigationBridge` | 2 | بدلاً من `EventCallback` |
+| M4 | إصلاح `InvalidCastException` في `PspDetailFlow` (`userId.ToString()`) | 1 | في `GoToPatientPointsDashboard` |
+| M5 | ربط **كل** دوال `PspDetailNavigationBridge` في `PspDetailFlow` (GoToSchedule, GoToPharmacySearch, GoBack, GoHome, GoToTests, GoToProgramDetails) | 3 | كان يربط `GoToPatientPointsDashboard` فقط |
+| M6 | استخدام `Dispatcher.DispatchAsync` لجميع استدعاءات `GoToAsync` | 1 | لمنع `JavaProxyThrowable` |
+| M7 | إصلاح `MedicationScheduleFlow.OnNavigateToPsp` — تمرير `patientId` و `participationId` | 2 | + `Dispatcher.DispatchAsync` + `.ToString()` |
+| M8 | إصلاح `MedicationSchedulePage.OnRefillRowClick` — استخدام `d.CaseID` (بدلاً من `d.PatientId`) | 1 | لتجنب `patientId=0` |
+| M9 | إضافة `CaseID` إلى `DispensationScheduleDto` + تعبئته في `GetDispensationSchedulesAsync` | 2 | من `eRx.CaseID` |
+| M10 | إصلاح `PspSchedulePageFlow` — تمرير `PatientId` و `OnGenerated`/`OnCancel` | 2 | (إذا لزم) |
+| M11 | تحديث `13-maui-development-guide.md` (دروس `JavaProxyThrowable`) | 3 | الجزء 20 (7 أقسام) |
+| M12 | إصلاح `PspController.patientDetails` — عرض `GENERATED` (بدلاً من `PENDING`) | 1 | + `TokenStatus = "PENDING"` |
+| M13 | إصلاح `DispensationScheduleDto` — تعبئة `PatientId` و `ParticipationId` (من `PSPPatient`) | 1 | لعرض التفاصيل في MAUI |
+
+**المجموع:** 23 SP
+
+### ✅ Done (إضافي — MAUI)
+
+| # | المهمة | SP | ملاحظات |
+|---|--------|----|---------|
+| M14 | توحيد `PspDetailFlow` — استخدام `PspDetailComponent` (بدلاً من XAML مخصص) | 2 | حذف `PspDetailPage.xaml` + `PspDetailViewModel.cs` |
+| M15 | حذف `ScanTokenPage.razor` (القديم) — استخدام `PharmacyScanTokenPage` فقط | 1 | لتجنب `Deserialize` |
+| M16 | إصلاح `PharmacyGateway` — تمرير `PharmacyId` إلى `PharmacyScanTokenPage` | 1 | `/pharmacy/scan-token/{PharmacyId}` |
+
+**المجموع الإضافي:** 4 SP
+
+**المجموع الكلي (Sprint 2):** 23 SP + 4 SP = **27 SP**
+
+---
+
 ## 🎯 Sprint 0 — Foundation (16-22 أكتوبر 2026) — ⏳ In Progress
 
 **الهدف:** تأسيس الأساسات للتنفيذ المُنظَّم.
@@ -115,6 +155,7 @@ RubikCare في مرحلة Pre-Launch. الهدف الحالي:
 | Sprint | Planned | Actual | Ratio |
 |--------|---------|--------|-------|
 | Sprint 1 | 36 | 36 | 100% ✅ |
+| Sprint 2 | 27 | 27 | 100% ✅ |
 | Sprint 0 | 22 | 11 | 50% 🟡 |
 
 ---
@@ -130,8 +171,8 @@ RubikCare في مرحلة Pre-Launch. الهدف الحالي:
 | 5: Reports System | 8 | 7 | ~85% |
 | 6: Notifications System | 6 | 6 | ~100% ✅ |
 | 7: PWA | 10 | 9 | ~90% |
-| 8: Menus & Services | 6 | 0 | 0% |
-| 9: Patient Mobile | 3 | 2 | ~65% |
+| **8: Menus & Services** | **6** | **0** | **0%** |
+| **9: Patient Mobile (MAUI)** | **3** | **3** | **~100% ✅** |
 | 10: Deployment & Release | 4 | 1 | ~25% |
 
 ---
@@ -197,27 +238,38 @@ RubikCare في مرحلة Pre-Launch. الهدف الحالي:
 | 10 | alert() بدلاً من Toast | PspSearch.razor |
 | 11 | SystemMenuMenuID Shadow Property | MenuAssignments |
 | 12 | RoleId في MenuVisibilityRule | بعد Migration |
+| **13** | **`PspDetailFlow` — لا يربط `GoHome` و `ShareToken` و `CopyToken`** | **MAUI** |
+| **14** | **`PspSchedulePageFlow` — لا يمرر `PatientId`** | **MAUI** |
 
 ---
 
-## 🗓️ Sprint 2 — Planned (23-29 أكتوبر 2026)
+## 🗓️ Sprint 3 — Planned (26-31 أكتوبر 2026)
 
-**الهدف:** إغلاق Sprint 1 المتبقي + بدء Sprint 0.
+**الهدف:** إغلاق Sprint 1 المتبقي + بدء Sprint 0 (Permissions).
 
 | # | المهمة | SP | الأولوية |
 |---|--------|----|----------|
 | 1 | إكمال P5.1 → P5.3 (التقارير) | 7 | 🔴 |
-| 2 | اختبار E2E كامل | 3 | 🔴 |
+| 2 | اختبار E2E كامل (نظام النقاط + MAUI) | 3 | 🔴 |
 | 3 | كتابة 19-PERMISSIONS | 5 | 🟠 |
 | 4 | Migration 4: ControlLevel + Permission | 2 | 🟠 |
 | 5 | Migration 5: UserControlLevel + JobTitleControlLevel | 2 | 🟠 |
 | 6 | الترجمة المتبقية (P7.1) | 1 | 🟡 |
+| 7 | إكمال `PspDetailFlow` — ربط `GoHome` + `ShareToken` + `CopyToken` | 1 | 🟠 |
+| 8 | إكمال `PspSchedulePageFlow` — تمرير `PatientId` | 1 | 🟠 |
 
-**المجموع:** 20 SP
+**المجموع:** 22 SP
 
 ---
 
 ## 📝 Changelog (مختصر)
+
+### v3.0 — 25 أكتوبر 2026
+- **إغلاق Sprint 2:** MAUI Stabilization & Integration (27 SP).
+- **حل `JavaProxyThrowable`:** تحويل `userId` إلى `string` + `Dispatcher.DispatchAsync` + ربط كل دوال الـ Bridge.
+- **حل `patientId=0`:** استخدام `d.CaseID` + إضافة `CaseID` إلى `DispensationScheduleDto`.
+- **تحديث `13-maui-development-guide.md`:** الجزء 20 (7 أقسام — دروس `JavaProxyThrowable`).
+- **تحديث الإحصائيات:** Points System 100%، Notifications 100%، Patient Mobile 100%.
 
 ### v2.0 — 23 أكتوبر 2026
 - **إغلاق Sprint 1:** Points-PSP Integration (36 SP).
@@ -242,8 +294,8 @@ RubikCare في مرحلة Pre-Launch. الهدف الحالي:
 **المشكلة:** Migration `RenamePatientIdToCaseId` أعادت تسمية العمود لكن لم تُنشئ سجلات `PSPPatients` للحالات التي كانت موجودة قبل التعديل. النتيجة: 22 حالة مفقودة، 15 مستخدماً فقدوا الربط ببرامجهم.
 
 **الحل:**
-1. إعادة إدراج 22 سجلاً من النسخة الاحتياطية #19 (2026-10-21).
-2. تحديث 70 `eRx.CaseID` من القديم إلى الجديد.
+- إعادة إدراج 22 سجلاً من النسخة الاحتياطية #19 (2026-10-21).
+- تحديث 70 `eRx.CaseID` من القديم إلى الجديد.
 
 **الإجراء الوقائي:**
 - أي Migration تعيد تسمية FK يجب أن تتحقق من البيانات المرتبطة.
@@ -255,8 +307,8 @@ RubikCare في مرحلة Pre-Launch. الهدف الحالي:
 **المشكلة:** `EarnPointsHandler` يستخدم `CaseID` (18) بينما `PspController` يستخدم `PatientProfileID` (15). النتيجة: النقاط المكتسبة لا تظهر في الواجهة.
 
 **الحل:**
-1. تعديل `PointsContext.GetBeneficiaryIdFor(5)` ليستخدم `UserID` (PatientProfileID).
-2. تعديل `GenerateNextToken` لاستخراج `PatientProfileID` من `PSPPatients`.
+- تعديل `PointsContext.GetBeneficiaryIdFor(5)` ليستخدم `UserID` (PatientProfileID).
+- تعديل `GenerateNextToken` لاستخراج `PatientProfileID` من `PSPPatients`.
 
 ---
 
@@ -264,8 +316,41 @@ RubikCare في مرحلة Pre-Launch. الهدف الحالي:
 **المشكلة:** توكن `PENDING` نشط يمنع توليد توكن جديد (رغم أنه لم يُعرض في الواجهة).
 
 **الحل:**
-1. استبعاد `PENDING` من `activeTokens` في `GenerateNextToken`.
-2. إعطاء أولوية `GENERATED` و `ACTIVE` في `PspController.patientDetails`.
+- استبعاد `PENDING` من `activeTokens` في `GenerateNextToken`.
+- إعطاء أولوية `GENERATED` و `ACTIVE` في `PspController.patientDetails`.
+
+---
+
+### درس 4: `JavaProxyThrowable` — غلاف يخفي `InvalidCastException` (25 أكتوبر 2026)
+**المشكلة:** عند فتح `PatientPointsFlow` في MAUI، يحدث `JavaProxyThrowable` (بدون تفاصيل). **السبب الحقيقي:** `[QueryProperty]` يستقبل `int` (من `PspDetailFlow`) بينما `PatientPointsFlow` يستقبل `string` → `InvalidCastException`.
+
+**الحل:**
+- تحويل `userId` إلى `string` **من الطرفين** (المرسل: `userId.ToString()`، المستقبل: `string?`).
+- استخدام `Dispatcher.DispatchAsync` لجميع استدعاءات `GoToAsync`.
+- ربط **كل** دوال `Bridge` (وليس بعضها).
+- إضافة `try/catch` يطبع `ex.Message` في `Output Window`.
+
+**الإجراء الوقائي:**
+- `JavaProxyThrowable` = غلاف — ابحث عن `Exception` الحقيقي في `Output Window`.
+- `[QueryProperty]` يجب أن يستقبل `string` **من الطرفين**.
+- `GoToAsync` يجب أن يكون داخل `Dispatcher.DispatchAsync`.
+- Bridge — ربط **كل** الدوال في `OnAppearing` (وليس بعضها).
+
+---
+
+### درس 5: `patientId=0` — `CaseID` مفقود في `DispensationScheduleDto` (25 أكتوبر 2026)
+**المشكلة:** عند فتح `PspDetailFlow` من `MedicationSchedulePage`، يُرسل `patientId=0` (بدلاً من `CaseID`).
+
+**السبب:** `DispensationScheduleDto` لا يحتوي على `CaseID` (أو لم يُعبَّأ في `GetDispensationSchedulesAsync`).
+
+**الحل:**
+- إضافة `CaseID` إلى `DispensationScheduleDto`.
+- تعبئته في `GetDispensationSchedulesAsync` (من `eRx.CaseID`).
+- تعديل `MedicationSchedulePage.OnRefillRowClick` لاستخدام `d.CaseID` (بدلاً من `d.PatientId`).
+
+**الإجراء الوقائي:**
+- أي `DTO` يمرر `CaseID` (أو `PatientId`) يجب أن يُعبَّأ في `Service` (وليس في `Controller`).
+- اختبار E2E لكل مسار تنقل بين الصفحات (MAUI + PWA).
 
 ---
 
@@ -275,7 +360,8 @@ RubikCare في مرحلة Pre-Launch. الهدف الحالي:
 |---------|---------|
 | 16 أكتوبر 2026 | إنشاء الوثيقة — دمج 18 + 23 + Changelog |
 | 20 أكتوبر 2026 | Points-PSP Integration (Planned) |
-| 23 أكتوبر 2026 | **v2.0 — إغلاق Sprint 1 + 3 دروس مستفادة + إحصائيات محدثة** |
+| 23 أكتوبر 2026 | v2.0 — إغلاق Sprint 1 + 3 دروس مستفادة + إحصائيات محدثة |
+| 25 أكتوبر 2026 | **v3.0 — إغلاق Sprint 2 (MAUI) + 2 دروس مستفادة + تحديث الإحصائيات** |
 
 ---
 
@@ -285,11 +371,8 @@ RubikCare في مرحلة Pre-Launch. الهدف الحالي:
 - [01-ARCHITECTURE](01%20%E2%80%94%20ARCHITECTURE%20.md)
 - [05-PSP-SYSTEM](05-psp-system.md)
 - [06-POINTS](06-points.md)
+- [13-MAUI](13-maui-development-guide.md)
 
 © 2026 RubikCare — للاستخدام الداخلي
 
 نهاية الوثيقة ✅
-```
-
----
-
