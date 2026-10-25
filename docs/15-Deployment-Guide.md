@@ -1114,6 +1114,482 @@ Get-WebGlobalModule | Where-Object { $_.Name -like "*Rewrite*" }
 | **2.0** | **17 أكتوبر 2026** | **`15-DEPLOYMENT` v2.0** — دمج `12` + القسم 4.5 الحرج (`ASPNETCORE_ENVIRONMENT` + `appcmd stop`) + الدرس 6 + 7 + إشارات |
 
 ---
+## 🚀 الجزء السابع عشر: النشر الآلي (Automated Deployment) — جديد
+
+### 17.1 نظرة عامة
+
+**الهدف:** تقليل الأخطاء البشرية عند النشر عبر:
+- **الحالة** لم ينفذ بعد.
+- **نسخ احتياطي تلقائي** قبل كل عملية.
+- **استبعاد الإعدادات** (`appsettings.*.json` + `web.config`) تلقائياً.
+- **Health Check** قبل وبعد النشر.
+- **Logging كامل** لكل عملية.
+- **Rollback سريع** في حالة الفشل.
+
+### 17.2 السكريبتات الثلاثة
+
+| السكريبت | الغرض | المصدر | الهدف |
+|-----------|--------|--------|--------|
+| `Deploy-FromStage.ps1` | نشر من Stage → Permanent | `C:\WebSite\_Stage\{Project}` | `C:\WebSite\{Permanent}` |
+| `Promote-ToProduction.ps1` | ترقية من Dev → Prod | `C:\WebSite\{Dev}` | `C:\WebSite\{Prod}` |
+| `Deploy-All.ps1` | نشر كل المشاريع | (تسلسل) | (تسلسل) |
+
+### 17.3 `Deploy-FromStage.ps1` (الكود الكامل)
+
+```powershell
+<#
+.SYNOPSIS
+    Deploy-FromStage.ps1 — نشر مشروع من مجلد Stage إلى المجلد الدائم (مع الحفاظ على الإعدادات).
+.DESCRIPTION
+    - نسخ احتياطي تلقائي.
+    - إيقاف/تشغيل App Pool.
+    - استبعاد ملفات الإعدادات (appsettings, web.config).
+    - Health Check (اختياري).
+.PARAMETER ProjectName
+    اسم المشروع: PWA, Web (Blazor Server), API
+.PARAMETER AppPoolName
+    اسم App Pool في IIS (مثال: PU_RubicCareStage).
+.PARAMETER HealthCheckUrl
+    (اختياري) رابط للتحقق من صحة النشر (مثال: https://stagepu.rubikcare.com).
+.EXAMPLE
+    .\Deploy-FromStage.ps1 -ProjectName PWA -AppPoolName "PU_RubicCareStage" -HealthCheckUrl "https://stagepu.rubikcare.com"
+#>
+
+param(
+    [Parameter(Mandatory=$true)]
+    [ValidateSet("PWA", "Web", "API")]
+    [string]$ProjectName,
+
+    [Parameter(Mandatory=$true)]
+    [string]$AppPoolName,
+
+    [string]$HealthCheckUrl = ""
+)
+
+# ═══════════════════════════════════════════════════════════
+# 1. الإعدادات
+# ═══════════════════════════════════════════════════════════
+$BasePath = "C:\WebSite"
+$StagePath = Join-Path $BasePath "_Stage\$ProjectName"
+$PermanentPath = switch ($ProjectName) {
+    "PWA" { Join-Path $BasePath "PU_RubicCareStage" }
+    "Web" { Join-Path $BasePath "RubikCareNew" }
+    "API" { Join-Path $BasePath "RubikCareApi" }
+}
+
+# الملفات التي يجب استبعادها (لأنها تحتوي على إعدادات البيئة)
+$ExcludeFiles = @(
+    "appsettings.json",
+    "appsettings.Development.json",
+    "appsettings.Production.json",
+    "appsettings.Staging.json",
+    "appsettings.UAT.json",
+    "appsettings.Test.json",
+    "appsettings.Secrets.json",
+    "web.config"
+)
+
+# مجلدات يجب استبعادها (تحتوي على بيانات يجب أن تبقى)
+$ExcludeFolders = @(
+    "Logs",
+    "logs",
+    "uploads",
+    "Uploads",
+    "wwwroot\uploads"
+)
+
+$Timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+$BackupPath = Join-Path $BasePath "_Backups\$ProjectName`_$Timestamp"
+$LogFile = Join-Path $BasePath "_Logs\Deploy-$ProjectName-$Timestamp.log"
+
+# ═══════════════════════════════════════════════════════════
+# 2. دوال مساعدة
+# ═══════════════════════════════════════════════════════════
+function Write-Log {
+    param([string]$Message, [string]$Level = "INFO")
+    $Time = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    $Line = "[$Time] [$Level] $Message"
+    Write-Host $Line -ForegroundColor $(switch ($Level) {
+        "ERROR" { "Red" }
+        "WARN" { "Yellow" }
+        "SUCCESS" { "Green" }
+        default { "White" }
+    })
+    Add-Content -Path $LogFile -Value $Line -ErrorAction SilentlyContinue
+}
+
+function Test-Prerequisites {
+    Write-Log "🔍 التحقق من المتطلبات..." -Level "INFO"
+
+    if (-not (Test-Path $StagePath)) {
+        Write-Log "❌ المجلد المرحلي غير موجود: $StagePath" -Level "ERROR"
+        return $false
+    }
+
+    if (-not (Test-Path $PermanentPath)) {
+        Write-Log "❌ المجلد الدائم غير موجود: $PermanentPath" -Level "ERROR"
+        return $false
+    }
+
+    $permanentAppSettings = Join-Path $PermanentPath "appsettings.json"
+    if (-not (Test-Path $permanentAppSettings)) {
+        Write-Log "⚠️ تحذير: appsettings.json غير موجود في المجلد الدائم — قد يفشل النشر." -Level "WARN"
+    }
+
+    return $true
+}
+
+function Invoke-Backup {
+    Write-Log "📦 إنشاء نسخة احتياطية: $BackupPath" -Level "INFO"
+    New-Item -ItemType Directory -Path $BackupPath -Force | Out-Null
+
+    Copy-Item -Path "$PermanentPath\*" -Destination $BackupPath -Recurse -Force -ErrorAction SilentlyContinue
+
+    $backupSize = (Get-ChildItem $BackupPath -Recurse | Measure-Object -Property Length -Sum).Sum / 1MB
+    Write-Log "✅ تم إنشاء النسخة الاحتياطية (الحجم: $([math]::Round($backupSize, 2)) MB)" -Level "SUCCESS"
+}
+
+function Stop-AppPool {
+    Write-Log "⏸️ إيقاف App Pool: $AppPoolName" -Level "INFO"
+    & "$env:SystemRoot\System32\inetsrv\appcmd.exe" stop apppool /apppool.name:"$AppPoolName" 2>&1 | Out-Null
+    Start-Sleep -Seconds 2
+}
+
+function Start-AppPool {
+    Write-Log "▶️ تشغيل App Pool: $AppPoolName" -Level "INFO"
+    & "$env:SystemRoot\System32\inetsrv\appcmd.exe" start apppool /apppool.name:"$AppPoolName" 2>&1 | Out-Null
+}
+
+function Invoke-CopyWithExclusions {
+    Write-Log "📋 نسخ الملفات (مع استبعاد الإعدادات)..." -Level "INFO"
+
+    $robocopyArgs = @(
+        "`"$StagePath`"",
+        "`"$PermanentPath`"",
+        "/MIR",
+        "/XF " + ($ExcludeFiles -join " "),
+        "/XD " + ($ExcludeFolders -join " "),
+        "/R:2",
+        "/W:5",
+        "/NP",
+        "/NFL",
+        "/NDL",
+        "/LOG+:`"$LogFile`""
+    )
+
+    $robocopyCmd = "robocopy " + ($robocopyArgs -join " ")
+    Invoke-Expression $robocopyCmd
+
+    $exitCode = $LASTEXITCODE
+
+    if ($exitCode -ge 8) {
+        Write-Log "❌ فشل النسخ (robocopy exit code: $exitCode)" -Level "ERROR"
+        return $false
+    }
+
+    Write-Log "✅ تم نسخ الملفات بنجاح (robocopy exit code: $exitCode)" -Level "SUCCESS"
+    return $true
+}
+
+function Test-Health {
+    if ([string]::IsNullOrEmpty($HealthCheckUrl)) {
+        Write-Log "⏭️ تخطي Health Check (لم يُحدد URL)." -Level "INFO"
+        return $true
+    }
+
+    Write-Log "🩺 Health Check: $HealthCheckUrl" -Level "INFO"
+    Start-Sleep -Seconds 5
+
+    try {
+        $response = Invoke-WebRequest -Uri $HealthCheckUrl -UseBasicParsing -TimeoutSec 30
+        if ($response.StatusCode -eq 200) {
+            Write-Log "✅ Health Check نجح (HTTP $($response.StatusCode))" -Level "SUCCESS"
+            return $true
+        } else {
+            Write-Log "⚠️ Health Check أعاد HTTP $($response.StatusCode)" -Level "WARN"
+            return $true
+        }
+    } catch {
+        Write-Log "❌ Health Check فشل: $($_.Exception.Message)" -Level "ERROR"
+        return $false
+    }
+}
+
+# ═══════════════════════════════════════════════════════════
+# 3. التنفيذ
+# ═══════════════════════════════════════════════════════════
+Write-Log "═══════════════════════════════════════════════════════════" -Level "INFO"
+Write-Log "🚀 بدء النشر: $ProjectName" -Level "INFO"
+Write-Log "   Stage:     $StagePath" -Level "INFO"
+Write-Log "   Permanent: $PermanentPath" -Level "INFO"
+Write-Log "   App Pool:  $AppPoolName" -Level "INFO"
+Write-Log "═══════════════════════════════════════════════════════════" -Level "INFO"
+
+if (-not (Test-Prerequisites)) {
+    Write-Log "❌ فشل النشر (المتطلبات غير مكتملة)." -Level "ERROR"
+    exit 1
+}
+
+Invoke-Backup
+Stop-AppPool
+$copySuccess = Invoke-CopyWithExclusions
+Start-AppPool
+
+if (-not $copySuccess) {
+    Write-Log "❌ فشل النشر (نسخ الملفات)." -Level "ERROR"
+    Write-Log "💡 يمكنك استعادة النسخة الاحتياطية من: $BackupPath" -Level "INFO"
+    exit 1
+}
+
+$healthSuccess = Test-Health
+
+if ($healthSuccess) {
+    Write-Log "🎉 تم النشر بنجاح!" -Level "SUCCESS"
+    Write-Log "📁 النسخة الاحتياطية: $BackupPath" -Level "INFO"
+    Write-Log "📄 السجل: $LogFile" -Level "INFO"
+    exit 0
+} else {
+    Write-Log "⚠️ النشر اكتمل لكن Health Check فشل — راجع السجل." -Level "WARN"
+    Write-Log "💡 يمكنك استعادة النسخة الاحتياطية من: $BackupPath" -Level "INFO"
+    exit 2
+}
+```
+
+### 17.4 `Promote-ToProduction.ps1` (الكود الكامل)
+
+```powershell
+<#
+.SYNOPSIS
+    Promote-ToProduction.ps1 — نقل مشروع من Dev إلى Production (مع الحفاظ على إعدادات الإنتاج).
+.DESCRIPTION
+    - التحقق من استقرار Dev (Health Check).
+    - نسخ احتياطي للإنتاج.
+    - استبعاد إعدادات الإنتاج.
+    - Health Check إنتاجي.
+.PARAMETER ProjectName
+    اسم المشروع: PWA, Web, API
+.PARAMETER DevAppPool
+    اسم App Pool في Dev (مثال: rubikcarenew).
+.PARAMETER ProdAppPool
+    اسم App Pool في Prod (مثال: RubikCareLive).
+.PARAMETER DevHealthCheckUrl
+    رابط Health Check في Dev.
+.PARAMETER ProdHealthCheckUrl
+    رابط Health Check في Prod.
+.EXAMPLE
+    .\Promote-ToProduction.ps1 -ProjectName Web -DevAppPool "rubikcarenew" -ProdAppPool "RubikCareLive" -DevHealthCheckUrl "https://test.rubikcare.com" -ProdHealthCheckUrl "https://rubikcare.com"
+#>
+
+param(
+    [Parameter(Mandatory=$true)]
+    [ValidateSet("PWA", "Web", "API")]
+    [string]$ProjectName,
+
+    [Parameter(Mandatory=$true)]
+    [string]$DevAppPool,
+
+    [Parameter(Mandatory=$true)]
+    [string]$ProdAppPool,
+
+    [string]$DevHealthCheckUrl = "",
+    [string]$ProdHealthCheckUrl = ""
+)
+
+$BasePath = "C:\WebSite"
+$DevPath = switch ($ProjectName) {
+    "PWA" { Join-Path $BasePath "PU_RubicCareStage" }
+    "Web" { Join-Path $BasePath "RubikCareNew" }
+    "API" { Join-Path $BasePath "RubikCareApi" }
+}
+$ProdPath = switch ($ProjectName) {
+    "PWA" { Join-Path $BasePath "PU_RubicCareLive" }
+    "Web" { Join-Path $BasePath "RubikCareLive" }
+    "API" { Join-Path $BasePath "RubikCareApiLive" }
+}
+
+$ExcludeFiles = @(
+    "appsettings.json",
+    "appsettings.Production.json",
+    "appsettings.Secrets.json",
+    "web.config"
+)
+
+$ExcludeFolders = @(
+    "Logs",
+    "logs",
+    "uploads",
+    "Uploads"
+)
+
+$Timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+$BackupPath = Join-Path $BasePath "_Backups\Prod_$ProjectName`_$Timestamp"
+$LogFile = Join-Path $BasePath "_Logs\Promote-$ProjectName-$Timestamp.log"
+
+# ... (نفس دوال Write-Log, Test-Prerequisites, Invoke-Backup, Stop-AppPool, Start-AppPool, Invoke-CopyWithExclusions, Test-Health — مع تمرير Source/Destination كـ Parameters)
+
+Write-Log "═══════════════════════════════════════════════════════════" -Level "INFO"
+Write-Log "🚀 بدء الترقية: $ProjectName" -Level "INFO"
+Write-Log "   Dev:  $DevPath" -Level "INFO"
+Write-Log "   Prod: $ProdPath" -Level "INFO"
+Write-Log "═══════════════════════════════════════════════════════════" -Level "INFO"
+
+if (-not [string]::IsNullOrEmpty($DevHealthCheckUrl)) {
+    Write-Log "🩺 التحقق من استقرار Dev..." -Level "INFO"
+    if (-not (Test-Health -HealthCheckUrl $DevHealthCheckUrl)) {
+        Write-Log "❌ Dev غير مستقر — إلغاء الترقية." -Level "ERROR"
+        exit 1
+    }
+}
+
+Invoke-Backup
+Stop-AppPool -AppPoolName $ProdAppPool
+$copySuccess = Invoke-CopyWithExclusions -Source $DevPath -Destination $ProdPath -ExcludeFiles $ExcludeFiles -ExcludeFolders $ExcludeFolders
+Start-AppPool -AppPoolName $ProdAppPool
+
+if (-not $copySuccess) {
+    Write-Log "❌ فشل الترقية (نسخ الملفات)." -Level "ERROR"
+    Write-Log "💡 يمكنك استعادة النسخة الاحتياطية من: $BackupPath" -Level "INFO"
+    exit 1
+}
+
+$healthSuccess = Test-Health -HealthCheckUrl $ProdHealthCheckUrl
+
+if ($healthSuccess) {
+    Write-Log "🎉 تمت الترقية إلى Production بنجاح!" -Level "SUCCESS"
+    exit 0
+} else {
+    Write-Log "⚠️ الترقية اكتملت لكن Health Check فشل — راجع السجل." -Level "WARN"
+    Write-Log "💡 يمكنك استعادة النسخة الاحتياطية من: $BackupPath" -Level "INFO"
+    exit 2
+}
+```
+
+### 17.5 `Deploy-All.ps1` (الكود الكامل)
+
+```powershell
+<#
+.SYNOPSIS
+    Deploy-All.ps1 — نشر كل المشاريع (PWA + Web + API) من Stage إلى Permanent.
+#>
+
+$ErrorActionPreference = "Stop"
+
+$Projects = @(
+    @{ Name = "API"; AppPool = "RubikCareApi"; HealthCheck = "https://uat.rubikcare.com/api/ping" },
+    @{ Name = "Web"; AppPool = "RubikCareNew"; HealthCheck = "https://test.rubikcare.com" },
+    @{ Name = "PWA"; AppPool = "PU_RubicCareStage"; HealthCheck = "https://stagepu.rubikcare.com" }
+)
+
+$Failed = @()
+
+foreach ($project in $Projects) {
+    Write-Host "`n═══════════════════════════════════════════════════════════" -ForegroundColor Cyan
+    Write-Host "🚀 نشر: $($project.Name)" -ForegroundColor Cyan
+    Write-Host "═══════════════════════════════════════════════════════════" -ForegroundColor Cyan
+
+    try {
+        & ".\Deploy-FromStage.ps1" `
+            -ProjectName $project.Name `
+            -AppPoolName $project.AppPool `
+            -HealthCheckUrl $project.HealthCheck
+
+        if ($LASTEXITCODE -ne 0) {
+            $Failed += $project.Name
+        }
+    } catch {
+        Write-Host "❌ فشل نشر $($project.Name): $($_.Exception.Message)" -ForegroundColor Red
+        $Failed += $project.Name
+    }
+}
+
+Write-Host "`n═══════════════════════════════════════════════════════════" -ForegroundColor Cyan
+if ($Failed.Count -eq 0) {
+    Write-Host "🎉 تم نشر كل المشاريع بنجاح!" -ForegroundColor Green
+    exit 0
+} else {
+    Write-Host "⚠️ فشل نشر: $($Failed -join ', ')" -ForegroundColor Yellow
+    exit 1
+}
+```
+
+### 17.6 خطوات الاستخدام (يومياً)
+
+#### 1. النشر من المحلي إلى Stage (على السيرفر):
+- انسخ `publish` إلى `C:\WebSite\_Stage\PWA` (أو `Web` / `API`).
+- **⚠️ لا تنسخ `appsettings.json` أو `web.config`** (السكريبت سيحتفظ بها من المجلد الدائم).
+
+#### 2. النشر من Stage إلى Permanent:
+```powershell
+.\Deploy-FromStage.ps1 -ProjectName PWA -AppPoolName "PU_RubicCareStage" -HealthCheckUrl "https://stagepu.rubikcare.com"
+```
+
+#### 3. النشر من Dev إلى Production (بعد التأكد من استقرار Dev):
+```powershell
+.\Promote-ToProduction.ps1 -ProjectName Web -DevAppPool "rubikcarenew" -ProdAppPool "RubikCareLive" -DevHealthCheckUrl "https://test.rubikcare.com" -ProdHealthCheckUrl "https://rubikcare.com"
+```
+
+### 17.7 Health Check Endpoint
+
+**الـ API يحتوي على `/api/ping`:**
+
+```csharp
+app.MapGet("/api/ping", () => Results.Ok(new
+{
+    success = true,
+    message = "✅ API is working!",
+    time = DateTime.Now,
+    environment = app.Environment.EnvironmentName
+}));
+```
+
+**الاستخدام في السكريبتات:**
+```powershell
+-HealthCheckUrl "https://uat.rubikcare.com/api/ping"
+```
+
+**النتيجة المتوقعة:**
+```json
+{
+  "success": true,
+  "message": "✅ API is working!",
+  "time": "2026-10-26T...",
+  "environment": "Staging"
+}
+```
+
+### 17.8 Checklist النشر الآلي
+
+- [ ] المجلد `_Stage\{Project}` موجود (نسخ الملفات إليه أولاً).
+- [ ] `appsettings.json` + `web.config` **موجودان** في المجلد الدائم (لن يُستبدلا).
+- [ ] `AppPoolName` صحيح (من خريطة البيئات).
+- [ ] `HealthCheckUrl` صحيح (`/api/ping` للـ API — أو الدومين للـ Web/PWA).
+- [ ] السكريبت يعمل كـ Administrator.
+
+### 17.9 Rollback (في حالة الفشل)
+
+**كل سكريبت ينشئ نسخة احتياطية في:**
+```
+C:\WebSite\_Backups\{Project}_{Timestamp}\
+```
+
+**للاستعادة:**
+```powershell
+# 1. إيقاف App Pool
+C:\Windows\System32\inetsrv\appcmd stop apppool "PU_RubicCareStage"
+
+# 2. حذف الملفات الجديدة (باستثناء web.config)
+Get-ChildItem "C:\WebSite\PU_RubicCareStage" -Exclude "web.config","appsettings.*.json" | 
+    Remove-Item -Recurse -Force
+
+# 3. استعادة النسخة الاحتياطية
+Copy-Item -Path "C:\WebSite\_Backups\PWA_20261026_120000\*" `
+    -Destination "C:\WebSite\PU_RubicCareStage\" -Recurse -Force
+
+# 4. تشغيل App Pool
+C:\Windows\System32\inetsrv\appcmd start apppool "PU_RubicCareStage"
+```
+
+---
 
 **© 2026 RubikCare — للاستخدام الداخلي**
 
