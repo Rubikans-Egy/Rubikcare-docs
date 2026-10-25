@@ -245,7 +245,22 @@ RubikCare في مرحلة Pre-Launch. الهدف الحالي:
 
 ## 🗓️ Sprint 3 — Planned (26-31 أكتوبر 2026)
 
-**الهدف:** إغلاق Sprint 1 المتبقي + بدء Sprint 0 (Permissions).
+**الهدف:** تأمين النشر الآلي (P0) + إغلاق Sprint 1 المتبقي + بدء Sprint 0 (Permissions).
+
+### 🔴 P0 — النشر الآلي (أولوية قصوى)
+
+| # | المهمة | SP | الأولوية | ملاحظات |
+|---|--------|----|----------|---------|
+| **S3-P0.1** | **إنشاء `Deploy-FromStage.ps1`** (نشر من Stage → Permanent) | **3** | 🔴 P0 | نسخ احتياطي + إيقاف App Pool + استبعاد الإعدادات + Health Check |
+| **S3-P0.2** | **إنشاء `Promote-ToProduction.ps1`** (نشر من Dev → Prod) | **2** | 🔴 P0 | التحقق من استقرار Dev + نسخ احتياطي + Health Check إنتاجي |
+| **S3-P0.3** | **إنشاء `Deploy-All.ps1`** (نشر كل المشاريع) | **1** | 🔴 P0 | تشغيل السكريبتين لكل المشاريع (PWA + Web + API) |
+| **S3-P0.4** | **إضافة Health Check Endpoint في `Api.Web`** (إذا لم يكن موجوداً) | **1** | 🔴 P0 | `GET /health` → `{ "status": "ok" }` |
+| **S3-P0.5** | **تحديث `15-DEPLOYMENT.md`** (شرح السكريبتات + خطوات الاستخدام) | **2** | 🔴 P0 | + أمثلة + سيناريوهات + استكشاف أخطاء |
+| **S3-P0.6** | **اختبار E2E للنشر الآلي** (PWA + Web + API) | **2** | 🔴 P0 | على UAT: Stage → Permanent، ثم Dev → Prod (اختباري) |
+
+**المجموع (P0):** 11 SP
+
+### 🔴 Sprint 3 — المهام الأخرى
 
 | # | المهمة | SP | الأولوية |
 |---|--------|----|----------|
@@ -258,8 +273,7 @@ RubikCare في مرحلة Pre-Launch. الهدف الحالي:
 | 7 | إكمال `PspDetailFlow` — ربط `GoHome` + `ShareToken` + `CopyToken` | 1 | 🟠 |
 | 8 | إكمال `PspSchedulePageFlow` — تمرير `PatientId` | 1 | 🟠 |
 
-**المجموع:** 22 SP
-
+**المجموع (Sprint 3 كامل):** 11 SP (P0) + 22 SP (المهام الأخرى) = **33 SP**
 ---
 
 ## 📝 Changelog (مختصر)
