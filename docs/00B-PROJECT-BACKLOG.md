@@ -2,9 +2,9 @@
 # 00B — PROJECT-BACKLOG
 
 الاسم: PROJECT-BACKLOG — سجل التطوير الحي 
-الإصدار: 5.0 (PHR + Integration Hub Edition) 
-آخر تحديث: 26 أكتوبر 2026 
-Sprint الحالي: Sprint 3 (Planned) 
+الإصدار: 5.1 (Post-Deployment Fixes Edition) 
+آخر تحديث: 27 أكتوبر 2026 
+Sprint الحالي: Sprint 3 (In Progress) 
 الحالة: 🟢 حي — يُحدَّث كل جلسة 
 الجمهور: فريق التطوير + AI Assistants
 
@@ -162,8 +162,8 @@ RubikCare في مرحلة Pre-Launch. الهدف الحالي:
 | 8: Menus & Services | 6 | 0 | 0% |
 | 9: Patient Mobile (MAUI) | 3 | 3 | ~100% ✅ |
 | 10: Deployment & Release | 4 | 1 | ~25% |
-| **11: Personal Health Records (PHR)** | **3 (Phases)** | **0** | **0%** |
-| **12: Integration Hub** | **3 (Phases)** | **0** | **0%** |
+| 11: Personal Health Records (PHR) | 3 (Phases) | 0 | 0% |
+| 12: Integration Hub | 3 (Phases) | 0 | 0% |
 
 ---
 
@@ -219,26 +219,61 @@ RubikCare في مرحلة Pre-Launch. الهدف الحالي:
 | 5 | ازدواجية FirebaseNotificationService | Api.Web + Infrastructure |
 | 6 | ازدواجية IPSPPointSchemeService | Application + Web |
 | 7 | عدم تحديث PROJECT-BACKLOG أسبوعياً | عملية |
+| 8 | ازدواجية `BaseUrl` في `appsettings` (Web) | `RubikCareLive` و `RubikCareNew` |
 
 ### 🟢 Low Debt
 
 | # | الدين | الموقع |
 | :--- | :--- | :--- |
-| 8 | IMobileNavigationService (اسم مضلل) | Shared.UI/Services/ |
-| 9 | HttpUtility في Blazor WASM | PharmacySearch.razor |
-| 10 | alert() بدلاً من Toast | PspSearch.razor |
-| 11 | SystemMenuMenuID Shadow Property | MenuAssignments |
-| 12 | RoleId في MenuVisibilityRule | بعد Migration |
-| 13 | PspDetailFlow — لا يربط GoHome | MAUI |
-| 14 | PspSchedulePageFlow — لا يمرر PatientId | MAUI |
+| 9 | IMobileNavigationService (اسم مضلل) | Shared.UI/Services/ |
+| 10 | HttpUtility في Blazor WASM | PharmacySearch.razor |
+| 11 | alert() بدلاً من Toast | PspSearch.razor |
+| 12 | SystemMenuMenuID Shadow Property | MenuAssignments |
+| 13 | RoleId في MenuVisibilityRule | بعد Migration |
+| 14 | PspDetailFlow — لا يربط GoHome | MAUI |
+| 15 | PspSchedulePageFlow — لا يمرر PatientId | MAUI |
 
 ---
 
-## 🗓️ Sprint 3 — Planned (26-31 أكتوبر 2026)
+## 🗓️ Sprint 3 — Planned (26-31 أكتوبر 2026) — ⏳ In Progress
 
 الهدف: تأمين النشر الآلي (P0) + إغلاق Sprint 1 المتبقي + بدء Sprint 0 (Permissions).
 
-### 🔴 P0 — النشر الآلي
+### ✅ Done (ما تم إنجازه اليوم — 26-27 أكتوبر)
+
+| # | المهمة | SP | ملاحظات |
+| :--- | :--- | :--- | :--- |
+| S3-Done-1 | تنظيف بيئة النشر (حذف المواقع القديمة، أرشفة `_Archive`) | 2 | — |
+| S3-Done-2 | إعداد `SharedStorage` وأذوناته (Web + API) | 3 | تم حل مشكلة رفع الملفات. |
+| S3-Done-3 | ترقية قاعدة البيانات (UAT → Production) | 5 | تم تطبيق Migration `RenamePatientIdToCaseId` مع تنظيف السجلات اليتيمة. |
+| S3-Done-4 | مزامنة `Seed Data` الناقصة (Menus, ActivityTypes, ...) | 3 | تم حل مشكلة القوائم المفقودة. |
+| S3-Done-5 | إنشاء نظام سكريبتات النشر (Web, API, PWA) + Rollback | 5 | 12 سكريبت جاهز في `_Docs\Scripts`. |
+| S3-Done-6 | توثيق `15-DEPLOYMENT.md` (v3.0) مع قسم قاعدة البيانات | 2 | — |
+
+**المجموع المنجز:** 20 SP.
+
+### 🔴 Blocker — Pharma Dashboard Performance (مشكلة أداء لوحة تحكم شركات الأدوية)
+
+**الوصف:**
+صفحات `dashboard/organization` و `reports/*` في واجهة شركات الأدوية (Pharma Company) تستغرق **42 ثانية** للتحميل في الإنتاج، بينما تفتح في UAT في **أجزاء من الثانية**. الصفحات الأخرى (مثل `loyalty` و `psp`) تعمل بشكل طبيعي.
+
+**التشخيص الحالي:**
+*   الـ API يستجيب بسرعة (35ms) للطلبات المتكررة، لكنه يستغرق 8 ثوانٍ في الطلب الأول (Cold Start).
+*   الـ Web (Blazor Server) يظهر `cfOrigin: 42.05s`، مما يعني أن البطء في استجابة الخادم (SSR) وليس في الشبكة.
+*   لا توجد أخطاء في `Console` أو سجلات IIS.
+*   الفهارس (Indexes) والإحصائيات (`sp_updatestats`) سليمة.
+
+**الخطوة التالية:**
+*   نقل قاعدة بيانات الإنتاج إلى بيئة التطوير (نسخة كاملة).
+*   تشغيل المشروع محلياً على نسخة الإنتاج.
+*   استخدام **SQL Server Profiler** و **Visual Studio Debugger** لتحديد الاستعلام البطيء.
+*   إصلاح السبب في بيئة التطوير، ثم نقله للإنتاج.
+
+**الأولوية:** 🔴 حرجة (تمنع اكتمال Sprint 3).
+
+---
+
+### 🔴 P0 — النشر الآلي (متبقي)
 
 | # | المهمة | SP |
 | :--- | :--- | :--- |
@@ -264,7 +299,7 @@ RubikCare في مرحلة Pre-Launch. الهدف الحالي:
 | 7 | إكمال PspDetailFlow | 1 |
 | 8 | إكمال PspSchedulePageFlow | 1 |
 
-المجموع (Sprint 3 كامل): 11 SP (P0) + 22 SP = 33 SP
+المجموع (Sprint 3 كامل): 20 SP (Done) + 11 SP (P0) + 22 SP (أخرى) = 53 SP
 
 ---
 
@@ -276,15 +311,15 @@ RubikCare في مرحلة Pre-Launch. الهدف الحالي:
 
 | # | المهمة | SP |
 | :--- | :--- | :--- |
-| PHR-1 | Domain: `LabTestType`, `AssessmentRule`, `LabTestResult`, `HealthRecord` | 3 |
-| PHR-2 | Domain: `SharingConsent` (النسخة الأساسية) | 1 |
-| PHR-3 | Application: `HbClinicalRulesEngine` + DTOs | 3 |
-| PHR-4 | Application: `SaveLabResultUseCase` + `GetLabResultsUseCase` | 2 |
-| PHR-5 | API: `HealthRecordsController` | 2 |
-| PHR-6 | Shared.UI: `HbNavigator.razor` | 4 |
+| PHR-1 | Domain: LabTestType, AssessmentRule, LabTestResult, HealthRecord | 3 |
+| PHR-2 | Domain: SharingConsent (النسخة الأساسية) | 1 |
+| PHR-3 | Application: HbClinicalRulesEngine + DTOs | 3 |
+| PHR-4 | Application: SaveLabResultUseCase + GetLabResultsUseCase | 2 |
+| PHR-5 | API: HealthRecordsController | 2 |
+| PHR-6 | Shared.UI: HbNavigator.razor | 4 |
 | PHR-7 | اختبارات E2E + ربط بـ PSP | 2 |
 
-**المجموع: 17 SP**
+المجموع: 17 SP
 
 ---
 
@@ -292,14 +327,14 @@ RubikCare في مرحلة Pre-Launch. الهدف الحالي:
 
 | # | المهمة | SP |
 | :--- | :--- | :--- |
-| PHR-8 | إضافة `LabTestType` جديد (Ferritin) | 1 |
+| PHR-8 | إضافة LabTestType جديد (Ferritin) | 1 |
 | PHR-9 | واجهة ديناميكية (Dynamic Form) | 3 |
-| PHR-10 | `SharingConsent` (Scope: ALL, LAB_RESULTS) | 2 |
-| PHR-11 | API: `ShareRecordEndpoint` + `RevokeShareEndpoint` | 2 |
+| PHR-10 | SharingConsent (Scope: ALL, LAB_RESULTS) | 2 |
+| PHR-11 | API: ShareRecordEndpoint + RevokeShareEndpoint | 2 |
 | PHR-12 | UI: شاشة "مشاركة السجل" | 3 |
 | PHR-13 | اختبارات E2E للمشاركة | 2 |
 
-**المجموع: 13 SP**
+المجموع: 13 SP
 
 ---
 
@@ -307,14 +342,14 @@ RubikCare في مرحلة Pre-Launch. الهدف الحالي:
 
 | # | المهمة | SP |
 | :--- | :--- | :--- |
-| PHR-14 | `HealthRecord` يدعم `PRESCRIPTION`, `SURGERY`, `MEASUREMENT` | 3 |
+| PHR-14 | HealthRecord يدعم PRESCRIPTION, SURGERY, MEASUREMENT | 3 |
 | PHR-15 | ربط PHR بـ PSP | 3 |
-| PHR-16 | `SharingConsent` (Scope: JSON، صلاحية زمنية) | 3 |
-| PHR-17 | `RecordAccessLog` + تقارير الوصول | 2 |
+| PHR-16 | SharingConsent (Scope: JSON، صلاحية زمنية) | 3 |
+| PHR-17 | RecordAccessLog + تقارير الوصول | 2 |
 | PHR-18 | UI: لوحة "السجل الطبي" (Timeline View) | 4 |
 | PHR-19 | اختبارات E2E شاملة + توثيق | 2 |
 
-**المجموع: 17 SP**
+المجموع: 17 SP
 
 ---
 
@@ -326,14 +361,14 @@ RubikCare في مرحلة Pre-Launch. الهدف الحالي:
 
 | # | المهمة | SP |
 | :--- | :--- | :--- |
-| IH-1 | Domain: `IntegrationClient`, `IntegrationRequest`, `IntegrationResult` | 3 |
-| IH-2 | Application: `IIntegrationClient` Interface + `IntegrationOrchestrator` | 3 |
-| IH-3 | Infrastructure: `AuthenticationService` (OAuth 2.0 + API Keys) | 3 |
-| IH-4 | Infrastructure: `RetryPolicy` (Polly) + `AuditLogger` | 2 |
-| IH-5 | Infrastructure: `RateLimiter` + `IdempotencyService` | 2 |
-| IH-6 | API: `IntegrationsController` | 2 |
+| IH-1 | Domain: IntegrationClient, IntegrationRequest, IntegrationResult | 3 |
+| IH-2 | Application: IIntegrationClient Interface + IntegrationOrchestrator | 3 |
+| IH-3 | Infrastructure: AuthenticationService (OAuth 2.0 + API Keys) | 3 |
+| IH-4 | Infrastructure: RetryPolicy (Polly) + AuditLogger | 2 |
+| IH-5 | Infrastructure: RateLimiter + IdempotencyService | 2 |
+| IH-6 | API: IntegrationsController | 2 |
 
-**المجموع: 15 SP**
+المجموع: 15 SP
 
 ---
 
@@ -341,12 +376,12 @@ RubikCare في مرحلة Pre-Launch. الهدف الحالي:
 
 | # | المهمة | SP |
 | :--- | :--- | :--- |
-| IH-7 | `ClinicOsAdapter : IIntegrationClient` (REST) | 4 |
-| IH-8 | `ClinicOsDtoMapper` | 3 |
+| IH-7 | ClinicOsAdapter : IIntegrationClient (REST) | 4 |
+| IH-8 | ClinicOsDtoMapper | 3 |
 | IH-9 | اختبارات E2E: PHR → ClinicOS | 3 |
 | IH-10 | توثيق Adapter + OpenAPI Spec | 3 |
 
-**المجموع: 13 SP**
+المجموع: 13 SP
 
 ---
 
@@ -354,16 +389,23 @@ RubikCare في مرحلة Pre-Launch. الهدف الحالي:
 
 | # | المهمة | SP |
 | :--- | :--- | :--- |
-| IH-11 | Webhook Events (`record.created`, `consent.given`, ...) | 4 |
+| IH-11 | Webhook Events (record.created, consent.given, ...) | 4 |
 | IH-12 | OpenAPI Spec (Swagger) لكل Adapter | 3 |
 | IH-13 | بوابة مطورين (Developer Portal) | 3 |
 | IH-14 | اختبارات E2E شاملة | 2 |
 
-**المجموع: 12 SP**
+المجموع: 12 SP
 
 ---
 
 ## 📝 Changelog (مختصر)
+
+### v5.1 — 27 أكتوبر 2026
+
+- إغلاق مهام Sprint 3 المتعلقة بالبنية التحتية (20 SP).
+- إضافة Blocker جديد: بطء لوحة تحكم شركات الأدوية (42 ثانية).
+- إضافة الدرس المستفاد رقم 7 (مزامنة Seed Data).
+- تحديث `15-DEPLOYMENT.md` إلى v3.0 (قسم قاعدة البيانات).
 
 ### v5.0 — 26 أكتوبر 2026
 
@@ -397,14 +439,29 @@ RubikCare في مرحلة Pre-Launch. الهدف الحالي:
 
 ### درس 1: فقدان ربط PSP بعد Migration (22 أكتوبر 2026)
 ...
+
 ### درس 2: ازدواجية BeneficiaryID (22 أكتوبر 2026)
 ...
+
 ### درس 3: PENDING Token (23 أكتوبر 2026)
 ...
+
 ### درس 4: JavaProxyThrowable (25 أكتوبر 2026)
 ...
+
 ### درس 5: patientId=0 (25 أكتوبر 2026)
 ...
+
+### درس 6: مشكلة الأداء في Pharma Dashboard (27 أكتوبر 2026)
+**المشكلة:** صفحة `dashboard/organization` تستغرق 42 ثانية في الإنتاج (Web + API)، بينما في UAT أجزاء من الثانية.
+**السبب:** استعلام SQL بطيء (Cold Start + جداول فارغة).
+**الحل:** نقل قاعدة الإنتاج إلى التطوير، واستخدام Profiler.
+**الإجراء الوقائي:** إضافة "Warm-up" للـ API، وفحص الفهارس.
+
+### درس 7: مزامنة البيانات (Seed Data) ضرورية قبل النشر
+**المشكلة:** نشر كود جديد (Web/API) على بيانات قديمة (Seed Data ناقص) يسبب فشل الطلبات (مثل فشل القوائم، أو استعلامات بطيئة).
+**الحل:** قبل أي نشر، يجب التأكد من أن `Seed Data` متطابقة (عبر `MERGE`).
+**الإجراء الوقائي:** إنشاء `Sync-SeedData.ps1` (سيتم في Sprint القادم).
 
 ---
 
@@ -416,8 +473,9 @@ RubikCare في مرحلة Pre-Launch. الهدف الحالي:
 | 20 أكتوبر 2026 | Points-PSP Integration (Planned) |
 | 23 أكتوبر 2026 | v2.0 — إغلاق Sprint 1 |
 | 25 أكتوبر 2026 | v3.0 — إغلاق Sprint 2 |
-| **26 أكتوبر 2026** | **v4.0 — إضافة PHR (Epic 11) + Sprint 4-6.** |
-| **26 أكتوبر 2026** | **v5.0 — إضافة Integration Hub (Epic 12) + Sprint 7-9.** |
+| 26 أكتوبر 2026 | v4.0 — إضافة PHR (Epic 11) + Sprint 4-6. |
+| 26 أكتوبر 2026 | v5.0 — إضافة Integration Hub (Epic 12) + Sprint 7-9. |
+| 27 أكتوبر 2026 | v5.1 — إغلاق 20 SP من Sprint 3 + إضافة Blocker جديد (Pharma Dashboard) + الدرس 7. |
 
 ---
 
@@ -428,6 +486,7 @@ RubikCare في مرحلة Pre-Launch. الهدف الحالي:
 - `19-PERMISSIONS.md`
 - `21-PHR-SYSTEM.md`
 - `22-INTEGRATION-HUB.md` (جديد)
+- `15-DEPLOYMENT.md` (v3.0)
 
 ---
 
