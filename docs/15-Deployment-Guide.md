@@ -1,9 +1,9 @@
 
 # 15 — DEPLOYMENT (دليل النشر والإنتاج)
 
-الإصدار: 3.0 (After Real-World Deployment) 
+الإصدار: 3.0 (Database Sync + Real-World Lessons) 
 آخر تحديث: 27 أكتوبر 2026 
-الحالة: ✅ مرجع شامل — يدمج 12 + دروس مُتراكمة + دروس من النشر الفعلي (26-27 أكتوبر) 
+الحالة: ✅ مرجع شامل — يدمج 12 + دروس مُتراكمة + دروس من النشر الفعلي 
 الجمهور: فريق التطوير + DevOps + AI Assistants 
 المرجع الإلزامي: يُقرأ قبل أي نشر
 
@@ -28,6 +28,7 @@
 ### 0.3 الوثائق المرجعية
 - `01-ARCHITECTURE` — بنية المشاريع.
 - `02-IDENTITY` — إدارة الجلسات.
+- `03-MENUS` — القوائم الديناميكية.
 - `04-TRANSLATION` — الترجمة و MERGE.
 - `05-PSP` — PatientID vs CaseID (الدرس المستفاد الأهم).
 - `06-POINTS` — نظام النقاط.
@@ -39,7 +40,6 @@
 ## 🗺️ الجزء الأول: خريطة البيئات
 
 ### 1.1 البيئات المعتمدة
-
 | البيئة | الغرض | رابط Web | رابط API | مسار السيرفر |
 | :--- | :--- | :--- | :--- | :--- |
 | Local | تطوير واختبار | https://localhost:xxxx | https://localhost:yyyy | C:\RC\... (جهازك) |
@@ -51,7 +51,6 @@
 | **Production (PWA)** | الإنتاج | https://stage.rubikcare.com | https://api.rubikcare.com | `C:\WebSite\RubicCareStage` (مخطط) |
 
 ### 1.2 الهيكل الكامل لمجلد `C:\WebSite`
-
 ```
 C:\WebSite\
 ├── _Archive\               ← المواقع القديمة (لا تستخدم)
@@ -64,6 +63,9 @@ C:\WebSite\
 │   ├── Web\
 │   ├── API\
 │   └── PWA\
+├── _DatabaseScripts\       ← سكريبتات قاعدة البيانات (جديد)
+│   ├── Schema\             (سكريبتات الهيكل)
+│   └── Seed\               (سكريبتات البيانات المرجعية)
 ├── SharedStorage\          ← تخزين الملفات المشترك
 │   └── uploads\
 ├── RubikCareNew\           ← Web Stage
@@ -78,6 +80,7 @@ C:\WebSite\
 1. **لا تحذف `SharedStorage` أبداً** (يحتوي على ملفات المستخدمين).
 2. **لا تنسخ `appsettings.json` أو `web.config`** من Stage إلى Prod (تحتوي على إعدادات مختلفة).
 3. **لا تنشر إلى Production مباشرة** — دائمًا Stage أولاً ثم اختبار ثم Production.
+4. **قبل أي ترقية، قم بمزامنة قاعدة البيانات أولاً** (انظر الجزء السادس).
 
 ---
 
@@ -93,7 +96,6 @@ C:\WebSite\
 | URL Rewrite | 2.1+ | ضروري لـ PWA |
 
 ### 2.2 إعداد IIS (باستخدام PowerShell)
-
 #### إنشاء Application Pools
 ```powershell
 # API Production
@@ -129,7 +131,6 @@ icacls "C:\WebSite\SharedStorage" /grant "IIS AppPool\RubikCareUat:(OI)(CI)M" /T
   "SharedPath": "C:\\WebSite\\SharedStorage\\uploads"
 }
 ```
-
 **السبب:** لضمان أن الملفات المرفوعة من Web يمكن قراءتها من API والعكس صحيح.
 
 ---
@@ -170,6 +171,7 @@ Start-WebAppPool -Name "RubikCareApi"
 ```powershell
 Invoke-WebRequest -Uri "https://api.rubikcare.com/health" -UseBasicParsing
 ```
+*(ملاحظة: بعض الإصدارات تستخدم `/api/health` بدلاً من `/health`).*
 
 ---
 
@@ -213,6 +215,7 @@ Start-WebAppPool -Name "rubikcarenew"
 ```
 
 ---
+
 ## 📱 الجزء الخامس: نشر PWA (Blazor WebAssembly)
 
 ### 5.1 نظرة عامة
@@ -242,83 +245,117 @@ Start-WebAppPool -Name "PU_RubicCareStage"
 ```
 
 ### 5.3 ⚠️ قاعدة حرجة: `web.config` الخاص بـ PWA
-ملف `web.config` للـ PWA **يجب أن يظل موجوداً** على السيرفر. لا تمسحه أبداً. استخدام `robocopy /XF "web.config"` هو الحل الآمن. (الوثيقة القديمة كانت تطلب مسح كل شيء، وهذا خطأ فادح).
+ملف `web.config` للـ PWA **يجب أن يظل موجوداً** على السيرفر. لا تمسحه أبداً. استخدام `robocopy /XF "web.config"` هو الحل الآمن.
 
 ---
 
-## 🗄️ الجزء السادس: قاعدة البيانات (Database)
+## 🗄️ الجزء السادس: مزامنة قاعدة البيانات (Database Synchronization) — ⭐ جديد
 
-هذا هو **القسم الأكثر حساسية**. تم توثيقه بناءً على تجربة 26-27 أكتوبر.
+هذا القسم هو **الخطوة الأولى الإلزامية** قبل تحديث أي مشروع (Web, API, PWA). بدون مزامنة قاعدة البيانات، ستعمل المشاريع بأكواد جديدة على بيانات قديمة، مما يسبب أخطاء 500 أو شاشات فارغة.
 
-### 6.1 قاعدة ذهبية: لا تنشر قاعدة بيانات مباشرة
-لا تستخدم `dotnet ef database update` مباشرة على Production. بدلاً من ذلك:
-1. **ولّد سكريبت SQL** من جهازك المحلي.
-2. **راجعه** بعناية.
-3. **نفذه** يدوياً في SSMS.
+### 6.1 المبدأ الأساسي: "مسارين منفصلين"
+نحن نفصل بين نوعين من التغييرات:
+1.  **تغييرات الهيكل (Schema):** تُدار عبر `EF Core Migrations`.
+2.  **تغييرات البيانات المرجعية (Seed Data):** تُدار عبر سكريبتات `MERGE` ذكية.
 
-### 6.2 توليد سكريبت الترقية (من جهازك المحلي)
+### 6.2 المسارات (محلياً وعلى السيرفر)
+لضمان الأمان، نستخدم مجلدين منفصلين:
+
+| النوع | المسار المحلي (على جهازك) | المسار على السيرفر |
+| :--- | :--- | :--- |
+| **سكريبتات الهيكل** | `C:\RC\Rubikcare.Full.Migration\Scripts\Database\Schema\` | `C:\WebSite\_DatabaseScripts\Schema\` |
+| **سكريبتات Seed** | `C:\RC\Rubikcare.Full.Migration\Scripts\Database\Seed\` | `C:\WebSite\_DatabaseScripts\Seed\` |
+
+**القاعدة:** لا تنفذ أي سكريبت مباشرة من جهازك إلى الإنتاج. انسخه أولاً إلى السيرفر، ثم نفذه من هناك (أو من SSMS على جهازك مع التأكد من المسار).
+
+### 6.3 تسلسل العملية (Step-by-Step)
+
+#### الخطوة 1: توليد سكريبت الهيكل (Schema Script) — على جهازك
 ```powershell
-# 1. معرفة آخر Migration مطبقة في Production (من SSMS)
-# SELECT TOP 1 MigrationId FROM __EFMigrationsHistory ORDER BY MigrationId DESC;
+# 1. اعرف آخر Migration مطبقة في الإنتاج (من SSMS)
+SELECT TOP 1 MigrationId FROM __EFMigrationsHistory ORDER BY MigrationId DESC;
 
-# 2. توليد سكريبت للـ Migrations الناقصة
-dotnet ef migrations script 20260721095751_AddPharmaCompanyMedicationIdToPSPProgramMedication 20261021151545_RenamePatientIdToCaseId -o "C:\RC\Production_Update.sql" --project RubikCare.Infrastructure --startup-project Rubikcare.Web --idempotent
+# 2. ولد السكريبت (من آخر Migration مطبقة إلى أحدث Migration في الكود)
+dotnet ef migrations script <LastAppliedMigration> <NewMigration> -o "C:\RC\Rubikcare.Full.Migration\Scripts\Database\Schema\Schema_Update.sql" --idempotent
 ```
+*   **`--idempotent`**: يضمن أن السكريبت آمن للتشغيل أكثر من مرة.
+*   **`<NewMigration>`**: آخر Migration في الكود.
 
-**الخيار `--idempotent`**: يضمن أن السكريبت آمن للتشغيل أكثر من مرة (يتحقق من `__EFMigrationsHistory` قبل التطبيق).
-
-### 6.3 فحص "السجلات اليتيمة" (Orphaned Records) قبل التطبيق
-**الدرس المستفاد الأهم:** Migration `RenamePatientIdToCaseId` تفشل إذا كانت هناك سجلات في `PSPeRX` تشير إلى `PatientID` غير موجود في `PSPPatients`. **قبل التنفيذ، افحص:**
-
+#### الخطوة 2: فحص السجلات اليتيمة (Orphans) — قبل التنفيذ
+أي Migration تعيد تسمية عمود FK (مثل `PatientID → CaseID`) قد تفشل إذا كانت هناك سجلات يتيمة. نفذ هذا الاستعلام في SSMS على **الإنتاج** لكل جدول متأثر:
 ```sql
--- فحص كل الجداول التي ستعيد التسمية
 SELECT 'PSPeRX' AS TableName, COUNT(*) AS Orphaned_Count
 FROM PSPeRX e LEFT JOIN PSPPatients p ON e.PatientID = p.PatientID WHERE p.PatientID IS NULL
 UNION ALL
 SELECT 'PSPReminders', COUNT(*)
-FROM PSPReminders r LEFT JOIN PSPPatients p ON r.PatientID = p.PatientID WHERE p.PatientID IS NULL
-UNION ALL
-SELECT 'PSPTestResults', COUNT(*)
-FROM PSPTestResults t LEFT JOIN PSPPatients p ON t.PatientID = p.PatientID WHERE p.PatientID IS NULL
-UNION ALL
-SELECT 'PSPFollowUpRecords', COUNT(*)
-FROM PSPFollowUpRecords f LEFT JOIN PSPPatients p ON f.PatientID = p.PatientID WHERE p.PatientID IS NULL
-UNION ALL
-SELECT 'PSPAdverseEvents', COUNT(*)
-FROM PSPAdverseEvents a LEFT JOIN PSPPatients p ON a.PatientID = p.PatientID WHERE p.PatientID IS NULL
-UNION ALL
-SELECT 'DoctorNotes', COUNT(*)
-FROM DoctorNotes d LEFT JOIN PSPPatients p ON d.PatientID = p.PatientID WHERE p.PatientID IS NULL;
+FROM PSPReminders r LEFT JOIN PSPPatients p ON r.PatientID = p.PatientID WHERE p.PatientID IS NULL;
+-- ... (أضف باقي الجداول)
 ```
+**إذا كانت النتيجة > 0:** احذف السجلات اليتيمة أو اربطها بمريض موجود قبل التنفيذ.
 
-**إذا كانت النتيجة > 0:** احذف السجلات اليتيمة (أو اربطها بمريض موجود) قبل تنفيذ السكريبت.
+#### الخطوة 3: تنفيذ سكريبت الهيكل
+1.  انسخ `Schema_Update.sql` إلى `C:\WebSite\_DatabaseScripts\Schema\`.
+2.  افتح SSMS على **الإنتاج**.
+3.  افتح الملف ونفذه (Execute).
+4.  تحقق من أن جميع الـ Migrations تم تطبيقها بنجاح.
 
-### 6.4 تنفيذ السكريبت (في SSMS على السيرفر)
-1. اتصل بـ SQL Server (عبر IP أو اسم السيرفر).
-2. اختر قاعدة بيانات **`RubikCare_Production`**.
-3. افتح الملف `Production_Update.sql`.
-4. اضغط **Execute**.
-5. راقب علامة التبويب **Messages**. يجب أن ترى `Successfully applied migrations`.
+#### الخطوة 4: تحديث بيانات Seed (Reference Data)
+1.  **على جهازك:** حدّث سكريبتات Seed في `C:\RC\Rubikcare.Full.Migration\Scripts\Database\Seed\`.
+2.  **انسخها** إلى `C:\WebSite\_DatabaseScripts\Seed\` على السيرفر.
+3.  **نفذها** في SSMS على الإنتاج (واحداً تلو الآخر).
 
-### 6.5 التحقق النهائي (Health Check لقاعدة البيانات)
-بعد التنفيذ، نفذ هذا الاستعلام الشامل للتأكد من أن كل شيء متطابق:
+**أمثلة على سكريبتات Seed:**
+*   `Seed_SystemMenus.sql`: يضيف القوائم الرئيسية الجديدة.
+*   `Seed_MenuItems.sql`: يضيف عناصر القوائم الجديدة.
+*   `Seed_PSPActivityTypes.sql`: يضيف أنواع الأنشطة.
+*   `Seed_Resources.sql`: يضيف الترجمات.
 
+*(كل هذه السكريبتات يجب أن تستخدم `MERGE` أو `IF NOT EXISTS` لتكون آمنة للتشغيل أكثر من مرة).*
+
+#### الخطوة 5: التحقق النهائي (Health Check)
 ```sql
--- 1. فحص الأعمدة (يجب أن يكون فارغاً)
+-- 1. فحص الأعمدة القديمة (يجب أن يكون فارغاً)
 SELECT TABLE_NAME, COLUMN_NAME 
 FROM INFORMATION_SCHEMA.COLUMNS 
 WHERE COLUMN_NAME = 'PatientID'
-AND TABLE_NAME IN ('PSPPatients', 'PSPeRX', 'PSPReminders', 'PSPTestResults', 'PSPFollowUpRecords', 'PSPAdverseEvents', 'DoctorNotes');
+AND TABLE_NAME IN ('PSPPatients', 'PSPeRX', ...);
 
--- 2. فحص السجلات اليتيمة (يجب أن تكون 0)
-SELECT 'PSPeRX' AS TableName, COUNT(*) FROM PSPeRX e LEFT JOIN PSPPatients p ON e.CaseID = p.CaseID WHERE p.CaseID IS NULL;
+-- 2. فحص الـ Migrations (يجب أن تظهر كل الـ Migrations الجديدة)
+SELECT MigrationId FROM __EFMigrationsHistory ORDER BY MigrationId DESC;
 
--- 3. فحص الـ Migrations (يجب أن يظهر Migration الجديد)
-SELECT MigrationId FROM __EFMigrationsHistory WHERE MigrationId = '20261021151545_RenamePatientIdToCaseId';
+-- 3. فحص الـ Seed Data (يجب أن تكون الصفوف موجودة)
+SELECT COUNT(*) FROM SystemMenus;
+SELECT COUNT(*) FROM MenuItems;
 ```
 
-### 6.6 تحديث الترجمات (استثناء: بدون Migration)
-الترجمات (`Resources`) يتم تحديثها عبر **MERGE** مباشر، وليس عبر Migration. انظر `04-TRANSLATION` للتفاصيل.
+### 6.4 سكريبت PowerShell للمزامنة (Sync-SeedData.ps1)
+بدلاً من تنفيذ سكريبتات Seed يدوياً، يمكن استخدام هذا السكريبت (يوضع في `C:\WebSite\_Docs\Scripts\`):
+
+```powershell
+# Sync-SeedData.ps1
+$SeedPath = "C:\WebSite\_DatabaseScripts\Seed"
+$ConnectionString = "Server=161.97.105.83\RUBICKCARE;Database=RubikCare_Production;User Id=RubikansAdmin;Password=YOUR_PASSWORD;TrustServerCertificate=True;"
+
+Get-ChildItem -Path $SeedPath -Filter "*.sql" | Sort-Object Name | ForEach-Object {
+    Write-Host "Executing: $($_.Name) ..." -ForegroundColor Yellow
+    sqlcmd -S "161.97.105.83\RUBICKCARE" -d "RubikCare_Production" -U "RubikansAdmin" -P "YOUR_PASSWORD" -i $_.FullName -b
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "Error in $($_.Name)" -ForegroundColor Red
+        exit 1
+    }
+}
+Write-Host "All Seed Scripts executed successfully." -ForegroundColor Green
+```
+
+### 6.5 Checklist مزامنة قاعدة البيانات (قبل أي نشر)
+- [ ] تم أخذ نسخة احتياطية من قاعدة بيانات الإنتاج (Full Backup).
+- [ ] تم توليد سكريبت الهيكل (`Schema_Update.sql`).
+- [ ] تم فحص السجلات اليتيمة (Orphans) والتأكد من أنها 0.
+- [ ] تم تنفيذ سكريبت الهيكل في SSMS على الإنتاج.
+- [ ] تم تحديث سكريبتات Seed (SystemMenus, MenuItems, Resources, ...).
+- [ ] تم تنفيذ سكريبتات Seed.
+- [ ] تم التحقق من أن `__EFMigrationsHistory` يحتوي على كل الـ Migrations.
+- [ ] تم إعادة تشغيل App Pool (لأن الكاش قد يحتوي على بيانات قديمة).
 
 ---
 
@@ -334,7 +371,7 @@ SELECT MigrationId FROM __EFMigrationsHistory WHERE MigrationId = '2026102115154
 New-Item -ItemType Directory -Path "C:\WebSite\_Archive" -Force
 
 # أرشفة المجلدات القديمة
-$oldFolders = @("Old 2023-02-02", "RubicCareStageAdmin", "RubikCareAdminProduction", "RubikCareAdminTest", "RubikCareUpdate", "TEST& backup", "SharedStorage")
+$oldFolders = @("Old 2023-02-02", "RubicCareStageAdmin", "RubikCareAdminProduction", "RubikCareAdminTest", "RubikCareUpdate", "TEST& backup")
 foreach ($folder in $oldFolders) {
     $src = Join-Path "C:\WebSite" $folder
     $dst = Join-Path "C:\WebSite\_Archive" $folder
@@ -345,7 +382,7 @@ foreach ($folder in $oldFolders) {
 ```
 
 ### 7.3 ⚠️ تحذير: `SharedStorage` لا يؤرشف
-`SharedStorage` يحتوي على ملفات المستخدمين. **لا تنقله إلى `_Archive` أبداً.** (لقد حدث هذا خطأً سابقاً، وتم إصلاحه).
+`SharedStorage` يحتوي على ملفات المستخدمين. **لا تنقله إلى `_Archive` أبداً.**
 
 ---
 
@@ -360,12 +397,10 @@ foreach ($folder in $oldFolders) {
 ### الدرس 2: `Compress-Archive` يفشل مع `logs`
 **المشكلة:** `Compress-Archive` فشل لأن ملف `stdout_*.log` مفتوح من IIS.
 **الحل:** إيقاف App Pool قبل النسخ الاحتياطي (أو استبعاد مجلد `logs`).
-**الإجراء الوقائي:** استخدم `robocopy /XD "logs"` في السكريبتات.
 
 ### الدرس 3: Web Deploy و `401 Unauthorized`
 **المشكلة:** Web Deploy يفشل في الاتصال بـ `msdeploy.axd` رغم صحة بيانات الدخول.
 **الحل:** التخلي عن Web Deploy والاعتماد على PowerShell + `robocopy`.
-**الإجراء الوقائي:** لا تعتمد على Web Deploy في بيئات معقدة.
 
 ### الدرس 4: ترميز العربية في PowerShell
 **المشكلة:** ملفات `.ps1` و `.md` تظهر بالعربية المشوشة.
@@ -376,7 +411,7 @@ foreach ($folder in $oldFolders) {
 **الحل:** استخدم `robocopy /XF` في السكريبتات بدلاً من الاعتماد على Visual Studio.
 
 ### الدرس 6: `SharedStorage` يجب أن يكون مشتركاً
-**المشكلة:** Web و API كلاهما يجب أن يشير إلى `SharedStorage` في `appsettings.json`، وإلا ستكون الملفات المرفوعة غير مرئية للطرف الآخر.
+**المشكلة:** Web و API كلاهما يجب أن يشير إلى `SharedStorage` في `appsettings.json`.
 
 ---
 
@@ -387,12 +422,12 @@ foreach ($folder in $oldFolders) {
 - [ ] تم أخذ نسخة احتياطية من `appsettings.json` و `web.config` لكل موقع.
 - [ ] تم فحص السجلات اليتيمة (Orphans) في قاعدة البيانات.
 - [ ] `_Staging` يحتوي على أحدث نسخة من الكود.
+- [ ] تم تنفيذ مزامنة قاعدة البيانات (الجزء السادس).
 
 ### أثناء النشر
 - [ ] إيقاف App Pool.
 - [ ] نسخ الملفات باستخدام `robocopy /MIR /XF appsettings.json web.config /XD logs`.
 - [ ] تشغيل App Pool.
-- [ ] تنفيذ سكريبت قاعدة البيانات (إن وجد).
 
 ### بعد النشر
 - [ ] اختبار الموقع (Health Check).
@@ -426,5 +461,3 @@ foreach ($folder in $oldFolders) {
 © 2026 RubikCare — للاستخدام الداخلي
 نهاية الوثيقة ✅
 ```
-
----
