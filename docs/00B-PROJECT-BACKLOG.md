@@ -567,4 +567,14 @@ RubikCare في مرحلة Pre-Launch. الهدف الحالي:
 
 ## 🔗 روابط ذات صلة
 
-- `00-MASTER-
+- `00-MASTER-INDEX.md`
+- `17-STRATEGIC-ROADMAP.md`
+- `19-PERMISSIONS.md`
+- `21-PHR-SYSTEM.md`
+- `22-INTEGRATION-HUB.md` (جديد)
+- `15-DEPLOYMENT.md` (v3.0)
+
+---
+
+© 2026 RubikCare — للاستخدام الداخلي
+نهاية الوثيقة ✅
