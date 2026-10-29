@@ -26,10 +26,11 @@ RubikCare في مرحلة Pre-Launch. الهدف الحالي:
 - إصدار Production مستقر.
 - بناء الأساس للسجلات الطبية (PHR) والتكامل الخارجي.
 
+
 ## 📊 Sprint 1 — Points-PSP Integration (22-23 أكتوبر 2026) — ✅ مكتمل
 
 الهدف: إغلاق الفجوة بين نظام النقاط و PSP (9 عقود تكامل — IC-01 → IC-09).
----
+
 ### ✅ Done (12 مهمة)
 
 # | المهمة | SP | الحالة 
@@ -46,7 +47,7 @@ P3.3 | إصلاح PspStatsBar | 1 | ✅
 P4.1 | Idempotency في TryAwardPointsViaOrchestrator | 2 | ✅ 
 P4.2 | Idempotency في AcknowledgeReminderHandler | 1 | ✅ 
 P6.1 | إشعار عند كسب/خصم نقاط | 2 | ✅ 
----
+
 ### ✅ Done (إضافي)
 
 # | المهمة | SP 
@@ -165,7 +166,7 @@ S3-Done-24 | Build: PublishTrimmed=false + AndroidEnableProfiledAot=false (IL Tr
 ---
 ### 🔴 High Priority
 
-# | المهمة | SP | ملاحظات 
+| المهمة | SP | ملاحظات 
 ---|---|---|---
 S3.5-H1 | إصلاح Crash في صفحة البرامج — وضع المندوب (Rep) | 3 | الصفحة تعمل Crash عند فتحها في وضع Rep — يحتاج فحص Stack Trace + إصلاح NullReference. 
 S3.5-H2 | إظهار اسم الصيدلية/العيادة في "شبكتي" أو "دعواتي" بعد قبول الدعوة | 5 | حالياً المندوب لا يرى اسم الجهة بعد اشتراكها — يحتاج ربط الدعوة بـ PSPParticipation + إرجاع OrganizationName. 
@@ -178,7 +179,7 @@ S3.5-H6 | ✅ إصلاح Blocker: بطء Pharma Dashboard (42s) + اختفاء �
 ---
 ### 🟠 Medium Priority
 
-# | المهمة | SP | ملاحظات 
+ | المهمة | SP | ملاحظات 
 ---|---|---|---
 S3.5-M1 | تحسين CSS في MedicineGuidePage — Program Header + Hero + Empty State | 2 | تم جزئياً — يحتاج مراجعة نهائية. 
 S3.5-M2 | إضافة قسم "حالة الصرف" في MedicineGuidePage (TotalDispensed + LastDispensedDate) | 2 | البيانات موجودة في DTO — يحتاج عرض UI. 
@@ -188,8 +189,7 @@ S3.5-M4 | تحسين رسالة "No Medications" للبرامج بدون Phases 
 المجموع (Medium): 6 SP
 ---
 ### 🟡 Low Priority
-
-# | المهمة | SP | ملاحظات 
+ | المهمة | SP | ملاحظات 
 ---|---|---|---
 S3.5-L1 | إضافة "Medicine Guide" card في PspDetailComponent | 1 | تم — يحتاج تأكيد. 
 S3.5-L2 | تحسين ترتيب الـ Bridges في PspDetailFlow | 1 | تنظيم الكود فقط. 
