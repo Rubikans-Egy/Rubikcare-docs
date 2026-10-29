@@ -29,7 +29,7 @@ RubikCare في مرحلة Pre-Launch. الهدف الحالي:
 ## 📊 Sprint 1 — Points-PSP Integration (22-23 أكتوبر 2026) — ✅ مكتمل
 
 الهدف: إغلاق الفجوة بين نظام النقاط و PSP (9 عقود تكامل — IC-01 → IC-09).
-
+---
 ### ✅ Done (12 مهمة)
 
 # | المهمة | SP | الحالة 
@@ -46,7 +46,7 @@ P3.3 | إصلاح PspStatsBar | 1 | ✅
 P4.1 | Idempotency في TryAwardPointsViaOrchestrator | 2 | ✅ 
 P4.2 | Idempotency في AcknowledgeReminderHandler | 1 | ✅ 
 P6.1 | إشعار عند كسب/خصم نقاط | 2 | ✅ 
-
+---
 ### ✅ Done (إضافي)
 
 # | المهمة | SP 
@@ -59,7 +59,7 @@ D5 | إصلاح بطاقة "لا يوجد توكن" + عرض التوكن الج
 D6 | إصلاح تجاوب BarcodeScanner (CSS) | 1 
 
 المجموع: 36 SP (Sprint 1) + 10 SP (إضافي) = 46 SP
-
+---
 ### ⏳ Pending (المتبقي)
 
 # | المهمة | SP | الأولوية 
@@ -71,11 +71,11 @@ P7.1 | الترجمة (SQL MERGE) | 1 | 🟡
 P7.2 | اختبار E2E كامل | 3 | 🟠 
 
 المجموع المتبقي: 11 SP
-
+---
 ## 📊 Sprint 2 — MAUI Stabilization & Integration (24-25 أكتوبر 2026) — ✅ مكتمل
 
 الهدف: حل مشاكل MAUI (JavaProxyThrowable، QueryProperty، InvalidCastException، patientId=0).
-
+---
 ### ✅ Done (13 مهمة)
 
 # | المهمة | SP 
@@ -93,7 +93,7 @@ M10 | إصلاح PspSchedulePageFlow | 2
 M11 | تحديث 13-maui-development-guide.md | 3 
 M12 | إصلاح PspController.patientDetails | 1 
 M13 | إصلاح DispensationScheduleDto | 1 
-
+---
 ### ✅ Done (إضافي)
 
 # | المهمة | SP 
@@ -103,7 +103,7 @@ M15 | حذف ScanTokenPage.razor (القديم) | 1
 M16 | إصلاح PharmacyGateway | 1 
 
 المجموع الكلي: 27 SP
-
+---
 ## 🎯 Sprint 0 — Foundation (16-22 أكتوبر 2026) — ⏳ In Progress
 
 ### ✅ Done
@@ -113,7 +113,7 @@ M16 | إصلاح PharmacyGateway | 1
 1 | تحديث 09-API-Guide v2.0 | 5 
 2 | كتابة 03-MENUS v4.0 | 5 
 3 | تجربة السكريبت التوليدي | 1 
-
+---
 ### ⏳ Pending
 
 # | المهمة | SP 
@@ -127,7 +127,7 @@ M16 | إصلاح PharmacyGateway | 1
 ## 📊 Sprint 3 — PSP Dispensation & Medicine Guide (26-28 أكتوبر 2026) — ✅ مكتمل
 
 الهدف: إكمال دورة الصرف بناءً على الـ Phases + صفحة Medicine Guide منفصلة + تحسين الإشعارات.
-
+---
 ### ✅ Done (24 مهمة)
 
 # | المهمة | SP | ملاحظات 
@@ -158,11 +158,11 @@ S3-Done-23 | DB: MERGE Resources (translations — Medicine Guide, Dispense Stat
 S3-Done-24 | Build: PublishTrimmed=false + AndroidEnableProfiledAot=false (IL Trimmer fix) | 1 | — 
 
 المجموع المنجز: 58 SP.
-
+---
 ## 🗓️ Sprint 3.5 — Post-Deployment Fixes & Polish (28-31 أكتوبر 2026) — ⏳ In Progress
 
 الهدف: إغلاق المهام الناتجة عن اختبار UAT + تحسينات UX المطلوبة.
-
+---
 ### 🔴 High Priority
 
 # | المهمة | SP | ملاحظات 
@@ -175,7 +175,7 @@ S3.5-H5 | إصلاح الإشعارات المتكررة — بعد "تناول"
 S3.5-H6 | ✅ إصلاح Blocker: بطء Pharma Dashboard (42s) + اختفاء الأشكال البيانية | 8 | **مكتمل (29 أكتوبر):** السبب الجذري كان `ApiSettings.BaseUrl` في `appsettings.json` يشير إلى منفذ تطوير مغلق (5235). تم تصحيحه إلى `https://api.rubikcare.com` + ضبط `ASPNETCORE_ENVIRONMENT` إلى `Production`. الصفحات تعمل الآن بسرعة وبدون أخطاء. |
 
 المجموع (High): 23 SP (15 SP منها مكتملة)
-
+---
 ### 🟠 Medium Priority
 
 # | المهمة | SP | ملاحظات 
@@ -186,7 +186,7 @@ S3.5-M3 | عرض اسم البرنامج + Phase في كارت الدواء (Med
 S3.5-M4 | تحسين رسالة "No Medications" للبرامج بدون Phases | 1 | "البرنامج مش متوفر — تواصل مع الدعم" بدل "اشترك في برنامج". 
 
 المجموع (Medium): 6 SP
-
+---
 ### 🟡 Low Priority
 
 # | المهمة | SP | ملاحظات 
@@ -198,7 +198,7 @@ S3.5-L3 | حذف MedicineGuideFlow المكرر إذا وجد | 1 | تنظيف.
 المجموع (Low): 3 SP
 
 المجموع (Sprint 3.5): 32 SP (8 منها مكتملة في 29 أكتوبر)
-
+---
 ## 📈 Velocity Chart
 
 Sprint | Planned | Actual | Ratio 
@@ -226,7 +226,7 @@ Epic | User Stories | Done | Completion
 11: Personal Health Records (PHR) | 3 (Phases) | 0 | 0% 
 12: Integration Hub | 3 (Phases) | 0 | 0% 
 13: Rep (Medical Representative) | 4 (Phases) | 0 | 0% 
-
+---
 ## 📋 Product Backlog (المستقبلي)
 
 ### 🔴 High Priority
@@ -252,7 +252,7 @@ Epic | User Stories | Done | Completion
 33 | ApiClient موحّد (Integration Hub) | Integration Hub | 8 
 34 | API-Contracts (OpenAPI) | Integration Hub | 5 
 35 | كـ Rep، أريد إشعار عند قبول الدعوة من صيدلية/عيادة | Rep | 3 
-
+---
 ### 🟡 Low Priority
 
 # | User Story | Epic | SP 
@@ -270,7 +270,7 @@ Epic | User Stories | Done | Completion
 1 | انتهاك معماري: @page في Shared.UI | PharmacyDetailPage.razor 
 2 | خلط Namespaces | PharmacySearchPage.razor 
 3 | 404 في /admin/pending-licenses | SystemManagment vs SystemManagement 
-
+---
 ### 🟡 Medium Debt
 
 # | الدين | الموقع 
@@ -301,7 +301,7 @@ Epic | User Stories | Done | Completion
 **الحالة:** ⏸️ مؤجلة حتى إنهاء UAT وبدء الإنتاج الفعلي ومراقبة الأداء.
 
 **المرجع:** `C:\WebSite\RubikCareLive\logs\stdout_*.log` (أكتوبر 2026).
-
+---
 ### 🟢 Low Debt
 
 # | الدين | الموقع 
@@ -351,7 +351,7 @@ Epic | User Stories | Done | Completion
 - مراجعة `BaseUrl` في كل ملفات `appsettings` قبل أي نشر (كجزء من Master Deployment Checklist).
 - إضافة فحص آلي (`grep` لـ `5235` أو `161.97` في `appsettings.json`) في سكريبت النشر.
 - استخدام `appsettings.Production.json` فقط في الإنتاج (وليس `appsettings.json`).
-
+---
 ### 🔴 Sprint 3 — Pending (المتبقي)
 
 #### P0 — النشر الآلي (متبقي)
@@ -366,7 +366,7 @@ S3-P0.5 | تحديث 15-DEPLOYMENT.md | 2
 S3-P0.6 | اختبار E2E للنشر الآلي | 2 
 
 المجموع (P0): 11 SP
-
+---
 #### Sprint 3 — المهام الأخرى
 
 # | المهمة | SP 
@@ -381,7 +381,7 @@ S3-P0.6 | اختبار E2E للنشر الآلي | 2
 8 | إكمال PspSchedulePageFlow | 1 
 
 المجموع (Sprint 3 كامل): 58 SP (Done) + 11 SP (P0) + 22 SP (Pending) = 91 SP
-
+---
 ## 🗓️ Sprint 4 — Planned (1-5 نوفمبر 2026) — PHR Phase 1
 
 الهدف: تأسيس البنية التحتية للسجلات الطبية الشخصية (PHR) + تسجيل Hb Navigator.
@@ -399,7 +399,7 @@ PHR-6 | Shared.UI: HbNavigator.razor | 4
 PHR-7 | اختبارات E2E + ربط بـ PSP | 2 
 
 المجموع: 17 SP
-
+---
 ## 🗓️ Sprint 5 — Planned (8-12 نوفمبر 2026) — PHR Phase 2
 
 # | المهمة | SP 
@@ -412,7 +412,7 @@ PHR-12 | UI: شاشة "مشاركة السجل" | 3
 PHR-13 | اختبارات E2E للمشاركة | 2 
 
 المجموع: 13 SP
-
+---
 ## 🗓️ Sprint 6 — Planned (15-19 نوفمبر 2026) — PHR Phase 3
 
 # | المهمة | SP 
@@ -425,7 +425,7 @@ PHR-18 | UI: لوحة "السجل الطبي" (Timeline View) | 4
 PHR-19 | اختبارات E2E شاملة + توثيق | 2 
 
 المجموع: 17 SP
-
+---
 ## 🗓️ Sprint 7 — Planned (22-26 نوفمبر 2026) — Integration Hub Core
 
 الهدف: تأسيس البنية التحتية لمركز التكامل الخارجي.
@@ -442,7 +442,7 @@ IH-5 | Infrastructure: RateLimiter + IdempotencyService | 2
 IH-6 | API: IntegrationsController | 2 
 
 المجموع: 15 SP
-
+---
 ## 🗓️ Sprint 8 — Planned (29 نوفمبر - 3 ديسمبر 2026) — ClinicOS Adapter
 
 # | المهمة | SP 
@@ -453,7 +453,7 @@ IH-9 | اختبارات E2E: PHR → ClinicOS | 3
 IH-10 | توثيق Adapter + OpenAPI Spec | 3 
 
 المجموع: 13 SP
-
+---
 ## 🗓️ Sprint 9 — Planned (6-10 ديسمبر 2026) — Webhooks + OpenAPI
 
 # | المهمة | SP 
@@ -464,7 +464,7 @@ IH-13 | بوابة مطورين (Developer Portal) | 3
 IH-14 | اختبارات E2E شاملة | 2 
 
 المجموع: 12 SP
-
+---
 ## 📝 Changelog (مختصر)
 
 ### v6.1 — 29 أكتوبر 2026
@@ -617,15 +617,3 @@ IH-14 | اختبارات E2E شاملة | 2
 ```
 
 ---
-
-## 🎯 أهم التغييرات في هذه النسخة:
-
-| القسم | التغيير |
-|---|---|
-| **Blocker (Pharma Dashboard)** | من 🔴 مفتوح إلى ✅ **مغلق**، مع توثيق السبب الجذري والحل |
-| **Sprint 3.5** | إضافة `S3.5-H6` (حل Blocker — 8 SP مكتملة) |
-| **Technical Debt** | تحديث TD #8 (تم التصحيح) + إضافة TD-001 (الطلبات المكررة) |
-| **Lessons Learned** | إضافة درس 9 (BaseUrl) + درس 10 (Environment) |
-| **Changelog** | إضافة v6.1 |
-| **سجل التحديثات** | إضافة 29 أكتوبر 2026 |
-
