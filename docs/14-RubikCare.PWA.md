@@ -578,6 +578,99 @@ C:\Windows\System32\inetsrv\appcmd start apppool "PU_RubicCareStage"
 
 ---
 
+## ⚠️ درس مستفاد: نشر PWA والإعدادات الصحيحة (أكتوبر 2026)
+
+### 1. الإعدادات الصحيحة (التي يجب ألا تُمس):
+- **`PhysicalPath`:** يجب أن يكون `C:\WebSite\PU_RubicCareStage` (الجذر).
+- **`web.config`:** يجب أن يكون في الجذر (وليس داخل `wwwroot`).
+- **`wwwroot`:** يجب أن يحتوي على كل الملفات الثابتة (HTML, JS, CSS, Wasm). لا تنقلها إلى الجذر أبداً.
+
+### 2. محتوى `web.config` الصحيح (المعتمد):
+هذا هو المحتوى الوحيد المسموح به لملف `web.config` في جذر مشروع PWA. **ممنوع تعديله** بدون سبب تقني موثق ومراجعة من قائد الفريق.
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+  <system.webServer>
+    <staticContent>
+      <remove fileExtension=".blat" />
+      <remove fileExtension=".dat" />
+      <remove fileExtension=".dll" />
+      <remove fileExtension=".webcil" />
+      <remove fileExtension=".json" />
+      <remove fileExtension=".wasm" />
+      <remove fileExtension=".woff" />
+      <remove fileExtension=".woff2" />
+      <remove fileExtension=".webmanifest" />
+      <mimeMap fileExtension=".blat" mimeType="application/octet-stream" />
+      <mimeMap fileExtension=".dll" mimeType="application/octet-stream" />
+      <mimeMap fileExtension=".webcil" mimeType="application/octet-stream" />
+      <mimeMap fileExtension=".dat" mimeType="application/octet-stream" />
+      <mimeMap fileExtension=".json" mimeType="application/json" />
+      <mimeMap fileExtension=".wasm" mimeType="application/wasm" />
+      <mimeMap fileExtension=".woff" mimeType="application/font-woff" />
+      <mimeMap fileExtension=".woff2" mimeType="application/font-woff" />
+      <mimeMap fileExtension=".webmanifest" mimeType="application/manifest+json" />
+    </staticContent>
+    <httpCompression>
+      <dynamicTypes>
+        <add mimeType="application/octet-stream" enabled="true" />
+        <add mimeType="application/wasm" enabled="true" />
+      </dynamicTypes>
+    </httpCompression>
+    <rewrite>
+      <rules>
+        <!-- قاعدة 1: خدمة الملفات الموجودة في wwwroot -->
+        <rule name="Serve wwwroot files" stopProcessing="true">
+          <match url="^(.*)$" />
+          <conditions logicalGrouping="MatchAny">
+            <add input="{DOCUMENT_ROOT}\wwwroot\{R:1}" matchType="IsFile" />
+            <add input="{DOCUMENT_ROOT}\wwwroot\{R:1}" matchType="IsDirectory" />
+          </conditions>
+          <action type="Rewrite" url="wwwroot/{R:1}" />
+        </rule>
+        <!-- قاعدة 2: SPA fallback -->
+        <rule name="SPA fallback to index.html" stopProcessing="true">
+          <match url="^(.*)$" />
+          <action type="Rewrite" url="wwwroot/index.html" />
+        </rule>
+      </rules>
+    </rewrite>
+  </system.webServer>
+</configuration>
+```
+
+### 3. المحاذير الصارمة (ممنوع منعاً باتاً):
+1. **ممنوع تعديل `web.config`** بأي شكل من الأشكال. أي تعديل قد يسبب 403 أو 404 أو كسر الملفات الثابتة.
+2. **ممنوع تغيير `PhysicalPath`** من `C:\WebSite\PU_RubicCareStage` إلى أي مسار آخر (مثل `wwwroot`).
+3. **ممنوع نسخ ملفات `wwwroot` إلى الجذر**.
+4. **ممنوع إعادة النشر دون مسح Service Worker في المتصفح**.
+
+### 4. الإجراء الصحيح بعد كل نشر:
+1. **افتح المتصفح في وضع InPrivate** (أو امسح الكاش يدوياً).
+2. **إذا كنت تستخدم Chrome:**
+   - اذهب إلى `F12` → `Application` → `Service Workers` → `Unregister`.
+   - اذهب إلى `Application` → `Storage` → `Clear site data`.
+3. **أو استخدم `cache-reset.html`** (إذا كان يعمل).
+4. **لا تعتمد على التحديث العادي (F5)**.
+
+### 5. ملاحظة حول المتصفحات:
+- **Chrome:** الأكثر عرضة لمشاكل Service Worker القديم (يظهر أخطاء SRI و Unexpected token).
+- **Edge:** يعمل بشكل جيد (لأنه لا يستخدم نفس الكاش القديم).
+- **الموبايل (PWA مثبت):** يعمل بشكل جيد (لأن Service Worker يُحدَّث تلقائياً عند التثبيت الجديد).
+
+### 6. حل مشكلة "فساد التنسيق" (إذا حدثت):
+- **السبب:** Service Worker قديم يخدّم ملفات JS/CSS قديمة.
+- **الحل:** امسح Service Worker (كما في الخطوة 4). **لا تعدل `web.config` أو `PhysicalPath`.**
+
+### 7. العلامات التي تؤكد أن الإعدادات صحيحة:
+- `https://stagepu.rubikcare.com` يفتح في InPrivate بدون أخطاء.
+- `https://stagepu.rubikcare.com/index.html` يفتح بشكل صحيح.
+- `https://stagepu.rubikcare.com/service-worker.js` يعيد `200 OK` مع `Content-Type: application/javascript` (وليس `text/html`).
+- `https://stagepu.rubikcare.com/manifest.webmanifest` يعيد `200 OK` مع `Content-Type: application/manifest+json`.
+```
+
+
 ## 📊 الجزء الثالث عشر: الفرق بين PWA و Mobile
 
 ### 13.1 الفروقات الجوهرية
