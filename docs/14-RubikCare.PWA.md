@@ -485,48 +485,8 @@ The following routes are ambiguous:
 
 ---
 
-## 🎓 الجزء العاشر: الدروس المستفادة
+## 🎓 الجزء العاشر: 📘 دليل النشر التشغيلي (Deployment SOP) — مشروع RubikCare
 
-### 10.1 نشر PWA يتطلب مسح Service Worker
-
-**الخطأ:** نسخ الملفات الجديدة فوق القديمة بدون مسح المجلد.
-
-**الصحيح:**
-```powershell
-Get-ChildItem "C:\WebSite\PU_RubicCareStage" -Exclude "web.config" | 
-    Remove-Item -Recurse -Force
-```
-
-### 10.2 Blazor يستخدم filenames مجزأة (hashed)
-
-**الخطأ:** افتراض أن أسماء ملفات `.wasm` ثابتة.
-
-**الصحيح:** كل `publish` يولّد أسماء جديدة مثل `RubikCare.PWA.abc123.wasm`.
-
-### 10.3 CSS Specificity يتغلب على الترتيب
-
-**الخطأ:** افتراض أن آخر ملف CSS يُحمّل يتغلب.
-
-**الصحيح:** `!important` أو specificity أعلى يتغلب على الترتيب.
-
-### 10.4 Navigation.NavigateTo قد يفشل في PWA
-
-**الخطأ:** استخدام `forceLoad: true` في PWA.
-
-**الصحيح:** استخدام `window.location.href` للتوجيه الكامل.
-
-### 10.5 Client IDs متعددة مطلوبة لمنصات مختلفة
-
-**الخطأ:** استخدام نفس Client ID لـ MAUI و PWA.
-
-**الصحيح:** كل منصة (Android, iOS, Web) تحتاج Client ID خاص بها.
-
----
-
-## 📝 الجزء الحادي عشر: ملاحظات النشر
----
-
-# 📘 دليل النشر التشغيلي (Deployment SOP) — مشروع RubikCare
 
 **الإصدار:** 2.0
 **التاريخ:** 30 أكتوبر 2026
