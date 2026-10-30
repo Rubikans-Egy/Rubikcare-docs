@@ -524,151 +524,272 @@ Get-ChildItem "C:\WebSite\PU_RubicCareStage" -Exclude "web.config" |
 ---
 
 ## 📝 الجزء الحادي عشر: ملاحظات النشر
+---
 
-### 11.1 خطوات النشر الصحيحة
+# 📘 دليل النشر التشغيلي (Deployment SOP) — مشروع RubikCare
+
+**الإصدار:** 2.0
+**التاريخ:** 30 أكتوبر 2026
+**النطاق:** RubikCare.PWA + RubikCare.Api.Web على بيئة Stage/UAT
+
+---
+
+## 1. بطاقة المرجع السريع (بيانات هذا المشروع تحديداً)
+
+| العنصر | القيمة |
+|--------|--------|
+| مسار الحل (محلي) | `C:\RC\Rubikcare.Full.Migration` |
+| مشروع PWA | `RubikCare.PWA` — Blazor WebAssembly على **.NET 10** |
+| مشروع API | `RubikCare.Api.Web` |
+| المكتبة المشتركة | `RubikCare.Shared.UI` (RCL — تُدمج داخل نشر الـ PWA تلقائياً) |
+| مجلد النشر المحلي | `E:\Publish\PWA` و `E:\Publish\ApiUat` |
+| مجلد PWA على السيرفر | `C:\WebSite\PU_RubicCareStage` |
+| App Pool للـ PWA | `PU_RubicCareStage` |
+| نطاق PWA | `https://stagepu.rubikcare.com` |
+| مجلد API على السيرفر | `C:\WebSite\RubikCareUat` |
+| App Pool للـ API | `RubikCareUat` |
+| نطاق API | `https://uat.rubikcare.com` |
+| ملف إعدادات البيئة المحمي | `appsettings.Test.json` (يُمنع overwritten) |
+
+> ⚠️ الـ PWA المنشور على `stagepu` يستدعي الـ API على `uat` — لذلك أي تعديل في الـ API يتطلب نشر المشروعين معاً.
+
+---
+
+## 2. هيكل المجلدات على السيرفر (أهم اختلاف عن باقي المشاريع)
+
+```
+C:\WebSite\PU_RubicCareStage\          ← IIS Physical Path يشير هنا (الجذر)
+├── web.config                         ← ⭐ محمي: يحتوي قواعد Rewrite + MIME
+├── (ملفات نشر stray: dotnet.js, runtimeconfig.json)  ← طبيعية، تُتجاهل
+└── wwwroot\                           ← ⭐⭐ الملفات الفعلية كلها هنا
+    ├── index.html
+    ├── cache-reset.html               ← صفحة التنظيف التلقائي
+    ├── service-worker.js
+    ├── service-worker-assets.js       ← خريطة الأصول والـ hashes
+    ├── manifest.webmanifest
+    ├── css\  js\  images\  lib\
+    ├── _content\RubikCare.Shared.UI\  ← مكونات وأصول المكتبة المشتركة
+    └── _framework\                    ← ملفات Blazor (.wasm/.js/.dat + نسخ .br/.gz)
+```
+
+### القاعدة الذهبية للتحقق:
+> **أي أمر فحص يجب أن ينظر داخل `wwwroot` وليس الجذر.**
+> معظم أخطاء التشخيص السابقة حدثت لأن سكربتات الفحص كانت تبحث في الجذر.
+
+---
+
+## 3. القواعد الذهبية الخمس (قبل أن تلمس أي شيء)
+
+| # | القاعدة | السبب |
+|---|---------|-------|
+| 1 | **لا تنسخ فوق القديم أبداً** — امسح المجلد أولاً | أسماء الملفات مجزأة (hashed) وتتغير كل نشر؛ الخلط = فشل SRI |
+| 2 | **لا تحذف ولا تعدل `web.config`** | يحتوي قواعد Rewrite وMIME؛ بدونه 404/403 لكل شيء |
+| 3 | **أوقف الـ App Pool قبل المسح والنسخ** | ملفات مقفولة = نسخ ناقص صامت |
+| 4 | **لا تستبدل ملفات إعدادات البيئة في الـ API** (`appsettings.Test.json`) | تحتوي اتصال قاعدة البيانات والأسرار الخاصة بالسيرفر |
+| 5 | **تعامل مع كل نشر كأنه عالم جديد** (hashes جديدة) | لا تفترض بقاء أي اسم ملف من النشر السابق |
+
+---
+
+## 4. إجراء النشر الكامل (5 مراحل)
+
+### المرحلة 1 — البناء محلياً
 
 ```powershell
-# 1. بناء المشروع
-dotnet publish RubikCare.PWA -c Release -o E:\Publish\PWA
+cd C:\RC\Rubikcare.Full.Migration
 
-# 2. إيقاف App Pool
+dotnet publish RubikCare.PWA -c Release -o E:\Publish\PWA
+dotnet publish RubikCare.Api.Web -c Release -o E:\Publish\ApiUat
+```
+
+✅ تحقق محلياً قبل النقل: شغّل التطبيق محلياً وتأكد أن التعديلات تعمل.
+
+### المرحلة 2 — النقل إلى السيرفر (يدوي عبر RDP)
+
+انسخ المجلدين `E:\Publish\PWA` و `E:\Publish\ApiUat` من جهازك إلى نفس المسار على السيرفر.
+> السيرفر لا يرى أقراص جهازك — لا يوجد سكربت ينقل تلقائياً.
+
+### المرحلة 3 — التطبيق على السيرفر
+
+#### 3أ. نشر الـ PWA:
+
+```powershell
+$src = "E:\Publish\PWA"
+$dst = "C:\WebSite\PU_RubicCareStage"
+
+# 1) إيقاف
 C:\Windows\System32\inetsrv\appcmd stop apppool "PU_RubicCareStage"
 
-# 3. مسح المجلد (ما عدا web.config)
-Get-ChildItem "C:\WebSite\PU_RubicCareStage" -Exclude "web.config" | 
-    Remove-Item -Recurse -Force
+# 2) مسح كل شيء ما عدا web.config
+Get-ChildItem $dst -Exclude "web.config" | Remove-Item -Recurse -Force
 
-# 4. نسخ الملفات الجديدة
-Copy-Item -Path "E:\Publish\PWA\*" `
-    -Destination "C:\WebSite\PU_RubicCareStage\" -Recurse -Force
+# 3) نسخ كل شيء ما عدا web.config (لحماية نسخة السيرفر)
+Get-ChildItem $src -Exclude "web.config" | Copy-Item -Destination $dst -Recurse -Force
 
-# 5. تشغيل App Pool
+# 4) تشغيل
 C:\Windows\System32\inetsrv\appcmd start apppool "PU_RubicCareStage"
 ```
 
-### 11.2 مسح Service Worker من المتصفح
+#### 3ب. نشر الـ API (مع حماية ملف البيئة):
 
-**بعد النشر، يجب على المستخدم:**
+```powershell
+$src = "E:\Publish\ApiUat"
+$dst = "C:\WebSite\RubikCareUat"
 
-1. فتح `https://stagepu.rubikcare.com`.
-2. الضغط على `F12` → **Application**.
-3. **Service Workers** → **Unregister**.
-4. **Storage** → **Clear site data**.
-5. أو استخدام نافذة **InPrivate** (`Ctrl + Shift + N`).
+# 1) إيقاف
+C:\Windows\System32\inetsrv\appcmd stop apppool "RubikCareUat"
 
-**⚠️ التفاصيل الكاملة في `15-DEPLOYMENT`.**
+# 2) مسح كل شيء ما عدا web.config وملف البيئة
+Get-ChildItem $dst -Exclude "web.config","appsettings.Test.json" | Remove-Item -Recurse -Force
+
+# 3) نسخ كل شيء ما عدا ملف البيئة
+Get-ChildItem $src -Exclude "appsettings.Test.json" | Copy-Item -Destination $dst -Recurse -Force
+
+# 4) تشغيل
+C:\Windows\System32\inetsrv\appcmd start apppool "RubikCareUat"
+```
+
+### المرحلة 4 — التحقق داخل السيرفر (افحص `wwwroot` دائماً)
+
+#### فحص 1: الملفات الأساسية
+
+```powershell
+$www = "C:\WebSite\PU_RubicCareStage\wwwroot"
+
+@("index.html","service-worker.js","service-worker-assets.js","manifest.webmanifest","_framework\blazor.webassembly.js") |
+ForEach-Object {
+    if (Test-Path (Join-Path $www $_)) { "OK      $_" } else { "MISSING $_" }
+}
+
+Get-ChildItem "$www\_framework" -Filter "RubikCare.*.wasm" | Select-Object Name, LastWriteTime
+```
+
+#### فحص 2 (الحاسم): مطابقة الـ hashes — نفس فحص المتصفح تماماً
+
+```powershell
+$www = "C:\WebSite\PU_RubicCareStage\wwwroot"
+$raw = Get-Content "$www\service-worker-assets.js" -Raw
+$pairs = [regex]::Matches($raw, '"hash"\s*:\s*"sha256-([^"]+)"\s*,\s*"url"\s*:\s*"([^"]+)"')
+$bad = 0; $checked = 0
+
+foreach ($m in $pairs) {
+    $expected = $m.Groups[1].Value
+    $url      = $m.Groups[2].Value -replace '\\/', '/'
+    $file     = Join-Path $www $url
+    $checked++
+    if (-not (Test-Path $file)) { Write-Host "MISSING: $url" -ForegroundColor Red; $bad++; continue }
+    $bytes  = [System.IO.File]::ReadAllBytes($file)
+    $actual = [Convert]::ToBase64String([System.Security.Cryptography.SHA256]::Create().ComputeHash($bytes))
+    if ($actual -ne $expected) { Write-Host "HASH MISMATCH: $url" -ForegroundColor Red; $bad++ }
+}
+
+if ($bad -eq 0) { Write-Host "OK: $checked assets match" -ForegroundColor Green }
+else { Write-Host "FAILED: $bad / $checked" -ForegroundColor Red }
+```
+
+> 💡 إذا كان `$checked = 0`: بدّل ترتيب المجموعات في الـ regex (بعض الإصدارات تكتب `url` قبل `hash`).
+
+**تفسير النتائج:**
+- `OK` → النشر سليم 100%، وأي خطأ لاحق سببه المتصفح فقط.
+- `HASH MISMATCH` → خلط ملفات من نسختين → أعد المرحلة 3أ من خطوة المسح.
+- `MISSING` → نسخ ناقص → أعد النسخ بعد إيقاف الـ App Pool.
+
+### المرحلة 5 — التحقق من المتصفح
+
+1. **افتح نافذة InPrivate** (`Ctrl+Shift+N`) → `https://stagepu.rubikcare.com`
+2. Console المتوقع: `✅ Blazor started successfully` وبدون أي `SRI` أو `Failed to fetch`.
+3. إذا ظهرت صفحة **إعادة تهيئة التطبيق** (`cache-reset.html`) ثم اكتمل التحميل تلقائياً → هذا سلوك سليم (تنظيف ذاتي لمرة واحدة).
+4. للاختبار على نافذة عادية قديمة: `F12 → Application → Service Workers → Unregister` ثم `Storage → Clear site data` ثم `Ctrl+Shift+R`.
+
+> ℹ️ تحذيرات `Tracking Prevention blocked access to storage` في Edge **غير ضارة** وتُتجاهل.
 
 ---
 
-## 🔧 الجزء الثاني عشر: المشاكل المعروفة
-
-### 12.1 قائمة المشاكل
-
-| # | المشكلة | الحالة |
-|:-:|:---|:---:|
-| 1 | `MessagingHubPage` — قيد التطوير | 🟡 |
-| 2 | تجربة شاملة (E2E) — لم تُنفَّذ | ⏳ |
-| 3 | `MedicationSchedulePage` — غير مُنفَّذ | ⏳ |
-| 4 | `NearbyPharmacies` — يحتاج GPS | ⏳ |
-| 5 | `PspGateway` — غير مُنفَّذ | ⏳ |
-| 6 | لوحات مهنية (Clinic/Pharmacy/Rep) | ⏳ |
-| 7 | علامات استفهام في النص العربي (Web Push) | 🟡 |
-
-**⚠️ التفاصيل الكاملة في `08-NOTIFICATIONS` (للمشكلة 7).**
-
----
-
-## ⚠️ درس مستفاد: نشر PWA والإعدادات الصحيحة (أكتوبر 2026)
-
-### 1. الإعدادات الصحيحة (التي يجب ألا تُمس):
-- **`PhysicalPath`:** يجب أن يكون `C:\WebSite\PU_RubicCareStage` (الجذر).
-- **`web.config`:** يجب أن يكون في الجذر (وليس داخل `wwwroot`).
-- **`wwwroot`:** يجب أن يحتوي على كل الملفات الثابتة (HTML, JS, CSS, Wasm). لا تنقلها إلى الجذر أبداً.
-
-### 2. محتوى `web.config` الصحيح (المعتمد):
-هذا هو المحتوى الوحيد المسموح به لملف `web.config` في جذر مشروع PWA. **ممنوع تعديله** بدون سبب تقني موثق ومراجعة من قائد الفريق.
+## 5. ملف `web.config` — محتوى محمي يُمنع تعديله
 
 ```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<configuration>
-  <system.webServer>
-    <staticContent>
-      <remove fileExtension=".blat" />
-      <remove fileExtension=".dat" />
-      <remove fileExtension=".dll" />
-      <remove fileExtension=".webcil" />
-      <remove fileExtension=".json" />
-      <remove fileExtension=".wasm" />
-      <remove fileExtension=".woff" />
-      <remove fileExtension=".woff2" />
-      <remove fileExtension=".webmanifest" />
-      <mimeMap fileExtension=".blat" mimeType="application/octet-stream" />
-      <mimeMap fileExtension=".dll" mimeType="application/octet-stream" />
-      <mimeMap fileExtension=".webcil" mimeType="application/octet-stream" />
-      <mimeMap fileExtension=".dat" mimeType="application/octet-stream" />
-      <mimeMap fileExtension=".json" mimeType="application/json" />
-      <mimeMap fileExtension=".wasm" mimeType="application/wasm" />
-      <mimeMap fileExtension=".woff" mimeType="application/font-woff" />
-      <mimeMap fileExtension=".woff2" mimeType="application/font-woff" />
-      <mimeMap fileExtension=".webmanifest" mimeType="application/manifest+json" />
-    </staticContent>
-    <httpCompression>
-      <dynamicTypes>
-        <add mimeType="application/octet-stream" enabled="true" />
-        <add mimeType="application/wasm" enabled="true" />
-      </dynamicTypes>
-    </httpCompression>
-    <rewrite>
-      <rules>
-        <!-- قاعدة 1: خدمة الملفات الموجودة في wwwroot -->
-        <rule name="Serve wwwroot files" stopProcessing="true">
-          <match url="^(.*)$" />
-          <conditions logicalGrouping="MatchAny">
-            <add input="{DOCUMENT_ROOT}\wwwroot\{R:1}" matchType="IsFile" />
-            <add input="{DOCUMENT_ROOT}\wwwroot\{R:1}" matchType="IsDirectory" />
-          </conditions>
-          <action type="Rewrite" url="wwwroot/{R:1}" />
-        </rule>
-        <!-- قاعدة 2: SPA fallback -->
-        <rule name="SPA fallback to index.html" stopProcessing="true">
-          <match url="^(.*)$" />
-          <action type="Rewrite" url="wwwroot/index.html" />
-        </rule>
-      </rules>
-    </rewrite>
-  </system.webServer>
-</configuration>
+<rewrite>
+  <rules>
+    <rule name="Serve wwwroot files" stopProcessing="true">
+      <match url="^(.*)$" />
+      <conditions logicalGrouping="MatchAny">
+        <add input="{DOCUMENT_ROOT}\wwwroot\{R:1}" matchType="IsFile" />
+        <add input="{DOCUMENT_ROOT}\wwwroot\{R:1}" matchType="IsDirectory" />
+      </conditions>
+      <action type="Rewrite" url="wwwroot/{R:1}" />
+    </rule>
+    <rule name="SPA fallback to index.html" stopProcessing="true">
+      <match url="^(.*)$" />
+      <action type="Rewrite" url="wwwroot/index.html" />
+    </rule>
+  </rules>
+</rewrite>
 ```
 
-### 3. المحاذير الصارمة (ممنوع منعاً باتاً):
-1. **ممنوع تعديل `web.config`** بأي شكل من الأشكال. أي تعديل قد يسبب 403 أو 404 أو كسر الملفات الثابتة.
-2. **ممنوع تغيير `PhysicalPath`** من `C:\WebSite\PU_RubicCareStage` إلى أي مسار آخر (مثل `wwwroot`).
-3. **ممنوع نسخ ملفات `wwwroot` إلى الجذر**.
-4. **ممنوع إعادة النشر دون مسح Service Worker في المتصفح**.
+### ممنوعات الـ web.config:
+- ❌ حذف قسم `<staticContent>` (تعريفات MIME لـ `.wasm/.dat/.blat/.webcil`) — بدونه ملفات تُخدم بنوع خاطئ.
+- ❌ تغيير `url="wwwroot/..."` إلى مسار جذر — البنية تعتمد على `wwwroot`.
+- ❌ حذف قاعدة `SPA fallback` — بدونه كل مسار مثل `/login` و `/chat/5` يعطي 404.
+- ❌ استبداله بنسخة الـ publish المحلية — نسخة السيرفر هي المُعايرة الصحيحة.
 
-### 4. الإجراء الصحيح بعد كل نشر:
-1. **افتح المتصفح في وضع InPrivate** (أو امسح الكاش يدوياً).
-2. **إذا كنت تستخدم Chrome:**
-   - اذهب إلى `F12` → `Application` → `Service Workers` → `Unregister`.
-   - اذهب إلى `Application` → `Storage` → `Clear site data`.
-3. **أو استخدم `cache-reset.html`** (إذا كان يعمل).
-4. **لا تعتمد على التحديث العادي (F5)**.
+---
 
-### 5. ملاحظة حول المتصفحات:
-- **Chrome:** الأكثر عرضة لمشاكل Service Worker القديم (يظهر أخطاء SRI و Unexpected token).
-- **Edge:** يعمل بشكل جيد (لأنه لا يستخدم نفس الكاش القديم).
-- **الموبايل (PWA مثبت):** يعمل بشكل جيد (لأن Service Worker يُحدَّث تلقائياً عند التثبيت الجديد).
+## 6. خصوصيات هذا المشروع (.NET 10 + PWA)
 
-### 6. حل مشكلة "فساد التنسيق" (إذا حدثت):
-- **السبب:** Service Worker قديم يخدّم ملفات JS/CSS قديمة.
-- **الحل:** امسح Service Worker (كما في الخطوة 4). **لا تعدل `web.config` أو `PhysicalPath`.**
+| الخصوصية | التفصيل | الخطأ الشائع |
+|----------|---------|--------------|
+| **لا يوجد `blazor.boot.json`** | في .NET 10 الخريطة داخل `blazor.webassembly.js` + `service-worker-assets.js` | البحث عنه واعتباره مفقوداً |
+| **كل أصل له 3 نسخ** (`x.wasm` + `.br` + `.gz`) | ضغط Brotli/Gzip طبيعي | اعتبار النسخ الإضافية تكراراً وحذفها |
+| **`index.html` حساس** | سطر واحد فقط `blazor.webassembly.js` مع `autostart="false"` + `Blazor.start()` يدوي + polyfill قبل سكربت Google | تكرار السطر أو حذف `autostart` |
+| **`cache-reset.html`** | تنظيف ذاتي للمستخدم النهائي عند فشل الإقلاع | حذفه عند "تنظيف" الملفات |
+| **ملفات stray في الجذر** (`dotnet.js`, `runtimeconfig.json`) | طبيعية من بنية publish | حذفها يدوياً |
+| **Shared.UI مدمجة** | أي تعديل CSS/مكونات في Shared.UI يتطلب **إعادة نشر الـ PWA** | نشر API فقط وتوقع ظهور التعديل |
 
-### 7. العلامات التي تؤكد أن الإعدادات صحيحة:
-- `https://stagepu.rubikcare.com` يفتح في InPrivate بدون أخطاء.
-- `https://stagepu.rubikcare.com/index.html` يفتح بشكل صحيح.
-- `https://stagepu.rubikcare.com/service-worker.js` يعيد `200 OK` مع `Content-Type: application/javascript` (وليس `text/html`).
-- `https://stagepu.rubikcare.com/manifest.webmanifest` يعيد `200 OK` مع `Content-Type: application/manifest+json`.
+---
+
+## 7. جدول استكشاف الأخطاء (من واقع جلسات النشر الفعلية)
+
+| الخطأ في المتصفح/السيرفر | السبب | العلاج |
+|--------------------------|-------|--------|
+| `SRI's integrity checks failed` + `Failed to find a valid digest` | خلط ملفات قديمة/جديدة أو Service Worker قديم | المرحلة 3أ كاملة (مسح ثم نسخ) + فحص 2 + InPrivate |
+| `Expected a JavaScript-or-Wasm module ... MIME type of "text/html"` | ملف مفقود في `_framework` (IIS يرد صفحة 404 HTML) | فحص 1 و2 → إعادة النسخ بعد إيقاف الـ App Pool |
+| `404` على `/login` أو أي مسار SPA | قاعدة `SPA fallback` مفقودة/مكسورة في web.config | استعادة قواعد القسم 5 |
+| `403 Forbidden` عند فتح الموقع | قاعدة Rewrite تشير لمسار خاطئ أو صلاحيات المجلد | التحقق من القسم 5 + `icacls ... /grant "IIS_IUSRS:(OI)(CI)(RX)"` |
+| `The following routes are ambiguous` | صفحتان في PWA بنفس `@page` | حذف الصفحة المكررة (احتفظ بالأوضح اسماً) |
+| `Illegal invocation` عند دخول Google | غياب الـ polyfill قبل سكربت GIS | التأكد من وجود سكربت الـ polyfill في `index.html` |
+| Splash عالق / حلقة صفحة التنظيف | تكرار سطر `blazor.webassembly.js` أو غياب `autostart="false"` | استبدال `index.html` بالنسخة المعتمدة |
+| شاشة زرقاء بعد نشر كان يعمل محلياً | نسخ فوق القديم بدون مسح | القاعدة الذهبية 1 |
+| التعديلات لا تظهر رغم النشر الصحيح | Service Worker/كاش المتصفح | المرحلة 5 |
+
+---
+
+## 8. الدروس المستفادة (الخلاصة النهائية)
+
+1. **المسح قبل النسخ ليس تحسيناً — هو جزء من عملية النشر.** بدونه كل نشر مقامرة.
+2. **افحص حيث تعيش الملفات:** في هذا المشروع الملفات في `wwwroot`؛ سكربت فحص ينظر للجذر سيكذب عليك.
+3. **السيرفر والمتصفح مخزنان منفصلان:** نشر سليم + متصفح قديم = خطأ يبدو كأنه نشر فاشل. افصل التشخيصين بفحص الـ hashes أولاً.
+4. **`.NET 10` ليس `.NET 8`:** لا تبحث عن `blazor.boot.json`؛ الخريطة في `service-worker-assets.js`.
+5. **ملف واحد مكرر في `index.html` يكسر التطبيق كله** — عند تعديل `index.html` راجعه كاملاً قبل النشر.
+6. **InPrivate هو أداة التشخيص الأولى** — يعزل مشكلة المتصفح عن مشكلة السيرفر في ثانية واحدة.
+7. **صفحة `cache-reset.html` شبكة الأمان للمستخدم النهائي** — لا تحذفها، وهي تعفي الدعم الفني من شرح مسح الكاش هاتفياً.
+8. **الـ API له ملف بيئة مقدّس** (`appsettings.Test.json`) — المسح الشامل يشمل كل شيء ما عدا هو و`web.config`.
+
+---
+
+## 9. Checklist النهائي (يُلصق في كل تذكرة نشر)
+
 ```
+[ ] البناء محلياً نجح والتعديل مُختبر محلياً
+[ ] نُقل المجلدان للسيرفر عبر RDP
+[ ] PWA: stop → clear (عدا web.config) → copy (عدا web.config) → start
+[ ] API: stop → clear (عدا web.config و appsettings.Test.json) → copy → start
+[ ] فحص 1: الملفات الأساسية في wwwroot موجودة
+[ ] فحص 2: hashes مطابقة (OK: N assets match)
+[ ] نافذة InPrivate: التطبيق يفتح، Console نظيف
+[ ] دخول Google يعمل، Logout يعود لـ /login
+[ ] (اختياري) نافذة عادية: Unregister SW + Clear site data ثم إعادة اختبار
+```
+
+---
 
 
 ## 📊 الجزء الثالث عشر: الفرق بين PWA و Mobile
