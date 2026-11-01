@@ -299,6 +299,11 @@ RubikCare في مرحلة Pre-Launch. الهدف الحالي:
 | 2 | خلط Namespaces | PharmacySearchPage.razor |
 | 3 | 404 في /admin/pending-licenses | SystemManagment vs SystemManagement |
 
+###🟡 Medium Debt (أو كـ Critical تم حله)
+| # | الدين | الموقع |
+|---|---|---|
+| TD-002 | ✅ حلقة إعادة التوجيه اللانهائية في cache-reset.html وخدمة Service Worker "الزومبي"|RubikCare.PWA |تم الحل: إضافة عداد محاولات (MAX_ATTEMPTS) مع استعادته بعد sessionStorage.clear()، واعتماد استراتيجية نشر تحافظ على ملفات .br و .gz المتطابقة. |
+
 ### 🟡 Medium Debt
 
 | # | الدين | الموقع |
@@ -310,6 +315,7 @@ RubikCare في مرحلة Pre-Launch. الهدف الحالي:
 | 8 | ✅ **ازدواجية BaseUrl في appsettings (Web)** — تم تصحيح `RubikCareLive` و `RubikCareNew` في 29 أكتوبر. | RubikCareLive و RubikCareNew |
 | 9 | ازدواجية MedicineGuideFlow (إذا وجد) | Mobile/Features/PSP/Patient/Views/ |
 | 18 | 🟡 **TD-001: الطلبات المكررة (Double API Calls)** — بعض الصفحات (Dashboard, Loyalty, Reports) ترسل نفس طلب الـ API مرتين في نفس الثانية. | `Rubikcare.Web` (Blazor Server) + `Api.Web` (السجلات) |
+
 
 #### تفاصيل TD-001
 
