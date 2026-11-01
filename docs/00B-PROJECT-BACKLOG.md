@@ -243,7 +243,7 @@ RubikCare في مرحلة Pre-Launch. الهدف الحالي:
 | 4: Points System | 12 | 12 | ~100% ✅ |
 | 5: Reports System | 8 | 7 | ~85% |
 | 6: Notifications System | 6 | 6 | ~100% ✅ |
-| 7: PWA | 10 | 9 | ~90% |
+| 7: PWA | 10 | 10 | ~100% ✅ |
 | 8: Menus & Services | 6 | 0 | 0% |
 | 9: Patient Mobile (MAUI) | 3 | 3 | ~100% ✅ |
 | 10: Deployment & Release | 4 | 1 | ~25% |
@@ -299,7 +299,7 @@ RubikCare في مرحلة Pre-Launch. الهدف الحالي:
 | 2 | خلط Namespaces | PharmacySearchPage.razor |
 | 3 | 404 في /admin/pending-licenses | SystemManagment vs SystemManagement |
 
-###🟡 Medium Debt (أو كـ Critical تم حله)
+###🟡 Medium Debt ( تم حله)
 | # | الدين | الموقع |
 |---|---|---|
 | TD-002 | ✅ حلقة إعادة التوجيه اللانهائية في cache-reset.html وخدمة Service Worker "الزومبي"|RubikCare.PWA |تم الحل: إضافة عداد محاولات (MAX_ATTEMPTS) مع استعادته بعد sessionStorage.clear()، واعتماد استراتيجية نشر تحافظ على ملفات .br و .gz المتطابقة. |
@@ -522,6 +522,12 @@ RubikCare في مرحلة Pre-Launch. الهدف الحالي:
 ---
 
 ## 📝 Changelog (مختصر)
+###v6.2 — 31 أكتوبر 2026
+✅ إغلاق مشاكل نشر PWA: تثبيت إعدادات البيئة (appsettings.Staging/Production)، حل حلقة cache-reset اللانهائية، وحماية web.config أثناء النشر.
+✅ إضافة مهمة S3.5-H7 (تثبيت بيئة نشر PWA) كمكتملة.
+✅ إضافة دين تقني جديد تم حله: TD-002 (حلقة الـ Cache Reset و Service Worker الزومبي).
+✅ إضافة الدرس المستفاد رقم 11 (إدارة نشر PWA وحلقة الـ Cache Reset).
+✅ تحديث حالة Epic 7 (PWA) إلى 100% مكتمل.
 
 ### v6.1 — 29 أكتوبر 2026
 
@@ -649,6 +655,20 @@ RubikCare في مرحلة Pre-Launch. الهدف الحالي:
 1. استخدم `Production` دائماً في بيئة الإنتاج.
 2. إذا كنت تشك في وجود خطأ صامت، استخدم `Development` مؤقتاً للتشخيص (مع تفعيل `DetailedErrors`)، ثم أعد `Production` فوراً.
 3. راقب سجلات `stdout` بانتظام — الأخطاء لا تظهر في وضع `Production` على الشاشة، لكنها تُسجَّل في الملفات.
+
+### درس 11: إدارة نشر PWA وحلقة الـ Cache Reset (31 أكتوبر 2026)
+المشكلة:
+1- عند نشر تحديثات PWA، كان المتصفح يتمسك بنسخة قديمة من service-worker.js مما يسبب أخطاء SRI ويدخل التطبيق في حلقة لا نهائية من صفحة cache-reset.html.
+2- التعديل اليدوي لملفات .html أو .js مباشرة على السيرفر دون إعادة dotnet publish يكسر التطابق مع ملفات الضغط المضغوطة مسبقاً (.br و .gz) مما يسبب أخطاء 500.19.183 في IIS.
+الحل المطبق:
+1- إصلاح منطق cache-reset.html بإضافة MAX_ATTEMPTS واستعادة قيمة العداد فوراً بعد تنفيذ sessionStorage.clear().
+2- اعتماد سكريبت نشر (Deploy-ToStage-PWA.ps1 v4.0) يقوم بـ:
+- أخذ نسخة احتياطية كاملة قبل أي تغيير في C:\WebSite\_Docs\Backups\.
+- استثناء ملف web.config وملفات appsettings.*.json من الحذف أو الاستبدال أثناء النسخ.
+3- التأكيد على أن أي تعديل على ملفات wwwroot يجب أن يتم محلياً ثم إعادة publish لضمان توليد ملفات الـ Hash والضغط بشكل متطابق.
+الإجراء الوقائي:
+* استخدام سكريبت النشر الآمن حصرياً.
+* مسح بيانات الموقع (Clear site data) وإلغاء تسجيل Service Worker يدوياً من المتصفح عند اختبار إصدار جديد لأول مرة.
 
 ---
 
