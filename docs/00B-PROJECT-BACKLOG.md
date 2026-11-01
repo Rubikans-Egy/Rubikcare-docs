@@ -1,7 +1,7 @@
 # 00B — PROJECT-BACKLOG
 
 الاسم: PROJECT-BACKLOG — سجل التطوير الحي  
-الإصدار: 6.1 (Production Blocker Resolved Edition)  
+الإصدار: 6.2 (Production Blocker Resolved Edition)  
 آخر تحديث: 29 أكتوبر 2026  
 Sprint الحالي: Sprint 3.5 (In Progress)  
 الحالة: 🟢 حي — يُحدَّث كل جلسة  
