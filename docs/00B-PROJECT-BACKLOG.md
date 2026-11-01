@@ -688,6 +688,7 @@ RubikCare في مرحلة Pre-Launch. الهدف الحالي:
 | 27 أكتوبر 2026 | v5.1 — إغلاق 20 SP من Sprint 3 + إضافة Blocker جديد (Pharma Dashboard) + الدرس 7. |
 | 28 أكتوبر 2026 | v6.0 — إغلاق Sprint 3 (58 SP) + إضافة Sprint 3.5 (24 SP) + Epic 13 (Rep) + الدرس 8. |
 | 29 أكتوبر 2026 | v6.1 — حل Blocker (Pharma Dashboard) + TD-001 + الدرسان 9, 10 + تحديث TD #8. |
+| 31 أكتوبر 2026 | v6.2 — حل  PWA + TD-002 تثبيت بيئة نشر + الدرس  11+ تحديث 7: PWA. |
 
 ---
 
