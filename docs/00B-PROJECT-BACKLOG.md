@@ -192,6 +192,7 @@ RubikCare في مرحلة Pre-Launch. الهدف الحالي:
 | S3.5-H4 | الضغط على الدواء في "مواعيد الأدوية" يفتح MedicineGuidePage | 2 | Navigation من MedicationSchedulePage → /medicine-guide?medicationId=X. |
 | S3.5-H5 | إصلاح الإشعارات المتكررة — بعد "تناول" مفيش إشعار، لو ما ضغطش تجيله مرتين فقط | 3 | بعد إصلاح ReminderProcessingService — يحتاج اختبار + ضبط MaxRepeats=2. |
 | S3.5-H6 | ✅ إصلاح Blocker: بطء Pharma Dashboard (42s) + اختفاء الأشكال البيانية | 8 | **مكتمل (29 أكتوبر):** السبب الجذري كان `ApiSettings.BaseUrl` في `appsettings.json` يشير إلى منفذ تطوير مغلق (5235). تم تصحيحه إلى `https://api.rubikcare.com` + ضبط `ASPNETCORE_ENVIRONMENT` إلى `Production`. الصفحات تعمل الآن بسرعة وبدون أخطاء. |
+|S3.5-H7 | ✅ تثبيت بيئة نشر PWA (إعدادات البيئة appsettings، حل حلقة cache-reset اللانهائية، وحماية web.config)| 5 | مكتمل (31 أكتوبر): تم اعتماد سكريبت نشر آمن (v4.0)، إصلاح منطق MAX_ATTEMPTS في صفحة التنظيف، وضبط اتصال الـ PWA بـ API الإنتاج بنجاح. |
 
 المجموع (High): 23 SP (15 SP منها مكتملة)
 
