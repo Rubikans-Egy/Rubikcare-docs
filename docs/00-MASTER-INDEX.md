@@ -228,8 +228,8 @@
 | البيئة | Web | API | PWA |
 | :--- | :--- | :--- | :--- |
 | Local | https://localhost | https://localhost | https://localhost |
-| Test/UAT | test.rubikcare.com | uat.rubikcare.com | stagepu.rubikcare.com |
-| Production | rubikcare.com | api.rubikcare.com | stage.rubikcare.com |
+| Test/UAT | https://test.rubikcare.com | https://uat.rubikcare.com | https://stagepu.rubikcare.com |
+| Production | https://rubikcare.com | https://api.rubikcare.com | https://stage.rubikcare.com |
 
 ### IIS Sites على VPS
 
