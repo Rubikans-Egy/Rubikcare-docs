@@ -715,9 +715,72 @@ public partial class ProfessionalLicenseFlow : ContentPage
 - ⚠️ `OnComponentReady` يُستدعى مرة واحدة فقط عند `firstRender`.
 
 ---
+### 6.5 ⚠️ قيود `BlazorWebView` + `ShellContent` (4 نوفمبر 2026)
 
-# [#68] 📘 `13-MAUI` — v2.0 (Part 2)
+**الاكتشاف الحاسم (من جلسة 4 نوفمبر):** `BlazorWebView` في MAUI 10 **لا يمكن** استخدامه كصفحة رئيسية (`ShellContent`) مع `Parameters` ديناميكية. هذا ليس خطأً في الكود — بل **قيد معماري** في MAUI 10.
 
+#### 6.5.1 ملخص القيد
+
+| العنصر | `ShellContent` (صفحة رئيسية) | `Routing.RegisterRoute` (صفحة فرعية) |
+|---|---|---|
+| `<RootComponent>` في XAML | ✅ يعمل (بدون Parameters). | ✅ يعمل (بدون Parameters). |
+| `RootComponents.Add` في `OnAppearing` | ❌ لا يعيد تحميل المكون. | ✅ يعمل (في `Constructor` أو `OnAppearing`). |
+| `RootComponents.Add` في `Constructor` | ⚠️ قد لا يعمل (يحتاج بيانات متزامنة). | ✅ يعمل (بعد `SetUserProfile`). |
+| `Parameters` ديناميكية | ❌ لا تُمرَّر (أو تُمرَّر بعد بدء المكون). | ✅ تُمرَّر مع `Add`. |
+| `OnComponentReady` | ❌ `OnAfterRender` لا يُستدعى. | ✅ `OnAfterRender` يعمل (بعد `Add`). |
+| `CurrentUserProfileState` (Singleton) | ❌ نسختان (MAUI + Blazor) — لا تتشاركان. | ⚠️ يعمل (إذا استُخدم `RootComponents.Add` مع `Parameters`، لا Singleton). |
+
+#### 6.5.2 الأعراض (عند استخدام `BlazorWebView` كصفحة رئيسية)
+
+- الصفحة تفتح (المكون يُحمَّل جزئياً).
+- **لكن** البيانات لا تظهر (`UserProfileId` = 0).
+- الأزرار لا تستجيب (إذا كانت `EventCallback` غير مُمرَّرة).
+- `OnAfterRender` لا يُستدعى (لا `OnComponentReady`).
+- `OnInitializedAsync` تُستدعى، لكن `UserProfileId` = 0.
+
+#### 6.5.3 الحل المعتمد (بعد فشل كل المحاولات)
+
+**للصفحات الرئيسية (`ShellContent`):**
+- ✅ **استخدم XAML محلي** (مثل `DashboardPage.xaml`).
+- ❌ **لا تستخدم `BlazorWebView`** مع `Parameters` ديناميكية.
+
+**للصفحات الفرعية (`Routing.RegisterRoute`):**
+- ✅ **استخدم `BlazorWebView` + `RootComponents.Add`** في `Constructor` أو `OnAppearing` مع `Parameters` (مثل `PatientPointsFlow`، `MedicineGuideFlow`).
+- ✅ **مرر `Parameters`** (بما فيها `EventCallback` و `Action`).
+- ✅ **استخدم `OnComponentReady`** (إذا كنت بحاجة إلى `public methods`).
+
+#### 6.5.4 الأمثلة الحية (من المشروع)
+
+**✅ الصفحات الفرعية الناجحة (تستخدم `BlazorWebView` + `RootComponents.Add`):**
+- `PatientPointsFlow.xaml.cs` — `RootComponents.Add` في `OnAppearing` مع `UserProfileId` + `ApiService` + `ShowBackButton`.
+- `MedicineGuideFlow.xaml.cs` — `RootComponents.Add` في `ApplyQueryAttributes` مع `CaseIdOverride`.
+- `PspDetailFlow.xaml.cs` — `RootComponents.Add` مع `PatientId` + `ParticipationId` + `ProgramId` + `ApiService`.
+
+**✅ الصفحات الرئيسية الناجحة (تستخدم XAML محلي):**
+- `DashboardPage.xaml` — XAML محلي + `DashboardPageViewModel`.
+- `ClinicDashboardPage.xaml` — `BlazorWebView` + `<RootComponent>` في XAML (بدون Parameters — يعتمد على `CurrentOrganizationState`). **⚠️ هذا استثناء: يعمل لأن `ClinicDashboard` لا يحتاج Parameters ديناميكية.**
+- `PharmacyDashboardPage.xaml` — نفس النمط.
+- `PharmaCompanyDashboardPage.xaml` — نفس النمط.
+
+**❌ الصفحات الرئيسية الفاشلة (تستخدم `BlazorWebView` + Parameters ديناميكية):**
+- `DashboardPage.xaml` (محاولات 4-5 نوفمبر) — فشلت كل المحاولات.
+
+#### 6.5.5 قاعدة القرار (متى تستخدم `BlazorWebView`؟)
+```
+هل الصفحة رئيسية (ShellContent)؟
+├── نعم
+│ ├── هل تحتاج Parameters ديناميكية (مثل UserProfileId)؟
+│ │ ├── نعم → ❌ لا تستخدم BlazorWebView. استخدم XAML محلي.
+│ │ └── لا → ✅ يمكن استخدام BlazorWebView + <RootComponent> في XAML (مثل ClinicDashboard).
+│ └── (في كل الحالات) → الأفضل: XAML محلي.
+│
+└── لا (صفحة فرعية — Routing.RegisterRoute)
+└── ✅ استخدم BlazorWebView + RootComponents.Add في Constructor/OnAppearing مع Parameters.
+
+```
+#### 6.5.6 الدرس المستفاد (للتذكير)
+
+> **"لا تحاول استخدام `BlazorWebView` كصفحة رئيسية مع `Parameters` ديناميكية في MAUI 10. هذا تعارض معماري، وليس خطأً في الكود. استخدم XAML محلي للصفحات الرئيسية، و`BlazorWebView` للصفحات الفرعية فقط."**
 ---
 
 ## 📌 الجزء السابع: شجرة القرار — أي نمط أستخدم؟
