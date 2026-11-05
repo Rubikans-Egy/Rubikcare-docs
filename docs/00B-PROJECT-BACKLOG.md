@@ -270,12 +270,12 @@ RubikCare في مرحلة Pre-Launch. الهدف الحالي:
 | 6: Notifications System | 6 | 6 | ~100% ✅ |
 | 7: PWA | 10 | 10 | ~100% ✅ |
 | 8: Menus & Services | 6 | 0 | 0% |
-| 9: Patient Mobile (MAUI) | 3 | 3 | ~100% ✅ |
+| 9: Patient Mobile (MAUI) | 3 | 3 |~85% |
 | 10: Deployment & Release | 4 | 1 | ~25% |
 | 11: Personal Health Records (PHR) | 3 (Phases) | 0 | 0% |
 | 12: Integration Hub | 3 (Phases) | 0 | 0% |
 | 13: Rep (Medical Representative) | 4 (Phases) | 0 | 0% |
-
+| Epic 14: Dashboard Unification (PWA + MAUI) | 5 | 3 | ~60% |
 ---
 
 ## 📋 Product Backlog (المستقبلي)
@@ -547,6 +547,21 @@ RubikCare في مرحلة Pre-Launch. الهدف الحالي:
 ---
 
 ## 📝 Changelog (مختصر)
+### v6.3 — 4 نوفمبر 2026
+
+- ✅ **إعادة تصميم `DashboardPage.razor` (المشترك) — PWA:** Header بسيط + Stats Cards + Program Cards + Adherence Bar + Reminders (S3.5-H14).
+- ✅ **ربط `DashboardPage.razor` بـ API الحقيقية (PWA):** `psp/entry` + `patient-details` + `patient-dashboard` + `schedules` (S3.5-H15).
+- ✅ **إصلاح RTL/LTR في `DashboardPage.razor` (PWA):** `TranslationState` + `localStorage` (S3.5-H16).
+- ✅ **إضافة `ProgramCardDto` (`CaseID` + `ParticipationId`):** Backend + PWA (S3.5-H17).
+- ✅ **ربط `PatientPointsDashboard` (`/patient/points`):** PWA + MAUI (S3.5-H18).
+- ✅ **إصلاح `MedicineGuidePage`:** استقبال `caseId` + `programId` (PWA) (S3.5-H19).
+- ✅ **إنشاء `CurrentUserProfileState` (Singleton)** — غير مستخدم في MAUI (S3.5-H20).
+- ✅ **إنشاء `DashboardNavigationBridge`** — مستخدم في PWA + MAUI (S3.5-H21).
+- ✅ **العودة إلى `DashboardPage.xaml` المحلية (MAUI)** — بعد فشل استخدام `DashboardPage.razor` (المشترك).
+- ❌ **استخدام `DashboardPage.razor` (المشترك) في MAUI:** فشل (تعارض `BlazorWebView` + `ShellContent`) — انظر الدروس 12-16.
+- ⏳ **مؤجل:** تعديل `DashboardPage.xaml` لتطابق PWA (S3.5-H23)، القوائم الديناميكية (S3.5-H24)، تحويل `AppShell` (S3.5-H25)، إصلاح مفاتيح الترجمة (S3.5-H26).
+- ✅ **إضافة الدروس 12-16** (Lessons Learned).
+- ✅ **إضافة `S3.5-H22/H23/H24/H25/H26`** إلى Sprint 3.5.
 ###v6.2 — 31 أكتوبر 2026
 
 - ✅ إغلاق مشاكل نشر PWA: تثبيت إعدادات البيئة (appsettings.Staging/Production)، حل حلقة cache-reset اللانهائية، وحماية web.config أثناء النشر.
@@ -699,7 +714,63 @@ RubikCare في مرحلة Pre-Launch. الهدف الحالي:
 - مسح بيانات الموقع (Clear site data) وإلغاء تسجيل Service Worker يدوياً من المتصفح عند اختبار إصدار جديد لأول مرة.
 
 ---
+### درس 12: `BlazorWebView` + `ShellContent` = تعارض معماري في MAUI 10 (4 نوفمبر 2026)
 
+**المشكلة:** محاولات متعددة لاستخدام `DashboardPage.razor` (المشترك) كصفحة رئيسية (`ShellContent` في `AppShell.xaml`) في MAUI فشلت كلها:
+- `<RootComponent>` في XAML: `Parameters` ديناميكية لا تُمرَّر (`UserProfileId` = 0).
+- `RootComponents.Add` في `OnAppearing`: `BlazorWebView` لا يعيد تحميل المكون بعد `Add`.
+- `OnComponentReady`: `OnAfterRender` لا يُستدعى (لأن المكون لا يُحمَّل).
+- `CurrentUserProfileState` (Singleton): نسختان (MAUI + BlazorWebView) — لا تتشاركان.
+- `LoadingPage` → `DashboardPageFlow`: `Shell` لا يعيد توجيه `LoadingPage` (صفحة فرعية).
+
+**السبب الجذري:** `BlazorWebView` في MAUI 10 يستخدم حاوية DI مستقلة (`13-MAUI` § 2.1)، ولا يدعم `Parameters` ديناميكية في `ShellContent`.
+
+**الحل المعتمد:** العودة إلى `DashboardPage.xaml` المحلية (XAML) + `DashboardPageViewModel` (التي كانت تعمل).
+
+**الإجراء الوقائي:**
+- **الصفحات الرئيسية (`ShellContent`):** استخدم **XAML محلي** (وليس `BlazorWebView`).
+- **الصفحات الفرعية (`Routing.RegisterRoute`):** يمكن استخدام `BlazorWebView` + `RootComponents.Add` في `Constructor` (مثل `PatientPointsFlow` — الذي يعمل).
+
+**المرجع:** `13-MAUI` § 3.4، § 4.3، § 6.1.
+
+---
+
+### درس 13: Singleton Services لا تتشارك بين MAUI و `BlazorWebView` (4 نوفمبر 2026)
+
+**المشكلة:** `CurrentUserProfileState` مسجل في `MauiProgram.cs` كـ `AddSingleton`. لكن `DashboardPage.xaml.cs` (MAUI) يحقن نسخة من حاوية MAUI، بينما `DashboardPage.razor` (BlazorWebView) يحقن نسخة من حاوية Blazor. `SetUserProfile(15, ...)` في MAUI لا يؤثر على `DashboardPage.razor` (الذي يرى `UserProfileId=0`).
+
+**الإجراء الوقائي:** لا تعتمد على Singleton Services للتواصل بين MAUI و BlazorWebView. استخدم `RootComponent.Parameters` (للصفحات الفرعية) — أو `static` (لكن غير موصى به).
+
+**المرجع:** `13-MAUI` § 2.1.
+
+---
+
+### درس 14: `OnAfterRender` في `DashboardPage.razor` لا يُستدعى عندما لا يُحمَّل المكون (4 نوفمبر 2026)
+
+**المشكلة:** `OnAfterRender(firstRender)` (الذي يستدعي `OnComponentReady`) لم يُستدعى في Logcat — لأن `DashboardPage.razor` لم يكمل دورة حياته (بسبب `RootComponents.Add` بعد بدء `BlazorWebView`).
+
+**الإجراء الوقائي:** لا تعتمد على `OnAfterRender` لاستدعاء `OnComponentReady` في `ShellContent`. استخدم `OnAppearing` في MAUI (إذا كان المكون قد تم تحميله).
+
+**المرجع:** `13-MAUI` § 4.3.
+
+---
+
+### درس 15: `Console.WriteLine` في `BlazorWebView` يظهر في Logcat (وليس Output Window) (4 نوفمبر 2026)
+
+**المشكلة:** `Console.WriteLine` في `DashboardPage.razor` (BlazorWebView) ظهر في **Logcat** (تحت وسم `DOTNET`)، وليس في **Output Window** (Visual Studio). هذا جعل التشخيص صعباً (كنا نبحث في Output Window دون جدوى).
+
+**الإجراء الوقائي:**
+- لتصحيح BlazorWebView، استخدم **Logcat** (`adb logcat | findstr "DOTNET"` أو Tools → Android → Device Log).
+- استخدم `Console.WriteLine` (وليس `Debug.WriteLine`) — لأن `Debug.WriteLine` قد لا يظهر في BlazorWebView.
+
+---
+
+### درس 16: حالة الأحرف في DTOs (`ProgramID` وليس `PROGRAMID`) (4 نوفمبر 2026)
+
+**المشكلة:** استخدمت `s.PROGRAMID` في `DashboardPage.razor`، لكن `MedicationScheduleDto` يحتوي على `ProgramID` (حالة أحرف مختلفة). هذا سبب خطأ `CS1061`.
+
+**الإجراء الوقائي:** قبل استخدام أي DTO، تحقق من أسماء الحقول (بـ `Ctrl+Space` في Visual Studio، أو من ملف DTO نفسه).
+---
 ## 📝 سجل التحديثات
 
 | التاريخ | التحديث |
