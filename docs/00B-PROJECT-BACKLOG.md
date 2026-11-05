@@ -193,6 +193,7 @@ RubikCare في مرحلة Pre-Launch. الهدف الحالي:
 | S3.5-H5 | إصلاح الإشعارات المتكررة — بعد "تناول" مفيش إشعار، لو ما ضغطش تجيله مرتين فقط | 3 | بعد إصلاح ReminderProcessingService — يحتاج اختبار + ضبط MaxRepeats=2. |
 | S3.5-H6 | ✅ إصلاح Blocker: بطء Pharma Dashboard (42s) + اختفاء الأشكال البيانية | 8 | **مكتمل (29 أكتوبر):** السبب الجذري كان `ApiSettings.BaseUrl` في `appsettings.json` يشير إلى منفذ تطوير مغلق (5235). تم تصحيحه إلى `https://api.rubikcare.com` + ضبط `ASPNETCORE_ENVIRONMENT` إلى `Production`. الصفحات تعمل الآن بسرعة وبدون أخطاء. |
 |S3.5-H7 | ✅ تثبيت بيئة نشر PWA (إعدادات البيئة appsettings، حل حلقة cache-reset اللانهائية، وحماية web.config)| 5 | مكتمل (31 أكتوبر): تم اعتماد سكريبت نشر آمن (v4.0)، إصلاح منطق MAX_ATTEMPTS في صفحة التنظيف، وضبط اتصال الـ PWA بـ API الإنتاج بنجاح. |
+
 ### 🟢 مكتمل في هذه الجلسة (4 نوفمبر 2026)
 
 | # | المهمة | SP | ملاحظات |
@@ -207,7 +208,21 @@ RubikCare في مرحلة Pre-Launch. الهدف الحالي:
 | S3.5-H21 | إنشاء `DashboardNavigationBridge` | 1 | ✅ مستخدم في PWA + MAUI. |
 
 **المجموع (مكتمل):** 24 SP
+### ✅ مكتمل في 5 نوفمبر 2026 (الجزء الثاني)
 
+| # | المهمة | SP | ملاحظات |
+|---|---|---|---|
+| S3.5-H27 | **`DashboardFlowPage` — الصفحة الرئيسية الجديدة** | 8 | `CurrentUserProfileState` + `<RootComponent>` في XAML. يعمل. |
+| S3.5-H28 | **`DashboardPage.razor` — استخدام `CurrentUserProfileState`** | 3 | بدلاً من `[Parameter] UserProfileId`. يعمل. |
+| S3.5-H29 | **`OnboardingPage` — قبل تسجيل الدخول** | 5 | يظهر مرة واحدة (`has_seen_onboarding`). يعمل. |
+| S3.5-H30 | **`MedicineGuidePage` — `CaseIdOverride` + `ProgramIdOverride`** | 3 | يعمل (بعد تمرير `caseId` + `programId` في `ConvertToMauiRoute`). |
+| S3.5-H31 | **`PatientPointsFlow` — تمرير `userProfileId`** | 2 | يعمل (بعد `ConvertToMauiRoute`). |
+| S3.5-H32 | **`DashboardNavigationBridge` — `Navigate` + `OpenMenu`** | 2 | يعمل. |
+| S3.5-H33 | **`13-MAUI.md` v4.0 — إعادة كتابة شاملة** | 5 | 5 أنماط ناجحة + 4 فاشلة + 7 دروس جديدة. |
+| S3.5-H34 | **إصلاح `MainPage = shell` قبل `InitializeAsync`** | 2 | `App.xaml.cs` — يمنع ومضة `LoginPage`. |
+| S3.5-H35 | **إصلاح `has_seen_onboarding` = `true` (تم تعيينه مسبقاً)** | 1 | `Preferences.Remove("has_seen_onboarding")` مؤقتاً للتجربة. |
+
+**المجموع (مكتمل — الجزء الثاني):** 31 SP
 ### 🟡 مؤجل في هذه الجلسة
 
 | # | المهمة | SP | السبب |
@@ -243,7 +258,45 @@ RubikCare في مرحلة Pre-Launch. الهدف الحالي:
 المجموع (Low): 3 SP
 
 المجموع (Sprint 3.5): 32 SP (8 منها مكتملة في 29 أكتوبر)
+### 🎉 ملخص جلسة 5 نوفمبر 2026 — نجاح `DashboardFlowPage`
 
+**الهدف:** استبدال `DashboardPage` (القديمة) بـ `DashboardPage.razor` (المشترك) في MAUI — كصفحة رئيسية.
+
+**النتيجة:** ✅ **نجاح كامل** (بعد فشل متكرر في محاولات سابقة).
+
+**الحل الناجح:**
+1. `DashboardFlowPage.xaml` — `<BlazorWebView>` + `<RootComponent>` في XAML (بدون `Parameters`).
+2. `DashboardFlowPage.xaml.cs` — `CurrentUserProfileState.SetUserProfile` في `Constructor` (من `Preferences`).
+3. `DashboardPage.razor` — `@inject CurrentUserProfileState UserState` (بدلاً من `[Parameter] UserProfileId`).
+4. `App.xaml.cs` — `MainPage = shell` **قبل** `InitializeAsync`.
+5. `AppShell.InitializeAsync` — `GoToAsync` أولاً (بدون `Task.Delay`)، `RefreshUnreadNotificationsCount` في الخلفية.
+6. `AppShell.xaml` — `Onboarding` أول `ShellContent` (مرة واحدة — بدون تكرار).
+
+**الصفحات التي تم اختبارها (وتعمل):**
+- ✅ `DashboardFlowPage` (الصفحة الرئيسية الجديدة).
+- ✅ `OnboardingPage` (قبل تسجيل الدخول).
+- ✅ `PatientPointsFlow` (من Dashboard + PspDetail).
+- ✅ `MedicineGuideFlow` (من Dashboard — بعد تمرير `caseId` + `programId`).
+- ✅ `PspDetailFlow` (من Dashboard).
+- ✅ `MedicationScheduleFlow` (من Dashboard).
+- ✅ `PspAboutFlow` (من Dashboard — إذا لم تكن هناك نقاط).
+
+**الصفحات التي تم التراجع عنها (مؤقتاً):**
+- ❌ `DashboardPage` (القديمة — أصبحت `LegacyDashboard` — مخفية).
+- ❌ `Onboarding` (الموسّع — في جلسة منفصلة).
+
+**ما تم توثيقه:**
+- ✅ `13-MAUI.md` v4.0 — 5 أنماط ناجحة + 4 فاشلة + 7 دروس جديدة.
+- ✅ `01-ARCHITECTURE.md` v2.1 — قيود `BlazorWebView` + `Shared.UI` (Page Components).
+- ✅ `00-MASTER-INDEX.md` v2.3 — تحديث `Modules Snapshot` + `Dark Areas` + `Epic 14`.
+
+**ما تبقى (لجلسات منفصلة):**
+- ⏳ `OnboardingPage` (موسّع — صور + روابط + شرح مفصل).
+- ⏳ القوائم الديناميكية (Epic 8 — 13 SP).
+- ⏳ `OrganizationSubscription` (خطط الاشتراك).
+- ⏳ `MenuVisibilityRules` (التحكم في الميزات).
+- ⏳ `DashboardPage.xaml` (MAUI) — تطابق PWA (XAML).
+- ⏳ إصلاح مفاتيح الترجمة في بعض صفحات MAUI (`S3.5-H26`).
 ---
 
 ## 📈 Velocity Chart
@@ -270,13 +323,24 @@ RubikCare في مرحلة Pre-Launch. الهدف الحالي:
 | 6: Notifications System | 6 | 6 | ~100% ✅ |
 | 7: PWA | 10 | 10 | ~100% ✅ |
 | 8: Menus & Services | 6 | 0 | 0% |
-| 9: Patient Mobile (MAUI) | 3 | 3 |~85% |
+| 9: Patient Mobile (MAUI) | 8 | 8 | ~100% ✅ |
 | 10: Deployment & Release | 4 | 1 | ~25% |
 | 11: Personal Health Records (PHR) | 3 (Phases) | 0 | 0% |
 | 12: Integration Hub | 3 (Phases) | 0 | 0% |
 | 13: Rep (Medical Representative) | 4 (Phases) | 0 | 0% |
-| Epic 14: Dashboard Unification (PWA + MAUI) | 5 | 3 | ~60% |
+| 14: Dashboard Unification (PWA + MAUI) | 5 | 5 | ~100% ✅ |
 ---
+تفاصيل Epic 14 (مكتمل):
+
+✅ DashboardPage.razor (PWA) — مكتمل.
+
+✅ PatientPointsDashboard (PWA + MAUI) — مكتمل.
+
+✅ MedicineGuidePage (PWA) — مكتمل.
+
+✅ DashboardFlowPage (MAUI) — مكتمل (النمط 7).
+
+✅ DashboardPage.razor (MAUI) — مكتمل (بعد CurrentUserProfileState).
 
 ## 📋 Product Backlog (المستقبلي)
 
@@ -547,6 +611,21 @@ RubikCare في مرحلة Pre-Launch. الهدف الحالي:
 ---
 
 ## 📝 Changelog (مختصر)
+### v6.4 — 5 نوفمبر 2026
+
+- ✅ **نجاح `DashboardFlowPage`** (الصفحة الرئيسية الجديدة) — `CurrentUserProfileState` + `<RootComponent>` في XAML (S3.5-H27).
+- ✅ **`DashboardPage.razor` (المشترك)** — استخدام `CurrentUserProfileState` (بدلاً من `[Parameter] UserProfileId`) (S3.5-H28).
+- ✅ **`OnboardingPage`** — قبل تسجيل الدخول (S3.5-H29).
+- ✅ **`MedicineGuidePage`** — `CaseIdOverride` + `ProgramIdOverride` (S3.5-H30).
+- ✅ **`PatientPointsFlow`** — تمرير `userProfileId` (S3.5-H31).
+- ✅ **`DashboardNavigationBridge`** — `Navigate` + `OpenMenu` (S3.5-H32).
+- ✅ **`13-MAUI.md` v4.0** — إعادة كتابة شاملة (S3.5-H33).
+- ✅ **إصلاح `MainPage = shell` قبل `InitializeAsync`** (S3.5-H34).
+- ✅ **إصلاح `has_seen_onboarding`** (S3.5-H35).
+- ✅ **إضافة `Epic 14: Dashboard Unification`** (100% مكتمل).
+- ✅ **تحديث `Epic 9: Patient Mobile`** (100% مكتمل).
+- ✅ **إضافة "ملخص جلسة 5 نوفمبر 2026"** (نجاح `DashboardFlowPage`).
+- ✅ **تحديث `13-MAUI.md` v4.0** + `01-ARCHITECTURE.md` v2.1 + `00-MASTER-INDEX.md` v2.3.
 ### v6.3 — 4 نوفمبر 2026
 
 - ✅ **إعادة تصميم `DashboardPage.razor` (المشترك) — PWA:** Header بسيط + Stats Cards + Program Cards + Adherence Bar + Reminders (S3.5-H14).
@@ -771,6 +850,30 @@ RubikCare في مرحلة Pre-Launch. الهدف الحالي:
 
 **الإجراء الوقائي:** قبل استخدام أي DTO، تحقق من أسماء الحقول (بـ `Ctrl+Space` في Visual Studio، أو من ملف DTO نفسه).
 ---
+### درس 17: `MainPage = shell` يجب أن يسبق `InitializeAsync` (5 نوفمبر 2026)
+
+**المشكلة:** `App.xaml.cs` كان يستدعي `shell.InitializeAsync()` **قبل** `MainPage = shell`. `GoToAsync("//Onboarding")` تفشل (لأن `Shell` ليس `MainPage` بعد) → `catch` → `GoToAsync("//LoginPage")` (يفشل أيضاً) → `MainPage = shell` → `Shell` يعرض **أول `ShellContent`** (LoginPage) → ومضة `LoginPage` قبل `Onboarding`.
+
+**الحل:** `MainPage = shell` **قبل** `InitializeAsync`:
+```csharp
+MainPage = shell;
+await shell.InitializeAsync();
+---
+الإجراء الوقائي:
+- في App.xaml.cs، عيّن MainPag = shell قبل InitializeAsync
+- في InitializeAsync، استدعِ GoToAsync أولاً (بدون Task.Delay).
+- Task.Delay (للتحديثات الخلفية) — بعد GoToAsync (في Task.Run).
+---
+### درس 18: has_seen_onboarding قد يكون true من محاولات سابقة (5 نوفمبر 2026)
+**المشكلة**: InitializeAsync تفحص has_seen_onboarding — وإذا كان true (من محاولات سابقة)، تذهب إلى //LoginPage (بدلاً من //Onboarding).
+
+الحل: Preferences.Remove("has_seen_onboarding") — مؤقتاً (للتجربة). أو — Preferences.Get("has_seen_onboarding", false) (القيمة الافتراضية false).
+
+الإجراء الوقائي:
+- في بيئة التطوير، استخدم Preferences.Remove("has_seen_onboarding") قبل InitializeAsync (للتجربة).
+- في الإنتاج، لا تمسحها (لأنها تُعيَّن عند "تخطي" أو "ابدأ الآن").
+- تأكد من أن has_seen_onboarding ليست true (من محاولات سابقة).
+---
 ## 📝 سجل التحديثات
 
 | التاريخ | التحديث |
@@ -785,6 +888,7 @@ RubikCare في مرحلة Pre-Launch. الهدف الحالي:
 | 28 أكتوبر 2026 | v6.0 — إغلاق Sprint 3 (58 SP) + إضافة Sprint 3.5 (24 SP) + Epic 13 (Rep) + الدرس 8. |
 | 29 أكتوبر 2026 | v6.1 — حل Blocker (Pharma Dashboard) + TD-001 + الدرسان 9, 10 + تحديث TD #8. |
 | 31 أكتوبر 2026 | v6.2 — حل  PWA + TD-002 تثبيت بيئة نشر + الدرس  11+ تحديث 7: PWA. |
+| 5 نوفمبر 2026 | v6.4 — نجاح `DashboardFlowPage` (الصفحة الرئيسية الجديدة) + `DashboardPage.razor` + `OnboardingPage` + `MedicineGuidePage` + `PatientPointsFlow` + `13-MAUI.md` v4.0 + `01-ARCHITECTURE.md` v2.1 + `00-MASTER-INDEX.md` v2.3 + الدرسان 17, 18 + `Epic 14` (100%) + `Epic 9` (100%) |
 
 ---
 
