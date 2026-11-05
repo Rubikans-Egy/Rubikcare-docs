@@ -1145,7 +1145,31 @@ protected override async Task OnInitializedAsync()
 **الحل:** لفّ الـ `Action` في `MainThread.BeginInvokeOnMainThread` + `try/catch` (أو `SafeAsyncAction`).
 
 ---
+### 11.5 ⚠️ `CurrentUserProfileState` (Singleton) — نسختان (MAUI + BlazorWebView) (4 نوفمبر 2026)
 
+**المشكلة:** `CurrentUserProfileState` مسجل في `MauiProgram.cs` كـ `AddSingleton`. لكن `DashboardPage.xaml.cs` (MAUI) و `DashboardPage.razor` (BlazorWebView) **يحقنان نسختين مختلفتين** (لأن `BlazorWebView` يستخدم حاوية DI مستقلة — انظر § 2.1).
+
+**النتيجة:** `SetUserProfile(15, ...)` في MAUI لا يؤثر على `DashboardPage.razor` (الذي يرى `UserProfileId = 0`).
+
+**الأعراض:**
+- `CurrentUserProfileState.UserProfileId` = 15 في MAUI، لكن 0 في `DashboardPage.razor`.
+- `OnChange` لا يُستدعى في `DashboardPage.razor` (لأن `SetUserProfile` عدّل نسخة MAUI فقط).
+
+**الحل:**
+- **لا تعتمد على Singleton Services** للتواصل بين MAUI و BlazorWebView.
+- **استخدم `RootComponent.Parameters`** (للصفحات الفرعية) — هذا يمرر القيمة إلى نفس نسخة المكون.
+
+**المرجع:** `13-MAUI` § 2.1، § 6.5.
+---
+### 11.7 ⚠️ `Console.WriteLine` في `BlazorWebView` يظهر في Logcat (وليس Output Window) (4 نوفمبر 2026)
+
+**المشكلة:** `Console.WriteLine` في `DashboardPage.razor` (BlazorWebView) ظهر في **Logcat** (تحت وسم `DOTNET` أو `chromium`)، وليس في **Output Window** (Visual Studio). هذا جعل التشخيص صعباً (كنا نبحث في Output Window دون جدوى).
+
+**الإجراء الوقائي:**
+- **لتصحيح `BlazorWebView`:** استخدم **Logcat** (Visual Studio: `Tools → Android → Device Log`، أو `adb logcat | findstr "DOTNET"`).
+- **`Debug.WriteLine`** في BlazorWebView **قد لا يظهر** (لأنه لا يمر عبر `Debug` في MAUI). استخدم `Console.WriteLine` (الذي يظهر في Logcat).
+
+---
 ## 🔗 الجزء الثاني عشر: نظام الملاحة (Navigation) في MAUI Shell
 
 ### 12.1 📌 القواعد الذهبية لتسجيل الصفحات
@@ -2285,7 +2309,7 @@ public PspSchedulePageFlow()
 | 2.0 | 17 أكتوبر 2026 | 13-MAUI v2.0 — دمج 10 + 11 + قاعدة تسجيل الصفحات + Bridges + إشارات |
 | **3.1** | **23 أكتوبر 2026** | **الجزء 20 — إضافة 7 أقسام (20.1 → 20.7): `JavaProxyThrowable` + `[QueryProperty]` من الطرفين + `Dispatcher.DispatchAsync` + ربط Bridge الشامل + Checklist "زر لا يعمل" + جدول "زر لا يعمل vs زر لا يفتح" + Checklist "قبل التشغيل"** |
 | **3.2** | **25 أكتوبر 2026** | **الجزء 20 — إضافة 6 أقسام (20.8 → 20.13): `patientId=0` (CaseID مفقود) + `PspDetailFlow` (QueryProperty + OnAppearing) + `MedicationScheduleFlow` (Dispatcher + CaseID) + `PatientPointsFlow` (Wrapper + Bridge بدلاً من EventCallback) + `ScanTokenPage` (حذف + استخدام PharmacyScanTokenPage) + `PspSchedulePageFlow` (تمرير PatientId)** |
-
+| **3.3** | **4 نوفمبر 2026** | **إضافة: § 6.5 (قيود `BlazorWebView` + `ShellContent`)، § 11.5 (`CurrentUserProfileState` — نسختان)، § 11.6 (`OnAfterRender` لا يُستدعى)، § 11.7 (`Console.WriteLine` في Logcat)** |
 ---
 
 **© 2026 RubikCare — للاستخدام الداخلي**
