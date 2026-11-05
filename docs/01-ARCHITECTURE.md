@@ -178,8 +178,18 @@ graph TD
 - **إضافات حديثة**:
   - **`PointDashboard.razor`** + `PointDashboardNavigationBridge.cs` + `PointModels.cs`.
   - **`point-dashboard.css`**.
-- **قاعدة ذهبية**: تحتوي على **مكونات** قابلة لإعادة الاستخدام، وليس صفحات كاملة، لتجنب تعقيد التبعيات.
-
+- قاعدة ذهبية: تحتوي على مكونات قابلة لإعادة الاستخدام عبر المنصات (Web + PWA + MAUI). هذا يشمل:
+  - **مكونات UI** (مثل `RubikSmartTable`, `RubikButton`) — تستخدم في أي مكان.
+  - **مكونات الصفحات (Page Components)** — التي تُستدعى داخل `BlazorWebView` في MAUI (كصفحات فرعية فقط) أو كصفحات Razor في PWA/Web.
+  
+  **الممنوع:** 
+  - وضع منطق تطبيق كامل (مثل `@page` مع Routing خاص بمنصة واحدة) داخل `Shared.UI`.
+  - استخدام `BlazorWebView` في MAUI كصفحة رئيسية (`ShellContent`) مع `Parameters` ديناميكية (انظر `13-MAUI` § 6.5).
+  
+  **المسموح:**
+  - مكونات `.razor` بدون `@page`، تُستدعى من الصفحات الحاوية في كل منصة.
+  - مكونات صفحات (بـ `@page`) تُستدعى كصفحات فرعية في MAUI (`Routing.RegisterRoute`).
+  - 
 ### 2.9 `RubikCare.Tests` — شبكة الأمان الجودة 🛡️
 
 **ضمان استقرار المعمارية.**
@@ -269,6 +279,7 @@ UserProfile (شخص واحد — UserProfileID = 15)
 | **R5** | **في `PointsContext`، استخدم `CaseID = PatientProfileID` (وليس `PSPPatients.CaseID`).** | `EarnPointsHandler` يبحث عن `Balance` بـ `PatientProfileID`. |
 | **R6** | **`PSPPatient.ParticipationID` يشير إلى "أول مشاركة" فقط (موروث).** | لا تعتمد عليه للبحث عن "كل المشاركات". |
 
+
 ### 3ب.4 التأثير على كل طبقة
 
 | الطبقة | التغيير | الملفات |
@@ -304,7 +315,16 @@ TryAwardDailyDosePointsAsync
 - [ ] أضف `UNIQUE INDEX` على `PatientProfileID` في `PSPPatients` (إذا لم يكن موجوداً).
 
 ---
+### 3.4 ⚠️ قيود `BlazorWebView` في MAUI (4 نوفمبر 2026)
 
+**القاعدة الذهبية:** `Shared.UI` (مكونات الصفحات) **لا تُستخدم كصفحات رئيسية** (`ShellContent`) في MAUI مع `Parameters` ديناميكية. هذا تعارض معماري في MAUI 10، وليس خطأً في الكود.
+
+| نوع الصفحة | هل يمكن استخدام `BlazorWebView`؟ | التوصية |
+|---|---|---|
+| **صفحة رئيسية (`ShellContent`)** | ⚠️ نعم، **فقط** إذا كانت لا تحتاج `Parameters` ديناميكية (مثل `ClinicDashboard` — تعتمد على `CurrentOrganizationState`). | **الأفضل:** XAML محلي (مثل `DashboardPage.xaml`). |
+| **صفحة فرعية (`Routing.RegisterRoute`)** | ✅ نعم، مع `RootComponents.Add` في `Constructor`/`OnAppearing` + `Parameters` (مثل `PatientPointsFlow`، `MedicineGuideFlow`). | **موصى به:** `BlazorWebView` + `Parameters`. |
+
+**المرجع:** `13-MAUI` § 6.5 (قيود `BlazorWebView` + `ShellContent`).
 ---
 
 ## 📋 الجزء الرابع: العلاقات والتبعيات (بصيغة مبسطة)
@@ -732,7 +752,18 @@ Reference ID يجب أن يكون int (معرّف الكيان).
 
 
 ---
+### 7.3 ⚠️ متى تستخدم `Shared.UI` (مكونات الصفحات) في MAUI؟
 
+**السياق:** `Shared.UI` يحتوي على مكونات صفحات (مثل `DashboardPage.razor`) تُستخدم في PWA/Web. في MAUI، استخدامها يعتمد على نوع الصفحة.
+
+| الحالة | الاستخدام | المثال |
+|---|---|---|
+| **صفحة رئيسية (`ShellContent`)** | ❌ **لا تستخدم `BlazorWebView`** مع `Parameters` ديناميكية. استخدم **XAML محلي**. | `DashboardPage.xaml` (محلي). |
+| **صفحة رئيسية بدون `Parameters`** | ✅ يمكن استخدام `BlazorWebView` + `<RootComponent>` في XAML (يعتمد على Singleton Service). | `ClinicDashboardPage.xaml` (يعمل). |
+| **صفحة فرعية (`Routing.RegisterRoute`)** | ✅ استخدم `BlazorWebView` + `RootComponents.Add` مع `Parameters`. | `PatientPointsFlow.xaml.cs` (يعمل). |
+| **مكون UI (بدون `@page`)** | ✅ يمكن استخدامه في أي مكان (داخل `BlazorWebView`). | `RubikSmartTable` (يعمل). |
+
+**المرجع:** `13-MAUI` § 6.5.
 ```
 
 ## 🧭 الجزء الثامن: شجرة قرار اختيار الخدمة
@@ -965,6 +996,9 @@ var result = await SyncUseCase.ExecuteAsync(123);
 | 6 | ⭐ **لا تستخدم `IGenericService<T>` للعمليات المعقدة** - استخدم UseCase |
 | 7 | ⭐ **لا تضع منطق أعمال في Controllers** - Controllers للتنسيق فقط |
 | 8 | ⭐ **Mobile لا يعتمد على أي مشروع** - التواصل عبر HTTP فقط |
+| 9 | ⚠️ لا تستخدم `BlazorWebView` كصفحة رئيسية (`ShellContent`) مع `Parameters` ديناميكية | تعارض معماري في MAUI 10 (انظر `13-MAUI` § 6.5). |
+| 10 | ⚠️ لا تعتمد على Singleton Services (`CurrentUserProfileState`) للتواصل بين MAUI و BlazorWebView | نسختان (حاويتان مختلفتان) — انظر `13-MAUI` § 11.5. |
+| 11 | ⚠️ `Console.WriteLine` في `BlazorWebView` → Logcat (وليس Output Window) | استخدم Logcat للتشخيص (انظر `13-MAUI` § 11.7). |
 
 ---
 
@@ -1335,7 +1369,7 @@ var result = await SyncUseCase.ExecuteAsync(123);
 | **1.0** | **3 أكتوبر 2026** | الإصدار الأولي — `00-architecture-overview.md` |
 | **1.0** | **3 أكتوبر 2026** | الإصدار الأولي — `24-project-structure-inventory.md` |
 | **2.0** | **16 أكتوبر 2026** | **`01-ARCHITECTURE` v2.0** — دمج `00` + `01` + `24` — مع الحفاظ على كل التفاصيل + إضافة Reusable Services + EF Core ملاحظات |
-
+| **2.1** | **4 نوفمبر 2026** | **تحديث صياغة `Shared.UI` (Page Components). إضافة § 3.4 (قيود `BlazorWebView` في MAUI). إضافة § 7.3 (متى تستخدم `Shared.UI` في MAUI). إضافة تحذيرات 9-11.** |
 ---
 
 **© 2026 RubikCare — للاستخدام الداخلي**
