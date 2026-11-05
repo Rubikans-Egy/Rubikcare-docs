@@ -229,7 +229,7 @@
 | :--- | :--- | :--- | :--- |
 | Local | https://localhost | https://localhost | https://localhost |
 | Test/UAT | test.rubikcare.com | uat.rubikcare.com | stagepu.rubikcare.com |
-| Production | rubikcare.com | api.rubikcare.com | (تلقائي) |
+| Production | rubikcare.com | api.rubikcare.com | stage.rubikcare.com |
 
 ### IIS Sites على VPS
 
