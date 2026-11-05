@@ -93,6 +93,7 @@
 | 9 | الإشعارات | ✅ | ✅ | 08 |
 | 10 | الموقع التسويقي | ✅ | ✅ | 18 |
 | 11 | نظام الصلاحيات (Schema) | ✅ | ❌ | 19 |
+| 12 | Dashboard (PWA) — `DashboardPage.razor` | ✅ | ✅ | 00B (S3.5-H14) |
 
 ### 🟠 Modules مكتملة جزئياً
 
@@ -102,6 +103,7 @@
 | 2 | PWA | MessagingHubPage + 3 لوحات مهنية |
 | 3 | نظام الصلاحيات | الـ Middleware + الـ UI |
 | 4 | طلبات شراء الأدوية | تكامل مع نظام النقاط |
+| 5 | Dashboard (MAUI) — `DashboardPage.xaml` | ✅ XAML محلي | ⏳ تطابق PWA مؤجل | 00B (S3.5-H23) |
 
 ### ⏳ Modules مُخطَّطة (لم تبدأ)
 
@@ -116,7 +118,8 @@
 | 7 | Medical Tourism | السياحة العلاجية | 17 |
 | 8 | Personal Health Records (PHR) | السجل الطبي الشخصي | 21 |
 | **9** | **Integration Hub** | **مركز التكامل الخارجي** | **22** |
-
+| 10 | Dashboard Unification (PWA + MAUI) | استخدام `Shared.UI` في MAUI (مؤجل — تعارض `BlazorWebView` + `ShellContent`) | 00B (Epic 14) |
+| 11 | Dynamic Menus (MAUI) | قوائم ديناميكية من DB في `AppShell` | 03-MENUS |
 ---
 
 ## 🔴 الجزء الرابع: المناطق المظلمة (Dark Areas)
@@ -134,7 +137,10 @@
 | 9 | Nearby Pharmacies | ✅ كامل | 14 |
 | 10 | CustomBlazorWebView | ✅ كامل | ✅ 13 |
 | 11 | Marketing Website — Header/Footer | ✅ كامل | ✅ 18 |
-
+| 12 | `DashboardPage.xaml` (MAUI) — النسخة المحلية | ✅ كامل (يعمل) | — |
+| 13 | `DashboardPage.razor` (Shared.UI) — مشترك | ✅ كامل (يعمل في PWA) | 00B (S3.5-H14) |
+| 14 | `CurrentUserProfileState` (Singleton) | ✅ مُنشأ (غير مستخدم في MAUI — بسبب نسختين) | 13-MAUI § 11.5 |
+| 15 | `DashboardNavigationBridge` | ✅ مُنشأ (مستخدم في PWA + MAUI) | — |
 ---
 
 ## 📅 الجزء الخامس: خريطة الجلسات
@@ -149,7 +155,7 @@
 | #132 | 18 أكتوبر 2026 | إصدار 00-MASTER-INDEX v2.0 | 00 |
 | #133 | 26 أكتوبر 2026 | إصدار 00-MASTER-INDEX v2.1 + PHR (21) + Sprint 4-6 | 00 + 00B + 21 |
 | **#134** | **26 أكتوبر 2026** | **إصدار 00-MASTER-INDEX v2.2 + Integration Hub (22) + Sprint 7-9** | **00 + 00B + 22** |
-
+| #135-136 | 4-5 نوفمبر 2026 | إعادة تصميم `DashboardPage.razor` (PWA) + ربط API + فشل MAUI (BlazorWebView) + العودة لـ XAML المحلي + توثيق الدروس 12-16 | 00B (v6.3) + 13-MAUI (v3.3) + 01-ARCHITECTURE (v2.1) |
 ---
 
 ## 🚨 الجزء السادس: الأولويات الحالية
@@ -162,7 +168,10 @@
 | 2 | اختبار E2E لنظام النقاط | 00B |
 | 3 | واجهة المريض (PointDashboard) | 06 |
 | 4 | حل مشكلة mscorlib.dll | 16 |
-
+| 5 | إكمال `DashboardPage.xaml` (MAUI) — تطابق PWA | 00B (S3.5-H23) |
+| 6 | قوائم ديناميكية في `AppShell` (من DB) | 00B (S3.5-H24) + 03-MENUS |
+| 7 | إصلاح مفاتيح الترجمة في بعض صفحات MAUI | 00B (S3.5-H26) + 04-TRANSLATION § 4.6 |
+| 8 | مراجعة بيئة VS (wasm-tools) | 13 |
 ### 🟠 P2 — عالية
 
 | # | المهمة | الوثيقة |
@@ -172,6 +181,12 @@
 | 3 | مستويات الولاء | 06 |
 | 4 | إصلاح المفاتيح المترجمة | 04 |
 | 5 | إصلاح الترميز العربي في الإشعارات | 08 |
+| 6| اختبار E2E لنظام النقاط | 00B |
+| 7 | ربط النقاط بالتقارير | 06 + 07 |
+| 8 | تقرير النقاط المخصص | 07 |
+| 9 | مستويات الولاء | 06 |
+| 10 | إصلاح الترميز العربي في الإشعارات | 08 |
+| 11 | (`Epic 14`) Dashboard Unification (بعد حل `BlazorWebView` + `ShellContent`) | 00B |
 
 ### 🟡 P3 — متوسطة
 
@@ -253,6 +268,8 @@
 | 12 | 🔴 قاعدة "الاستنتاج من السياق": قبل افتراض عطل في البنية التحتية، راجع الأدلة الفعلية في السياق. |
 | 13 | 🔴 قواعد العمل خلال الجلسة: ابدأ كل رد بـ [#رقم] متسلسل، نفّذ خطوة واحدة واضحة في كل رد. |
 | 14 | 🔴 قاعدة التقديرات: التقديرات تُبنى على معامل AI (0.3-0.5) + معدل التطوير الفعلي + التعقيد. |
+| 15 | 🔴 لا تستخدم `BlazorWebView` كصفحة رئيسية (`ShellContent`) في MAUI مع `Parameters` ديناميكية — تعارض معماري (انظر `13-MAUI` § 6.5). |
+| 16 | 🔴 لا تعتمد على Singleton Services للتواصل بين MAUI و BlazorWebView (نسختان — انظر `13-MAUI` § 11.5). |
 
 ### 🎯 عند الغموض:
 
@@ -282,7 +299,9 @@
 | Tests — Architecture | 33 |
 | نظام النقاط — Handlers | 19 |
 | نظام التقارير — Handlers | 8 |
-
+| Shared.UI — مكونات | 68 + `DashboardPage.razor` + `DashboardNavigationBridge` + `CurrentUserProfileState` |
+| Api.Web — Endpoints | ~290 + `patient-dashboard` + `patient-details` (CaseID) |
+| Domain — Entities | 150+ + `PatientProgramItemDto` (CaseID + ParticipationId) |
 ---
 
 ## 🕰️ الجزء العاشر-ب: سجل التقديرات التاريخية (Historical Estimates)
@@ -330,7 +349,10 @@
 | **19** | **Integration Hub: IIntegrationClient موحد لكل التكاملات** | **22** |
 | **20** | **Integration Hub: Adapters مستقلة (REST, SOAP, FHIR, Webhook)** | **22** |
 | **21** | **Integration Hub: كل استدعاء له Audit Log + Idempotency** | **22** |
-
+| 22 | **الصفحات الرئيسية في MAUI (`ShellContent`) = XAML محلي** (وليس `BlazorWebView` مع `Parameters` ديناميكية) | 13-MAUI § 6.5 |
+| 23 | **الصفحات الفرعية في MAUI = `BlazorWebView` + `RootComponents.Add`** (مع `Parameters`) | 13-MAUI § 6.1 |
+| 24 | **لا Singleton Services للتواصل بين MAUI و BlazorWebView** | 13-MAUI § 11.5 |
+| 25 | **`Shared.UI` للمكونات (بما فيها Page Components) — لكن ليس كصفحات رئيسية مع Parameters** | 01-ARCHITECTURE § 2.8 |
 ---
 
 ## 🎯 الجزء الثاني عشر: "Stable vs Unstable" Modules
@@ -348,7 +370,7 @@
 | 7 | PSP Core | 05 |
 | 8 | Reports | 07 |
 | 9 | Marketing Website | 18 |
-
+| 10 | Dashboard (PWA) — `DashboardPage.razor` | 00B (S3.5-H14) |
 ### 🟡 Modules قابلة للتعديل (بإذن)
 
 | # | Module | السبب |
@@ -361,6 +383,7 @@
 | 6 | نظام الصلاحيات | Phase 2 + 3 |
 | 7 | PHR (جديد) | Phase 1-3 |
 | **8** | **Integration Hub (جديد)** | **Phase 1-3** |
+| 9 | Dashboard (MAUI) — `DashboardPage.xaml` | تطابق PWA (S3.5-H23) |
 
 ### 🔴 Modules غير مستقرة (قيد إعادة الهيكلة)
 
@@ -370,7 +393,7 @@
 | 2 | AdminIdentity | LVL 1 → LVL 3 |
 | 3 | PSPProgramsList | LVL 1 → LVL 3 |
 | 4 | إزالة ProgramID المتبقية | جزئياً |
-
+| 5 | DashboardPage (المشترك في MAUI) | فشل `BlazorWebView` + `ShellContent` — مؤجل (S3.5-H22) |
 ---
 
 ## 🎯 الجزء الثالث عشر: كيف تستخدم هذه الوثيقة؟
@@ -402,7 +425,7 @@
 - `21-PHR-SYSTEM.md` (جديد)
 - `22-INTEGRATION-HUB.md` (جديد)
 - `00B-PROJECT-BACKLOG.md`
-
+- 13-MAUI.md (v3.3 — 4 نوفمبر 2026)
 ---
 
 ## 📝 الجزء الخامس عشر: سجل التحديثات
@@ -413,7 +436,7 @@
 | 2.0 | 18 أكتوبر 2026 | v2.0 — تحديث الفهرس (20 وثيقة) + 19-PERMISSIONS |
 | 2.1 | 26 أكتوبر 2026 | v2.1 — إضافة 21-PHR-SYSTEM + Epic 11 |
 | **2.2** | **26 أكتوبر 2026** | **v2.2 — إضافة 22-INTEGRATION-HUB + Epic 12 + Sprint 7-9 + تحديث القرارات المعمارية (19-21)** |
-
+| **2.3** | **4 نوفمبر 2026** | **تحديث: Modules Snapshot (Dashboard PWA + MAUI). Dark Areas (12-15). خريطة الجلسات (#135-136). الأولويات (P1/P2). قواعد AI (15-16). إحصائيات المشروع. القرارات (22-25). Stable vs Unstable. الروابط** |
 ---
 
 © 2026 RubikCare — للاستخدام الداخلي
