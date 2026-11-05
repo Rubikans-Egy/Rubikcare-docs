@@ -193,7 +193,32 @@ RubikCare في مرحلة Pre-Launch. الهدف الحالي:
 | S3.5-H5 | إصلاح الإشعارات المتكررة — بعد "تناول" مفيش إشعار، لو ما ضغطش تجيله مرتين فقط | 3 | بعد إصلاح ReminderProcessingService — يحتاج اختبار + ضبط MaxRepeats=2. |
 | S3.5-H6 | ✅ إصلاح Blocker: بطء Pharma Dashboard (42s) + اختفاء الأشكال البيانية | 8 | **مكتمل (29 أكتوبر):** السبب الجذري كان `ApiSettings.BaseUrl` في `appsettings.json` يشير إلى منفذ تطوير مغلق (5235). تم تصحيحه إلى `https://api.rubikcare.com` + ضبط `ASPNETCORE_ENVIRONMENT` إلى `Production`. الصفحات تعمل الآن بسرعة وبدون أخطاء. |
 |S3.5-H7 | ✅ تثبيت بيئة نشر PWA (إعدادات البيئة appsettings، حل حلقة cache-reset اللانهائية، وحماية web.config)| 5 | مكتمل (31 أكتوبر): تم اعتماد سكريبت نشر آمن (v4.0)، إصلاح منطق MAX_ATTEMPTS في صفحة التنظيف، وضبط اتصال الـ PWA بـ API الإنتاج بنجاح. |
+### 🟢 مكتمل في هذه الجلسة (4 نوفمبر 2026)
 
+| # | المهمة | SP | ملاحظات |
+|---|---|---|---|
+| S3.5-H14 | إعادة تصميم `DashboardPage.razor` (المشترك) | 8 | ✅ مكتمل في PWA (Header + Stats + Program Cards + Adherence + Reminders). |
+| S3.5-H15 | ربط `DashboardPage.razor` بـ API الحقيقية | 5 | ✅ `psp/entry` + `patient-details` + `patient-dashboard` + `schedules`. |
+| S3.5-H16 | إصلاح RTL/LTR في `DashboardPage.razor` (PWA) | 2 | ✅ `TranslationState` + `localStorage`. |
+| S3.5-H17 | إضافة `ProgramCardDto` (`CaseID` + `ParticipationId`) | 2 | ✅ Backend + PWA (يُستخدم في التوجيه). |
+| S3.5-H18 | ربط `PatientPointsDashboard` (`/patient/points`) | 3 | ✅ PWA + MAUI (يعمل). |
+| S3.5-H19 | إصلاح `MedicineGuidePage` (استقبال `caseId` + `programId`) | 2 | ✅ PWA (يعمل). |
+| S3.5-H20 | إنشاء `CurrentUserProfileState` (Singleton) | 1 | ✅ مُنشأ (لكن غير مستخدم في MAUI — بسبب نسختين). |
+| S3.5-H21 | إنشاء `DashboardNavigationBridge` | 1 | ✅ مستخدم في PWA + MAUI. |
+
+**المجموع (مكتمل):** 24 SP
+
+### 🟡 مؤجل في هذه الجلسة
+
+| # | المهمة | SP | السبب |
+|---|---|---|---|
+| S3.5-H22 | استخدام `DashboardPage.razor` (المشترك) في MAUI | — | ❌ فشل (تعارض `BlazorWebView` + `ShellContent` — انظر الدروس 12-16). |
+| S3.5-H23 | تعديل `DashboardPage.xaml` (المحلية) لتطابق PWA (XAML) | 8 | ⏳ مؤجل (الخيار B). |
+| S3.5-H24 | قوائم ديناميكية في `AppShell` (من DB) | 13 | ⏳ مؤجل (أسهل من `BlazorWebView`). |
+| S3.5-H25 | تحويل `AppShell` إلى صفحة بسيطة + قائمة مشتركة | — | ⏳ مؤجل (مخاطرة عالية). |
+| S3.5-H26 | إصلاح ظهور مفاتيح الترجمة في بعض صفحات MAUI | 5 | ⏳ مؤجل (`04-TRANSLATION` § 4.6). |
+
+**المجموع (مؤجل):** 26 SP (بدون H22/H25 — لأنها فشلت/مؤجلة بدون SP محدد).
 المجموع (High): 23 SP (15 SP منها مكتملة)
 
 ### 🟠 Medium Priority
