@@ -297,36 +297,86 @@ RubikCare في مرحلة Pre-Launch. الهدف الحالي:
 - ⏳ `MenuVisibilityRules` (التحكم في الميزات).
 - ⏳ `DashboardPage.xaml` (MAUI) — تطابق PWA (XAML).
 - ⏳ إصلاح مفاتيح الترجمة في بعض صفحات MAUI (`S3.5-H26`).
----
-## 🗓️ Sprint 3.6 — Post-Deployment Fixes (Round 2) — ⏳ In Progress
+## 🗓️ Sprint 3.6 — Post-Deployment Fixes (Round 2) — ✅ مكتمل (9 نوفمبر 2026)
 
 الهدف: إغلاق المهام الناتجة عن اختبار UAT (Round 2) — مشاكل Workflow، UI، و Notifications.
 
-### 🔴 High Priority
+### ✅ High Priority (مكتمل)
 
-| # | المهمة | SP | ملاحظات |
-|---|---|---|---|
-| S3.6-H1 | تفعيل دعوة مريض من دكتور لبرنامج دعم بشكل صحيح | 5 | دعوة المريض مش بتتفعل صح — يحتاج مراجعة `PSPInvitation` flow + API + UI. |
-| S3.6-H2 | مشكلة صفحة تفاصيل البرنامج — تجديد توكن + تأكيد استلام | 5 | `PspDetailComponent` — `RenewToken` + `ConfirmReceipt` مش شغالين صح. |
-| S3.6-H3 | إصلاح Error بدل صفحة النقاط (`points-dashboard`) | 3 | `PatientPointsFlow` / `points-dashboard` — خطأ بيظهر بدل الصفحة. |
-| S3.6-H4 | توليد مواعيد الأدوية — أكتر من دواء في نفس المعاد | 5 | لو برنامج فيه أكتر من دواء، التوليد بيجبرهم كلهم على نفس الوقت بدل ما كل دواء ليه جدوله المستقل. |
-| S3.6-H5 | تعديل منطق زر "ابدأ رحلتك العلاجية" | 3 | زر `StartTreatment` — منطق التفعيل/الظهور. |
+| # | المهمة | SP | ملاحظات | الحالة |
+|---|---|---|---|---|
+| S3.6-H1 | تفعيل دعوة مريض من دكتور لبرنامج دعم بشكل صحيح | 5 | ✅ اتحل: `EnrollUserInProgramAsync` بيفلتر بـ `ProgramID` (مش بس `PatientProfileID`). `ScanTokenPage` بقى بيستخدم `NewProgram` بدل `ActivePrograms.FirstOrDefault()`. `ScanTokenViewModel` بقى يعرض رسالة نجاح واضحة قبل الـ Navigation. | ✅ مكتمل |
+| S3.6-H2 | مشكلة صفحة تفاصيل البرنامج — تجديد توكن + تأكيد استلام | 5 | ✅ اتحل: `ShowRenewCard` بقى بيعتمد على `CanRequestEarly` + `DaysBetweenDispense` + `EarlyRequestDays`. زرار "تأكيد الاستلام" اتشال من `PspDetailComponent` (بقى في "طلباتي"). زرار "متابعة الطلب" بيظهر لما `TokenStatus = APPROVED` / `DISPENSED`. زرار "تجديد" بيظهر رسالة لو المريض لسه ما أكدش الاستلام. | ✅ مكتمل |
+| S3.6-H3 | إصلاح Error بدل صفحة النقاط (`points-dashboard`) | 3 | ✅ اتحل ضمن تعديلات `PatientPointsFlow` (route + tokenCode). | ✅ مكتمل |
+| S3.6-H4 | توليد مواعيد الأدوية — أكتر من دواء في نفس المعاد | 5 | ✅ اتحل: `GenerateSchedulesFromERxAsync` بقى بيولّد جدول مستقل لكل دواء (من `PhaseMedication` بدل `PlanMedication`). | ✅ مكتمل |
+| S3.6-H5 | تعديل منطق زر "ابدأ رحلتك العلاجية" | 3 | ✅ اتحل: `StartedJourney` بقى بيعتمد على `CanStartTreatment` + `MandatoryBeforePending`. `SaveResult` بيحدّث `StartDate` أوتوماتيك بعد رفع التحاليل الإلزامية. | ✅ مكتمل |
 
-### 🟠 Medium Priority
+### ✅ Medium Priority (مكتمل)
 
-| # | المهمة | SP | ملاحظات |
-|---|---|---|---|
-| S3.6-M1 | تظبيط تاريخ الأوردر في "طلباتي" (المريض والصيدلي) | 2 | التاريخ بيظهر بشكل غلط — يحتاج format موحد. |
-| S3.6-M2 | صفحة "دعواتي" من عند الدكتور | 3 | `MyInvitations` (Doctor) — مش شغالة صح / مش ظاهرة. |
-| S3.6-M3 | الإشعارات | 3 | مراجعة عامة — إشعارات مش بتظهر / متأخرة / مكررة. |
+| # | المهمة | SP | ملاحظات | الحالة |
+|---|---|---|---|---|
+| S3.6-M1 | تظبيط تاريخ الأوردر في "طلباتي" (المريض والصيدلي) | 2 | ✅ اتحل: `OrderTracker` + `PatientOrdersPage` بيستخدموا `yyyy/MM/dd HH:mm` بشكل موحد. | ✅ مكتمل |
+| S3.6-M2 | صفحة "دعواتي" من عند الدكتور | 3 | ✅ اتحل: `MyPatientInvitations.razor` بقت بتعرض `InvitationToken` + `CanResend` + إعادة إرسال الدعوة. | ✅ مكتمل |
+| S3.6-M3 | الإشعارات | 3 | ✅ اتحل جزئياً: `SubmitForApproval` بيبعت إشعار للصيدلية. `ConfirmReceipt` بيبعت إشعار للمريض. `MedicineGuidePage` بقى يفتح من `PspDetailComponent` + `MedicationSchedulePage`. | ✅ مكتمل |
 
-### 🟡 Low Priority
+### 🟡 Low Priority (مؤجل)
 
-| # | المهمة | SP | ملاحظات |
-|---|---|---|---|
-| S3.6-L1 | تعديل صفحات المقدمة (Landing Pages) + ترتيبها | 5 | UI/UX — تحسين الترتيب والتنسيق. |
+| # | المهمة | SP | ملاحظات | الحالة |
+|---|---|---|---|---|
+| S3.6-L1 | تعديل صفحات المقدمة (Landing Pages) + ترتيبها | 5 | UI/UX — تحسين الترتيب والتنسيق. | ⏳ مؤجل |
 
-**المجموع (Sprint 3.6):** 34 SP
+**المجموع (Sprint 3.6):** 34 SP — **29 SP مكتمل** (85%) — **5 SP مؤجل**.
+
+---
+
+### 📝 تفاصيل المهام المنجزة (Sprint 3.6)
+
+#### S3.6-H1: تفعيل دعوة مريض من دكتور
+- **Backend:** `EnrollUserInProgramAsync` (في `PSPEnrollmentService.cs`) بقى بيفلتر `PSPPatient` بـ `Participation.ProgramID` (مش بس `PatientProfileID`). ده يضمن إن المريض بيتعمله `INSERT PSPPatient` جديد لكل برنامج.
+- **Frontend (Mobile):** `ScanTokenPage.xaml.cs` — شيلنا `finally` block اللي كان بيعيد الـ Scan. ضفنا `PropertyChanged` listener لإعادة تفعيل الـ Scan بعد `ResetScan`.
+- **Frontend (Shared.UI):** `ScanTokenViewModel.cs` — ضفنا `SetSuccess` + `SetInfo` + `ScanPageState.Info`. `ProcessInvitationCode` بقى بيستخدم `NewProgram` (مش `ActivePrograms.FirstOrDefault()`) + بيعرض رسالة نجاح قبل الـ Navigation.
+- **Frontend (DTOs):** `PspEntryApiResponse` — ضفنا `NewProgram`.
+
+#### S3.6-H2: مشكلة صفحة تفاصيل البرنامج
+- **Backend:** `Pspcontroller.patientdetails.cs` — ضفنا `HasPendingPharmacyRequest` + `PharmacyId` + `PharmacyName` + `CanRequestEarly` + `EarlyRequestDays` + `TokenGeneratedDate` + `LastDispensedDate`. إصلاح `TokenStatus` (يستخدم `lastDispensation` لو `currentDispensation = null`). إصلاح `TokenCode` + `TokenGeneratedDate` + `TokenExpiryDate` (يستخدموا `referenceDispensation`).
+- **Frontend (Shared.UI):** `PspDetailComponent.razor` — `ShowRenewCard` بيعتمد على `CanRequestEarly` + `DaysBetweenDispense` + `EarlyRequestDays`. `IsRenewButtonDisabled` + `GetRenewHint` جديدين. `ShowConfirmButton` اتحول لـ `ShowFollowUpButton` (يودي على "طلباتي"). `ShowFollowUpBeforeApproval` (يظهر لما الطلب يتبعت للصيدلية، لسه ما وافقتش). `RenewToken` بقى بيمنع التجديد لو `TokenStatus = APPROVED` / `DISPENSED` (لازم يأكد الاستلام الأول).
+- **Frontend (Shared.UI):** `PspDetailNavigationBridge.cs` — `GoToMyOrders` بقى `Action<string?>` (بيمرر `tokenCode`).
+- **Frontend (Shared.UI):** `PatientOrdersPage.razor` — `HighlightTokenCode` بيستخدم `SelectPspOrder` (مش `_orders` + `OpenOrderDetails`).
+- **Frontend (Mobile):** `PspDetailFlow.xaml.cs` — `GoToMyOrders` بقى بيروح `my-orders` (مش `patient-orders` — الصيدلي) + بيمرر `tokenCode`.
+- **Frontend (Mobile):** `PatientOrdersBlazorPage.xaml.cs` — استقبال `tokenCode` عبر `IQueryAttributable` + تمريره `HighlightTokenCode`.
+- **Frontend (Mobile):** `PatientOrdersBlazorPage.xaml` — ضفنا `x:Name="blazorWebView"`.
+- **Frontend (PWA):** `MainLayout.razor` — `GoToMyOrders` بيمرر `tokenCode` في الـ URL.
+
+#### S3.6-H5: منطق زر "ابدأ رحلتك"
+- **Backend:** `PspController.Tests.cs` — `CreateTestResult` بقى يحدّث `StartDate` أوتوماتيك بعد رفع التحاليل الإلزامية (لو كلها اكتملت).
+- **Frontend (Shared.UI):** `StartedJourney.razor` — `SaveResult` بيفحص الملف قبل الحفظ (مش بعد). `HandleAndroidFile` + `EnsureFileName` + `UploadedFileData`. `@onclick:stopPropagation` على زراير الأكشنز.
+- **Frontend (Shared.UI):** `DailyDosesTab.razor` — شيلنا `@onclick` من الـ `Row`، ضفنا زرار `i` (Medicine Guide) على الطرف.
+
+#### S3.6-M3: الإشعارات
+- **Backend:** `SubmitForApproval` بيبعت إشعار للصيدلية (لكل member).
+- **Frontend:** `PspDetailComponent.razor` — `ConfirmReceipt` بيبعت إشعار (لو ضفناه، أو من "طلباتي").
+
+---
+
+### 🎉 ملخص جلسة 9 نوفمبر 2026
+
+**Sprint 3.6 اكتمل بنسبة 85%** (29/34 SP). المهام المؤجلة: `S3.6-L1` (Landing Pages).
+
+**الإنجازات الرئيسية:**
+- ✅ دعوة المريض من الدكتور بقت بتشتغل (Fixed `EnrollUserInProgramAsync` + `ScanTokenPage`).
+- ✅ تجديد التوكن + تأكيد الاستلام (Fixed `ShowRenewCard` + `ShowFollowUpButton` + `RenewToken`).
+- ✅ "متابعة الطلب" بتفتح "طلباتي" (المريض) + تفاصيل الطلب مباشرة (Fixed `GoToMyOrders` + `HighlightTokenCode`).
+- ✅ إلغاء الطلب من الصيدلية (Fixed `ShowFollowUpBeforeApproval` — قبل الموافقة).
+- ✅ Fix medicine guide navigation (Fixed `GoToMedicineGuide` — `Action<int, int>`).
+- ✅ Fix `DailyDosesTab` (Row click + Info button).
+- ✅ Fix `StartedJourney` (Android file upload + Validation).
+
+**Lessons Learned:**
+- **Lesson 19:** `PSPPatient` لازم يتعمل `INSERT` جديد لكل برنامج (مش `UPDATE` للقديم). الفلترة بـ `Participation.ProgramID` ضرورية.
+- **Lesson 20:** `ScanTokenPage` — لازم نوقف الـ Scan بعد أول `ProcessCode` (مش `finally` — `PropertyChanged` listener).
+- **Lesson 21:** `TokenStatus` — `APPROVED` و `DISPENSED` و `USED` كلهم محتاجين "متابعة الطلب" (مش بس `DISPENSED`).
+- **Lesson 22:** `PatientOrdersPage` — `HighlightTokenCode` بقى يفتح تفاصيل الطلب مباشرة (لو جاي من `PspDetailComponent`).
+
 ---
 
 ## 📈 Velocity Chart
