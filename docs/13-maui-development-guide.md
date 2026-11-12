@@ -357,6 +357,67 @@ public class CurrentUserProfileState
 
 ---
 
+---
+
+#### 🌟 النمط 8: NavigationBridge + PushAsync + RootComponents.Add (للصفحات الفرعية المعقدة)
+
+**متى:** الصفحة الفرعية تحتاج `Parameters` ديناميكية، وتحتاج أن تظهر كصفحة كاملة (مع Header / Breadcrumb / زر رجوع)، وليس كـ Modal.
+
+**المثال الناجح:** `CommerceProductDetailsFlow` (جلسة Commerce، 11-12 نوفمبر 2026).
+
+**البنية (Shared.UI):**
+- واجهة `ICommerceNavigationBridge` (في `Shared.UI/Services/`).
+- المكون `ProductDetailsPage.razor` (مع `[Parameter] MedicationId`, `CompanyOrgId`).
+
+**البنية (Mobile):**
+- تطبيق `CommerceNavigationBridge` (في `Mobile/Services/`).
+- صفحة `CommerceProductDetailsFlow.xaml` (مع `Shell.NavBarIsVisible="True"`).
+- تسجيل في `MauiProgram.cs`.
+
+**البنية (CommerceProductDetailsFlow.xaml.cs):**
+```csharp
+public partial class CommerceProductDetailsFlow : ContentPage
+{
+    private readonly int _medicationId;
+    private readonly int _companyOrgId;
+
+    public CommerceProductDetailsFlow(int medicationId, int companyOrgId)
+    {
+        InitializeComponent();
+        _medicationId = medicationId;
+        _companyOrgId = companyOrgId;
+
+        BlazorView.RootComponents.Add(new RootComponent
+        {
+            Selector = "#app",
+            ComponentType = typeof(ProductDetailsPage),
+            Parameters = new Dictionary<string, object>
+            {
+                { "MedicationId", _medicationId },
+                { "CompanyOrgId", _companyOrgId },
+                { "OnBack", EventCallback.Factory.Create(this, async () => await Navigation.PopAsync()) }
+            }
+        });
+    }
+}
+```
+لمزايا:
+
+✅ يعمل بدون Reload (لأن PushAsync يحتفظ بـ Navigation Stack).
+
+✅ يظهر Shell.NavBar (بفضل Shell.NavBarIsVisible="True").
+
+✅ Shared.UI لا تعتمد على MAUI (بفضل Bridge).
+
+✅ Parameters تُمرر بشكل صحيح (بفضل RootComponents.Add).
+
+العيوب:
+
+⚠️ يحتاج واجهة (Bridge) + تطبيق + تسجيل.
+
+⚠️ OnBack يجب أن يكون EventCallback (وليس Action)، لتجنب JavaProxyThrowable.
+
+---
 ### 1.4 الأنماط الفاشلة (Failed Patterns — لا تستخدمها)
 
 #### ❌ النمط 1: `BlazorWebView` + `<RootComponent>` في XAML مع `Parameters` ديناميكية
@@ -398,7 +459,112 @@ public class CurrentUserProfileState
 **البديل:** استخدم `CurrentUserProfileState` (النمط 5) — لا حاجة لـ `OnComponentReady`.
 
 ---
+#### ❌ النمط 5: BlazorWebView + <RootComponent> في XAML بدون Parameters (لصفحة فرعية تحتاج Parameters)
 
+**المشكلة:** الصفحة الفرعية (`CommerceProductDetailsFlow`) تستخدم `<RootComponent>` في XAML، لكنها تحتاج `MedicationId` و `CompanyOrgId`.
+
+**النتيجة:** `Parameters` = `null`، والصفحة تظهر فارغة (أو "Product not found").
+
+**البديل:** استخدم `RootComponents.Add` في `Constructor` (مع `Parameters`) — **للصفحات الفرعية فقط**.
+
+**مثال من جلسة Commerce:**
+```csharp
+// ❌ خطأ — ProductDetailsPage لن تستقبل Parameters
+<BlazorWebView>
+    <BlazorWebView.RootComponents>
+        <RootComponent Selector="#app" ComponentType="{x:Type shared:ProductDetailsPage}" />
+    </BlazorWebView.RootComponents>
+</BlazorWebView>
+
+// ✅ صحيح — RootComponents.Add مع Parameters
+public CommerceProductDetailsFlow(int medicationId, int companyOrgId)
+{
+    InitializeComponent();
+    BlazorView.RootComponents.Add(new RootComponent
+    {
+        Selector = "#app",
+        ComponentType = typeof(ProductDetailsPage),
+        Parameters = new Dictionary<string, object>
+        {
+            { "MedicationId", medicationId },
+            { "CompanyOrgId", companyOrgId },
+            { "OnBack", EventCallback.Factory.Create(this, async () => await Navigation.PopModalAsync()) }
+        }
+    });
+}
+```
+
+---
+
+#### ❌ النمط 6: Shared.UI تحاول الوصول إلى MAUI (MainThread، Application.Current)
+
+**المشكلة:** `CommerceRootPage.razor` (في Shared.UI) حاولت استدعاء `MainThread.BeginInvokeOnMainThread` و `Application.Current.MainPage.Navigation.PushModalAsync` لفتح صفحة تفاصيل المنتج.
+
+**النتيجة:** `CS0103` (MainThread not found) — لأن `Shared.UI` مشروع مشترك (RCL)، لا يعرف `MAUI`.
+
+**البديل:** استخدم **Bridge Pattern**:
+1. واجهة (`ICommerceNavigationBridge`) في `Shared.UI`.
+2. تطبيق (`CommerceNavigationBridge`) في `Mobile`.
+3. تسجيل في `MauiProgram.cs`.
+4. حقن في `CommerceRootPage.razor`.
+
+**مثال من جلسة Commerce:**
+```csharp
+// 1. Shared.UI/Services/ICommerceNavigationBridge.cs
+public interface ICommerceNavigationBridge
+{
+    Task OpenProductDetailsAsync(int medicationId, int companyOrgId);
+}
+
+// 2. Mobile/Services/CommerceNavigationBridge.cs
+public class CommerceNavigationBridge : ICommerceNavigationBridge
+{
+    public async Task OpenProductDetailsAsync(int medicationId, int companyOrgId)
+    {
+        await MainThread.InvokeOnMainThreadAsync(async () =>
+        {
+            if (Shell.Current != null)
+                await Shell.Current.Navigation.PushAsync(
+                    new CommerceProductDetailsFlow(medicationId, companyOrgId));
+        });
+    }
+}
+
+// 3. MauiProgram.cs
+builder.Services.AddSingleton<ICommerceNavigationBridge, CommerceNavigationBridge>();
+
+// 4. CommerceRootPage.razor
+@inject ICommerceNavigationBridge NavigationBridge
+
+private async Task GoToMedicationDetails((int MedicationId, int CompanyOrgId) payload)
+{
+    await NavigationBridge.OpenProductDetailsAsync(payload.MedicationId, payload.CompanyOrgId);
+}
+```
+
+---
+
+#### ❌ النمط 7: PushModalAsync بدون Shell.NavBarIsVisible="True"
+
+**المشكلة:** `CommerceProductDetailsFlow` استخدمت `PushModalAsync` مع `Shell.NavBarIsVisible="False"` (أو بدون `Shell.NavBar`)، فظهرت "صفحة بيضاء" (بدون Header / Breadcrumb / زر رجوع).
+
+**النتيجة:** المستخدم لا يستطيع الرجوع، والصفحة تبدو "مبتورة".
+
+**البديل:**
+1. `Shell.NavBarIsVisible="True"` في XAML (أو `PushAsync` بدلاً من `PushModalAsync`).
+2. **أو** إضافة `Header` + `Breadcrumb` داخل المكون نفسه (`ProductDetailsPage.razor`)، لتصبح مستقلة.
+
+**مثال من جلسة Commerce:**
+```xml
+<!-- ✅ صحيح -->
+<ContentPage ...
+             Shell.NavBarIsVisible="True">
+    <BlazorWebView x:Name="BlazorView" HostPage="wwwroot/index.html" />
+</ContentPage>
+
+```
+
+---
 ### 1.5 ملخص الأنماط (Quick Reference)
 
 | # | النمط | `ShellContent` (Root) | `Routing.RegisterRoute` (Detail) |
@@ -1866,8 +2032,34 @@ public async Task<T> SafeApiCallAsync<T>(Func<Task<T>> apiCall)
 
 ---
 
-## 📱 الجزء الخامس عشر: إدارة الجلسات والكاش في الموبايل
+---
 
+### 14.8 ⭐ مشكلة: "Reload" في BlazorWebView عند تغيير الصفحات
+
+**السبب:** عند تغيير `_currentView` (أو `Navigation.NavigateTo`) داخل `BlazorWebView` (الذي يعمل كـ `ShellContent`)، يفشل `BlazorWebView` في إعادة تهيئة `RootComponent`، فيظهر "Reload" (أو صفحة بيضاء).
+
+**الحل:** 
+1. **لا تغيّر `_currentView`** داخل `BlazorWebView` (إذا كان `ShellContent`).
+2. **استخدم `NavigationBridge`** لفتح صفحة XAML جديدة (`PushAsync` + `RootComponents.Add` + `Parameters`).
+3. **أو** اجعل `BlazorWebView` يعرض **مكوناً واحداً فقط** (الكتالوج، مثلاً)، وكل صفحة أخرى = صفحة XAML جديدة.
+
+**مثال من جلسة Commerce:**
+- ❌ `CommerceRootPage` (ShellContent) حاول تغيير `_currentView` إلى `product-details` → `Reload`.
+- ✅ الحل: `ICommerceNavigationBridge.OpenProductDetailsAsync` → `PushAsync(CommerceProductDetailsFlow)` → `RootComponents.Add(ProductDetailsPage, Parameters)`.
+
+### 14.9 ⭐ مشكلة: `AppShell.xaml.cs` يشير إلى صفحات غير موجودة
+
+**السبب:** إضافة `Routing.RegisterRoute("commerce/cart", typeof(CommerceCartFlow))` قبل إنشاء `CommerceCartFlow`.
+
+**النتيجة:** `CS0246` (Type or namespace not found).
+
+**الحل:**
+1. أنشئ الصفحة (`CommerceCartFlow.xaml` + `.xaml.cs`).
+2. سجّلها في `AppShell.xaml.cs`.
+3. **لا تسجّل صفحة قبل إنشائها.**
+
+## 📱 الجزء الخامس عشر: إدارة الجلسات والكاش في الموبايل
+---
 ### 15.1 نظرة عامة
 
 إدارة الجلسات في الموبايل تعتمد على 3 طبقات:
@@ -1877,6 +2069,7 @@ public async Task<T> SafeApiCallAsync<T>(Func<Task<T>> apiCall)
 | الخادم | `UserSessionService` (Application) | Api.Web |
 | محلي | `CachedUserSessionService` | الموبايل |
 | تخزين آمن | `SecureStorage` | الموبايل |
+
 
 ### 15.2 `CachedUserSessionService`
 
@@ -2126,6 +2319,51 @@ private string? ConvertToMauiRoute(string path)
 | `DashboardPage.razor` في MAUI | ✅ يعمل (بعد تعديل `DashboardPage.razor` لاستخدام `CurrentUserProfileState`). |
 
 ---
+### 17.8 (جديد) ICommerceNavigationBridge — مثال حي (Commerce)
+
+**الغرض:** فتح صفحة تفاصيل المنتج (`ProductDetailsPage`) من `CommerceRootPage` (الذي يعمل في `BlazorWebView`).
+
+**البنية (Shared.UI):**
+```csharp
+// Shared.UI/Services/ICommerceNavigationBridge.cs
+public interface ICommerceNavigationBridge
+{
+    Task OpenProductDetailsAsync(int medicationId, int companyOrgId);
+}
+البنية (Mobile):
+
+csharp
+// Mobile/Services/CommerceNavigationBridge.cs
+public class CommerceNavigationBridge : ICommerceNavigationBridge
+{
+    public async Task OpenProductDetailsAsync(int medicationId, int companyOrgId)
+    {
+        await MainThread.InvokeOnMainThreadAsync(async () =>
+        {
+            if (Shell.Current != null)
+                await Shell.Current.Navigation.PushAsync(
+                    new CommerceProductDetailsFlow(medicationId, companyOrgId));
+        });
+    }
+}
+```
+التسجيل (MauiProgram.cs):
+
+```csharp
+builder.Services.AddSingleton<ICommerceNavigationBridge, CommerceNavigationBridge>();
+الاستخدام (CommerceRootPage.razor):
+
+razor
+@inject ICommerceNavigationBridge NavigationBridge
+
+private async Task GoToMedicationDetails((int MedicationId, int CompanyOrgId) payload)
+{
+    await NavigationBridge.OpenProductDetailsAsync(payload.MedicationId, payload.CompanyOrgId);
+}
+```
+النتيجة: صفحة تفاصيل المنتج تفتح بشكل صحيح، بدون Reload، مع Shell.NavBar و Breadcrumb.
+
+---
 
 ## 🚀 الجزء الثامن عشر: النشر (Publishing)
 
@@ -2173,6 +2411,16 @@ dotnet publish -f net10.0-ios -c Release
 - هل المكون يعرض Skeleton/Loading أثناء جلب البيانات؟
 - هل توجد `public methods` للتحديث من الحاوية عند الحاجة (النمط 4/5)؟
 - هل الـ `Parameters` من نوع `Action<T>` (وليس `EventCallback`)؟
+- [ ] هل الصفحة `ShellContent` (رئيسية) أم `Routing.RegisterRoute` (فرعية)؟
+- [ ] إذا كانت `ShellContent`: هل تحتاج `Parameters` ديناميكية؟
+  - [ ] نعم → استخدم `XAML محلي` أو `CurrentUserProfileState (Singleton) + <RootComponent> في XAML`.
+  - [ ] لا → يمكن استخدام `BlazorWebView + <RootComponent> في XAML` (النمط 2).
+- [ ] إذا كانت `Routing.RegisterRoute`:
+  - [ ] هل تحتاج `Parameters`؟ → `RootComponents.Add` (في Constructor أو `ApplyQueryAttributes`).
+  - [ ] هل تحتاج `Shell.NavBar`؟ → `PushAsync` (بدلاً من `PushModalAsync`) + `Shell.NavBarIsVisible="True"`.
+  - [ ] هل تحتاج `Shared.UI` للوصول إلى `Mobile`؟ → استخدم **Bridge Pattern** (`ICommerceNavigationBridge`).
+- [ ] هل `AppShell.xaml.cs` يشير إلى صفحة موجودة؟ (لا تسجّل صفحة قبل إنشائها).
+- [ ] هل `OnBack` هو `EventCallback` (وليس `Action`)، لتجنب `JavaProxyThrowable`؟
 
 ### 19.2 عند إضافة صفحة MAUI جديدة
 
