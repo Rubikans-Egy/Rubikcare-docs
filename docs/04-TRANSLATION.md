@@ -684,7 +684,384 @@ public partial class ExampleViewModel : ObservableObject, IDisposable
 - [ ] `OnDisappearing` تستدعي `Dispose()`.
 - [ ] مفاتيح الترجمة موجودة في `Resources` مع `N''`.
 
----# [#54] 📘 `04-TRANSLATION` — v2.0 (Part 2)
+---
+## 📌 الجزء الرابع-ب: Mobile MAUI — Fixes & Lessons Learned (نوفمبر 2026)
+
+> **السياق:** جلسة إصلاح شاملة لمشكلة ظهور مفاتيح الترجمة في MAUI — عبر `AppShell` + كل صفحات `BlazorWebView` (Support, Privacy, Terms, Settings, Pharmacy Search, Pharmacy Detail, PSP Detail, Program Details, Invite Patient, PspEntry).
+
+### 4.7.1 المشكلة (Symptoms)
+
+| السيناريو | الأعراض |
+|---|---|
+| **Online — عند فتح أي صفحة** | تظهر مفاتيح الترجمة (مثل `MOBILE.SHELL.HOME` أو `SHARED.SUPPORT.TITLE`) لثانية أو ثانيتين ثم تتحول إلى النصوص الصحيحة. |
+| **Offline — بعد إعادة تشغيل التطبيق** | تظهر مفاتيح الترجمة **بشكل دائم** في جميع الصفحات. |
+| **Offline — القائمة الجانبية (AppShell)** | تظهر فارغة تماماً (لا نصوص). |
+| **عودة الإنترنت** | الترجمات لا تُحدَّث تلقائياً — يحتاج المستخدم إلى إغلاق التطبيق وإعادة فتحه. |
+
+### 4.7.2 الأسباب الجذرية (Root Causes)
+
+#### السبب #1: `/api/localization/all` يُرجع مفاتيح بـ prefix مكرر (Backend)
+
+**المشكلة في `LocalizationService.GetAllTranslationsAsync`:**
+```csharp
+// ❌ خطأ — الكود القديم
+var module = string.IsNullOrEmpty(resource.Module) ? "General" : resource.Module;
+var fullKey = $"{module}.{resource.ResourceKey}";
+result[fullKey] = value;
+النتيجة:
+
+SHARED.SUPPORT.TITLE (Module=SHARED) → "SHARED.SHARED.SUPPORT.TITLE"
+
+MOBILE.SHELL.HOME (Module=MOBILE) → "MOBILE.MOBILE.SHELL.HOME"
+
+MOBILE.SHELL.SWITCHING_ACCOUNT (Module=MOBILE.SHELL) → "MOBILE.SHELL.MOBILE.SHELL.SWITCHING_ACCOUNT"
+```
+التناقض: /api/localization/page/{domain} كان صحيحاً (يُرجع ResourceKey فقط) — لذلك AppShell (الذي يعتمد على /page/MOBILE.SHELL) كان يعمل جزئياً. بينما /api/localization/all — الذي يُستخدم لـ Cache في Offline — كان يُرجع المفاتيح بشكل خاطئ.
+
+السبب #2: T() تُرجع المفتاح عند الفشل (Frontend)
+كل المكونات كانت:
+
+```csharp
+private string T(string key) => _translations.GetValueOrDefault(key, key);  // ❌
+```
+النتيجة: عند أول render (قبل تحميل الترجمات)، _translations فارغة → T() تُرجع المفتاح → المستخدم يرى المفتاح.
+
+السبب #3: StateHasChanged() بعد await — غير موثوق في BlazorWebView
+الكود:
+
+```csharp
+await LoadTranslations();
+StateHasChanged();  // ❌ بعد await — قد لا يعمل (ThreadPool)
+```
+النتيجة: بعد تحميل الترجمات، قد لا يُعاد رسم UI — فيبقى المفتاح ظاهراً.
+
+السبب #4: لا يوجد _isTranslationsLoaded flag
+النتيجة: المحتوى يُرسم قبل اكتمال LoadTranslations — فتظهر المفاتيح.
+
+4.7.3 الحل الموحد (The Pattern)
+كل مكون يستخدم هذا النمط السباعي:
+
+```csharp
+@if (!_isTranslationsLoaded)
+{
+    <div class="loading-skeleton"><div class="spinner"></div></div>
+}
+else
+{
+    <!-- المحتوى الفعلي -->
+}
+```
+```csharp
+@code {
+    private bool _isTranslationsLoaded = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var lang = string.IsNullOrWhiteSpace(TranslationState.CurrentLanguage)
+            ? "ar"
+            : TranslationState.CurrentLanguage;
+
+        TranslationState.OnLanguageChanged += HandleLanguageChanged;
+
+        try { await LoadTranslations(); }
+        catch (Exception ex) { Debug.WriteLine($"❌ LoadTranslations: {ex.Message}"); }
+
+        _isTranslationsLoaded = true;
+        await InvokeAsync(StateHasChanged);  // ⭐ InvokeAsync
+    }
+
+    private async Task LoadTranslations()
+    {
+        try
+        {
+            var lang = string.IsNullOrWhiteSpace(TranslationState.CurrentLanguage) ? "ar" : TranslationState.CurrentLanguage;
+            var pageTrans = await TranslationService.GetPageTranslationsAsync(PageDomain, lang);
+            var commonTrans = await TranslationService.GetPageTranslationsAsync("COMMON", lang);
+
+            _translations = commonTrans
+                .Concat(pageTrans)
+                .GroupBy(k => k.Key)                 // ⭐ GroupBy — يمنع duplicate keys
+                .ToDictionary(g => g.Key, g => g.First().Value);
+        }
+        catch (Exception ex) { Debug.WriteLine($"❌ LoadTranslations: {ex.Message}"); }
+    }
+
+    private string T(string key) =>
+        _translations.TryGetValue(key, out var value) && !string.IsNullOrWhiteSpace(value)
+            ? value
+            : string.Empty;                       // ⭐ لا نُرجع المفتاح أبداً
+
+    private async void HandleLanguageChanged()
+    {
+        await LoadTranslations();
+        await InvokeAsync(StateHasChanged);       // ⭐ InvokeAsync
+    }
+
+    public void Dispose()
+    {
+        TranslationState.OnLanguageChanged -= HandleLanguageChanged;
+        _toastCts?.Cancel();                      // ⭐ تنظيف موارد
+    }
+}
+```
+4.7.4 الحل في MobileTranslationService — 4 مستويات Fallback
+```csharp
+public async Task<Dictionary<string, string>> GetPageTranslationsAsync(string pageDomain, string? lang = null)
+{
+    var currentLang = string.IsNullOrWhiteSpace(lang) ? GetCurrentLanguage() : lang;
+    var cacheKey = $"mobile_translations_{pageDomain}_{currentLang}";
+
+    // 1. Memory Cache
+    if (_cache.TryGetValue(cacheKey, out Dictionary<string, string>? cached) && cached != null && cached.Any())
+        return cached;
+
+    // 2. API
+    try
+    {
+        var result = await _apiService.GetAsync<Dictionary<string, string>>(
+            $"/api/localization/page/{pageDomain}?lang={currentLang}");
+
+        var translations = result ?? new Dictionary<string, string>();
+        if (translations.Any())
+        {
+            _cache.Set(cacheKey, translations, TimeSpan.FromMinutes(30));
+
+            // ⭐ حفظ فوري في Preferences
+            var json = JsonSerializer.Serialize(translations);
+            Preferences.Set($"translations_page_{pageDomain}_{currentLang}", json);
+
+            return translations;
+        }
+    }
+    catch (Exception ex) { Debug.WriteLine($"🔴 API failed: {ex.Message}"); }
+
+    // 3. Per-page Preferences Cache
+    try
+    {
+        var pageJson = Preferences.Get($"translations_page_{pageDomain}_{currentLang}", "");
+        if (!string.IsNullOrEmpty(pageJson))
+        {
+            var pageTranslations = JsonSerializer.Deserialize<Dictionary<string, string>>(pageJson);
+            if (pageTranslations != null && pageTranslations.Any())
+            {
+                _cache.Set(cacheKey, pageTranslations, TimeSpan.FromMinutes(30));
+                return pageTranslations;
+            }
+        }
+    }
+    catch (Exception ex) { Debug.WriteLine($"⚠️ Page cache failed: {ex.Message}"); }
+
+    // 4. Global Preferences Cache (من GetAllTranslationsAsync)
+    try
+    {
+        var allCached = await _translationCacheService.GetCachedAsync(currentLang);
+        if (allCached != null && allCached.Any())
+        {
+            _cache.Set(cacheKey, allCached, TimeSpan.FromMinutes(30));
+            return allCached;
+        }
+    }
+    catch (Exception ex) { Debug.WriteLine($"⚠️ All cache failed: {ex.Message}"); }
+
+    return new Dictionary<string, string>();
+}
+```
+4.7.5 الحل في AppShellViewModel — منع وميض المفاتيح + Refresh تلقائي
+الـ Flag:
+
+```csharp
+private bool _isMenuLoading = true;
+
+public bool IsMenuLoading
+{
+    get => _isMenuLoading;
+    set { if (_isMenuLoading != value) { _isMenuLoading = value; OnPropertyChanged(); OnPropertyChanged(nameof(CanShowMenu)); } }
+}
+
+public bool CanShowMenu => _isDataLoaded && !_isMenuLoading;
+LoadTranslationsAsync — إغلاق IsMenuLoading بعد التحميل:
+
+csharp
+private async Task LoadTranslationsAsync()
+{
+    try { /* ... */ }
+    finally
+    {
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            ApplyTranslations();
+            IsMenuLoading = false;
+        });
+    }
+}
+```
+OnConnectivityChanged — Refresh تلقائي عند العودة:
+
+```csharp
+private async void OnConnectivityChanged(object? sender, ConnectivityChangedEventArgs e)
+{
+    var wasOffline = IsOffline;
+    IsOffline = e.NetworkAccess != NetworkAccess.Internet;
+
+    if (wasOffline && !IsOffline)
+    {
+        // امسح Memory Cache
+        var cacheService = IPlatformApplication.Current?.Services?.GetService<TranslationCacheService>();
+        cacheService?.ClearCache(_translationState.CurrentLanguage);
+
+        // أعد تحميل ترجمات AppShell
+        await LoadTranslationsAsync();
+
+        // أطلق حدث تغيير اللغة — لتحديث كل الصفحات
+        _translationState.ForceNotifyLanguageChanged();
+    }
+}
+MobileTranslationState.ForceNotifyLanguageChanged:
+```
+```csharp
+public void ForceNotifyLanguageChanged() => OnLanguageChanged?.Invoke();
+```
+4.7.6 الحل في Backend — GetAllTranslationsAsync
+```csharp
+// ✅ الصحيح — بعد الإصلاح
+foreach (var resource in resources)
+{
+    var value = language.ToLower() == "ar" ? resource.ResourceValueAr : resource.ResourceValueEn ?? string.Empty;
+    if (resource.ResourceKey != null && !string.IsNullOrEmpty(value))
+    {
+        // 1. المفتاح الأصلي (بدون prefix) — ما يبحث عنه MAUI/PWA
+        result[resource.ResourceKey] = value;
+
+        // 2. المفتاح مع prefix (للتوافق مع Web) — إذا كان مختلفاً
+        var module = string.IsNullOrEmpty(resource.Module) ? "General" : resource.Module;
+        var fullKey = $"{module}.{resource.ResourceKey}";
+        if (fullKey != resource.ResourceKey)
+            result[fullKey] = value;
+    }
+}
+```
+بالإضافة إلى _cacheVersion = "v4" لمسح Cache القديم.
+
+4.7.7 الحل في App.xaml.cs — تحميل بدون timeout
+```csharp
+var cachedTranslations = await cacheService.GetCachedAsync(currentLang);
+if (cachedTranslations != null && cachedTranslations.Any())
+{
+    translations = cachedTranslations;
+}
+else
+{
+    // ⭐ بدون timeout 30 ثانية
+    try
+    {
+        var apiTranslations = await translationService.GetAllTranslationsAsync(currentLang);
+        if (apiTranslations != null && apiTranslations.Any())
+        {
+            translations = apiTranslations;
+            cacheService.SetCache(currentLang, translations);
+        }
+    }
+    catch (Exception ex)
+    {
+        Debug.WriteLine($"❌ API download failed: {ex.Message}");
+        translations = new Dictionary<string, string>();
+    }
+}
+```
+4.7.8 Checklist لكل صفحة جديدة (MAUI)
+قبل اعتبار أي صفحة "جاهزة":
+
+□ T() ترجع string.Empty — لا المفتاح.
+□ _isTranslationsLoaded flag + @if حول المحتوى.
+□ LoadTranslations — try/catch + string.IsNullOrWhiteSpace(lang) + GroupBy.
+□ StateHasChanged → InvokeAsync(StateHasChanged).
+□ Dispose يلغي OnLanguageChanged + CancellationTokenSource.
+□ كل النصوص hardcoded → T() (مع إضافة المفاتيح إلى Resources).
+□ لا Task.Run مع StateHasChanged (يستخدم InvokeAsync بدلاً من ذلك).
+□ ContinueWith → try/catch داخل مهام async.
+4.7.9 أخطاء Hot Reload (ENCxxxx)
+عند إضافة/حذف OnInitialized أو OnDisappearing أو modifiers — قد تظهر أخطاء ENC:
+
+الخطأ	الحل
+ENC0004	تغيير modifiers (public/private) → أعد تشغيل التطبيق
+ENC0023	إضافة override → أعد تشغيل التطبيق
+ENC0033	حذف OnInitialized() → أعد تشغيل التطبيق
+هذه ليست أخطاء كود — قيود Hot Reload. أوقف التطبيق (Shift+F5) → Build (Ctrl+Shift+B) → F5.
+
+4.7.10 الملفات التي تم إصلاحها في هذه الجلسة
+Shared.UI Components:
+
+SupportPage.razor
+
+PrivacyPolicy.razor
+
+TermsOfService.razor
+
+SettingsPage.razor
+
+PharmacySearchPage.razor
+
+PharmacyFilter.razor
+
+PharmacyDetailPage.razor
+
+TokenRedemptionCard.razor
+
+MedicationRequestCard.razor
+
+PspDetailComponent.razor
+
+ProgramDetailsWrapper.razor
+
+ProgramDetailsComponent.razor
+
+InvitePatientComponent.razor
+
+PspEntry.razor + PspEntry.razor.cs
+
+MAUI Native:
+
+AppShell.xaml (Banner in Flyout + TitleView)
+
+AppShell.xaml.cs (حفظ session in Preferences)
+
+AppShellViewModel.cs (IsMenuLoading, CanShowMenu, T(), OnConnectivityChanged, Offline Fallback)
+
+MobileTranslationService.cs (4-level fallback)
+
+MobileTranslationState.cs (ForceNotifyLanguageChanged)
+
+App.xaml.cs (تحميل بدون timeout)
+
+InvitePatientViewModel.cs (T(), LoadTranslationsAsync, GroupBy)
+
+InvitePatientPage.xaml.cs (OnHandlerChanged → Dispose)
+
+Backend:
+
+LocalizationService.cs (GetAllTranslationsAsync — بدون prefix مكرر، مع التوافق، _cacheVersion = "v4")
+
+4.7.11 دروس مستفادة (Lessons Learned)
+T() يجب ألا تُرجع المفتاح أبداً — string.Empty أفضل من ظهور مفتاح.
+
+_isTranslationsLoaded flag ضروري في كل مكون — لا تعتمد على توقيت await في BlazorWebView.
+
+InvokeAsync(StateHasChanged) — ليس StateHasChanged — بعد await.
+
+GroupBy قبل ToDictionary — عند دمج common + page (مفاتيح مكررة محتملة).
+
+string.IsNullOrWhiteSpace(lang) — lang قد يكون "" (ليس null) — ?? لا يعمل.
+
+حفظ فوري في Preferences — لا تعتمد على Task.Run في الخلفية (قد لا يكتمل).
+
+Backend /all و /page يجب أن يكونا متسقين — أي اختلاف يُنتج مفاتيح مزدوجة.
+
+ForceNotifyLanguageChanged — ضروري لتحديث كل الصفحات عند عودة الإنترنت.
+
+OnConnectivityChanged — يمسح Cache + يعيد التحميل + يُبلّغ كل الصفحات.
+
+Hot Reload (ENCxxxx) — أوقف التطبيق كاملاً عند تغيير lifecycle methods.
+
 
 ---
 
