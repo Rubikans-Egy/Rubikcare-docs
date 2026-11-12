@@ -1,9 +1,9 @@
 
 # 23 — COMMERCE ENGINE (محرك التجارة)
 
-**الإصدار:** 1.0 (Draft — قيد التصميم)
-**آخر تحديث:** 2026-11-07
-**الحالة:** 🟡 تصميم — جاهز للتنفيذ المرحلي
+الإصدار: 1.1 (Implementation — Sprint 1-4 Completed)
+آخر تحديث: 2026-11-12
+الحالة: 🟢 B2B MVP مُنفَّذ (Backend + UI للصيدلي والشركة) + نظام البونص + الحساب المالي
 **الجمهور:** فريق التطوير + AI Assistants
 **المرجع:** يُقرأ قبل أي عمل على B2B / Commerce
 **الوثائق المرتبطة:** `01-DATABASE-MANAGEMENT.md`, `06-POINTS.md`, `17-STRATEGIC-ROADMAP.md`
@@ -71,7 +71,51 @@
 - ما نبنيه الآن **بسيط جداً** (~5 كيانات)، فتكامل ERP مبالغة.
 
 ---
+## 📊 0.6 حالة التنفيذ الفعلية (Implementation Status)
 
+آخر تحديث: 2026-11-12.
+
+### ✅ ما تم إنجازه (Completed)
+
+| المرحلة | المدة | تاريخ البدء | تاريخ الانتهاء | الحالة |
+|---|---|---|---|---|
+| **Domain Entities + Migration (Engine + B2B)** | ~2 يوم | 2026-11-06 | 2026-11-08 | ✅ مكتمل |
+| **Application Services (SupplyOrder + Catalog + Ledger)** | ~3 أيام | 2026-11-08 | 2026-11-10 | ✅ مكتمل |
+| **API Controllers (SupplyOrders + Catalog + Ledger)** | ~2 يوم | 2026-11-09 | 2026-11-10 | ✅ مكتمل |
+| **B2B Future Features (Tiers + Bundles + Campaigns + Bonuses + Logistics)** | ~2 يوم | 2026-11-10 | 2026-11-11 | ✅ مكتمل (Entities فقط + Campaigns CRUD) |
+| **UI Phase 1 (Pharmacy — 5 صفحات)** | ~2 يوم | 2026-11-09 | 2026-11-11 | ✅ مكتمل |
+| **UI Phase 2 (Company — Orders + Details)** | ~1 يوم | 2026-11-10 | 2026-11-11 | ✅ مكتمل |
+| **Commerce Settings Hub (Company)** | ~1 يوم | 2026-11-11 | 2026-11-11 | ✅ مكتمل |
+| **Campaigns Page (Full CRUD)** | ~1 يوم | 2026-11-11 | 2026-11-11 | ✅ مكتمل |
+| **Bonus System (Tiers + Auto-Calc)** | ~1 يوم | 2026-11-11 | 2026-11-12 | ✅ مكتمل |
+| **ProductDetailsPage (Pharmacy)** | ~1 يوم | 2026-11-11 | 2026-11-12 | ✅ مكتمل (مع BONUS CALCULATOR) |
+| **Price & Tax Model (Simplified)** | — | 2026-11-11 | 2026-11-11 | ✅ مكتمل |
+
+### 🟡 ما هو قيد التطوير (In Progress)
+
+| الميزة | الحالة | ملاحظات |
+|---|---|---|
+| **Ledger UI (Pharmacy + Company)** | ⏳ لم يبدأ | الكيانات جاهزة (ServiceLedger, LedgerTransaction) |
+| **Checkout Page (طريقة الدفع + رصيد)** | ⏳ لم يبدأ | يحتاج تعديل `SupplyOrderService` + `LedgerService` |
+| **Bonus Page (Full CRUD للشركة)** | 🟡 جزئي | موجود (في صفحة المنتج للشركة) |
+| **Tiers Page (الخصومات المؤجلة)** | ⏳ لم يبدأ | الكيان موجود، يحتاج API + UI |
+| **Logistics Page (الشحن)** | ⏳ لم يبدأ | الكيان موجود، يحتاج API + UI |
+| **Payments API** | ⏳ لم يبدأ | الكيانات جاهزة (ServicePayment) |
+| **Shipments API** | ⏳ لم يبدأ | الكيانات جاهزة (ServiceShipment) |
+| **Invoices API** | ⏳ لم يبدأ | الكيانات جاهزة (ServiceInvoice) |
+| **Agreements API** | ⏳ لم يبدأ | الكيان جاهز (PharmacyCompanyAgreement) |
+| **Stock API** | ⏳ لم يبدأ | الكيان جاهز (PharmaCompanyMedicationStock) |
+| **Status History** | ⏳ لم يبدأ | الكيان جاهز (PharmacySupplyOrderStatusHistory) |
+
+### 🔴 ما تم تأجيله (Deferred)
+
+- **Warehouse Layer** (FulfillmentMode = WAREHOUSE)
+- **B2B Points Integration** (Seed Data جاهز في الكود لكن غير مطبق)
+- **Pharmacy Stock Page** (بعد استلام الطلبات)
+- **Online Payments** (Paymob/Fawry)
+- **Campaigns Auto-Apply in Orders** (تم بناء CRUD فقط، لم يُطبق تلقائياً في `SupplyOrderService`)
+  ---
+  
 ## 🏗️ الجزء الأول: البنية المعمارية
 
 ### 1.1 المبادئ الأساسية (Feature-as-a-Service)
@@ -254,32 +298,39 @@
 ### 2.0 هيكل المجلدات
 
 ```
+### 2.0 هيكل المجلدات (Implementation Reality)
+
 RubikCare.Domain/
 └── Commerce/
     ├── Engine/
-    │   ├── ServiceOrder.cs
-    │   ├── ServiceOrderItem.cs
-    │   ├── ServicePayment.cs
-    │   ├── ServiceLedger.cs
-    │   ├── LedgerTransaction.cs
-    │   ├── ServiceShipment.cs
-    │   ├── ServiceInvoice.cs
+    │   ├── ServiceOrder.cs                       ✅ (migration 20261107123244)
+    │   ├── ServiceOrderItem.cs                   ✅ (migration 20261107123244)
+    │   ├── ServiceLedger.cs                      ✅ (migration 20261107123244)
+    │   ├── LedgerTransaction.cs                  ✅ (migration 20261107123244)
+    │   ├── OrganizationSubscription.cs           ✅ (migration 20261107123244)
     │   └── Enums/
-    │       ├── ServiceOrderStatus.cs
-    │       ├── ServicePaymentStatus.cs
-    │       ├── ServiceShipmentStatus.cs
-    │       └── ServiceInvoiceStatus.cs
+    │       ├── ServiceOrderStatus.cs             ✅
+    │       ├── FulfillmentMode.cs                ✅
     │
     └── B2B/
-        ├── PharmacySupplyOrder.cs
-        ├── PharmacySupplyOrderItem.cs
-        ├── PharmacySupplyOrderStatusHistory.cs
-        ├── PharmacyCompanyAgreement.cs
-        ├── PharmaCompanyMedicationStock.cs
-        └── Enums/
-            ├── FulfillmentMode.cs
-            └── AgreementStatus.cs
+        ├── PharmacySupplyOrder.cs                ✅ (migration 20261107123244)
+        ├── PharmacySupplyOrderItem.cs            ✅ (migration 20261107123244)
+        ├── SupplierIncentiveTier.cs              ✅ (migration 20261109090826)
+        ├── PharmacyTierProgress.cs               ✅ (migration 20261109090826)
+        ├── ProductBundle.cs                      ✅ (migration 20261109090826 + AddBundleDescription)
+        ├── ProductBundleItem.cs                  ✅ (migration 20261109090826)
+        ├── CommerceCampaign.cs                   ✅ (migration 20261110133611)
+        ├── ProductBonus.cs                       ✅ (migration AddBundlesBonusesAndLogistics + UpdateBonusWithTiers)
+        ├── ProductBonusTier.cs                   ✅ (migration UpdateBonusWithTiers)
+        ├── LogisticsProvider.cs                  ✅ (migration AddBundlesBonusesAndLogistics)
+        │
+        │   ⏳ غير منفذة بعد:
+        ├── PharmacyCompanyAgreement.cs           ❌
+        ├── PharmaCompanyMedicationStock.cs       ❌
+        └── PharmacySupplyOrderStatusHistory.cs   ❌
 ```
+ملاحظة: أضفنا ProductBonusTier (بعد إعادة تصميم البونص ليدعم شرائح متعددة)، و BundleDiscountPercent (للباقات).
+
 
 **الفلسفة:** `Engine/` = كيانات عامة (تستخدمها أي وحدة). `B2B/` = كيانات خاصة بـ B2B. عند إضافة `Clinic/` و`Retail/` لاحقاً، تُضاف كمجلدات شقيقة لـ `B2B/`.
 
@@ -2276,38 +2327,103 @@ Routing.RegisterRoute("commerce/company/ledger", typeof(CompanyLedgerFlow));
 | `RubikCare_Production` | Production (بحذر) |
 
 ---
+## 🎁 الجزء الثالث عشر: نظام البونص (Bonus System)
 
-## ✅ الخلاصة
+### 13.1 نظرة عامة
 
-### ما تم إنجازه في هذه الوثيقة
+نظام البونص يسمح للشركة بتقديم "هدايا" (كميات مجانية) على كميات محددة من المنتجات. مثال:
+- اشترِ 10، احصل على 1 مجاناً.
+- اشترِ 20، احصل على 3 مجاناً.
 
-**التصميم الكامل لـ B2B Commerce:**
-- ✅ Engine Layer (7 كيانات عامة).
-- ✅ Module Layer B2B (5 كيانات).
-- ✅ 5 State Machines.
-- ✅ 9 Business Rules.
-- ✅ 9 Controllers + ~40 Endpoint.
-- ✅ 9 UI Pages + 8 Components.
-- ✅ 8 Sprints + تقديرات.
-- ✅ 6 مخاطر + 5 دروس متوقعة.
+### 13.2 الكيانات
 
-### ما يجب فعله قبل Sprint 1
+| الكيان | الغرض |
+|---|---|
+| `ProductBonus` | رأس البونص (منتج، فترة، حالة). |
+| `ProductBonusTier` | شرائح البونص (MinQuantity → BonusQuantity). |
 
-- [ ] اعتماد هذه الوثيقة (Sign-off).
-- [ ] `git commit` للوثيقة.
-- [ ] Pre-Check على `RubikCare_Dev_V2` (للتأكد من البيئة).
-- [ ] Backup يدوي قبل Migration الأولى.
+### 13.3 منطق الحساب (Greedy Auto-Calc)
 
-### كيف تُستخدم هذه الوثيقة؟
+عند إضافة منتج للطلب، يُحسب البونص تلقائياً:
+1. ترتيب الشرائح تنازلياً (`MinQuantity`).
+2. لكل شريحة: `times = remainingQty / MinQuantity`، `bonus += times × BonusQuantity`، `remainingQty -= times × MinQuantity`.
+3. البونص النهائي = مجموع `bonus` لكل الشرائح.
 
-**قبل كل Sprint:**
-1. اقرأ الجزء المتعلق به.
-2. نفّذ المهام بالترتيب.
-3. وثّق النتائج في الجزء 9.
+**مثال:** الكمية = 35، الشرائح = [10+1, 20+3].
+- 35 / 20 = 1 → bonus = 3، remainingQty = 15.
+- 15 / 10 = 1 → bonus = 1، remainingQty = 5.
+- 5 < 10 → توقف.
+- **البونص = 4.**
 
-**عند أي قرار تقني:**
-1. راجع الجزء المناسب (3, 4, 5, 6, 7).
-2. لا تخترع حلولاً جديدة — التزم بالتصميم.
-3. إذا لزم تغيير — وثّقه في الجزء 9.
+### 13.4 الملفات التي تطبق هذا المنطق
 
+| الملف | الغرض |
+|---|---|
+| `SupplyOrderService.CreateDraftAsync` | حساب البونص في الطلب. |
+| `ProductDetailsPage.razor` | عرض حساب البونص (Greedy) للصيدلي. |
+| `MedicationDetail.razor` | إدارة شرائح البونص (للشركة). |
+
+### 13.5 حالة التنفيذ
+
+- ✅ الكيانات (ProductBonus + ProductBonusTier).
+- ✅ API (Create + Get + Delete).
+- ✅ UI (إدارة البونص للشركة + عرض البونص للصيدلي).
+- ✅ تطبيق في الطلب (Greedy Auto-Calc).
 ---
+4. **الضريبة لا تُضاف فوق سعر الجمهور** — هي "مضمنة" فيه.
+5. **الخصومات تُحسب على سعر الجمهور مباشرةً** (لأنها "تخفيضات" على ما يدفعه المريض).
+6. **الأسعار التي تظهر للصيدلي:**
+- السعر المشطوب = PublicPrice
+- الخصم = PublicPrice × Pharm% × Add%
+- السعر النهائي = NetUnitPrice
+- الضريبة المضمنة = NetUnitPrice × Tax% / (1 + Tax%)
+---
+## 💰 الجزء الرابع عشر: Price & Tax Model (القاعدة الذهبية)
+
+### 14.1 التعريفات المرجعية
+
+| المصطلح | المعنى | المعادلة |
+|---|---|---|
+| **PublicPrice** | ما يُخزَّن في `PharmaCompanyMedications.Price` — شاملاً الضريبة | مدخل من الشركة |
+| **TaxPercent** | `PharmaCompanyMedications.SalesTax` | مدخل من الشركة |
+| **BasePrice** | السعر قبل الضريبة (يُشتَق، لا يُخزَّن) | `PublicPrice / (1 + TaxPercent / 100)` |
+| **PharmacistDiscountPercent** | خصم الصيدلي | مدخل من الشركة |
+| **AdditionalDiscountPercent** | خصم إضافي | مدخل من الشركة |
+| **NetUnitPrice** | ما يدفعه الصيدلي فعلياً | `PublicPrice × (1 − Pharm%) × (1 − Add%)` |
+
+### 14.2 القواعد الذهبية
+
+1. **`PharmaCompanyMedications.Price` = سعر الجمهور شاملاً الضريبة.**
+2. **`SalesTax` = نسبة الضريبة (للعرض فقط).**
+3. **معادلة السعر الصافي للصيدلي:**
+NetUnitPrice = PublicPrice × (1 − Pharm%) × (1 − Add%)
+### 14.3 الملفات التي تطبق هذه القاعدة
+
+| الملف | الغرض |
+|---|---|
+| `PharmacyCatalogPage.razor` | عرض السعر للصيدلي |
+| `PharmacyCartPage.razor` + `CommerceCartItem.cs` | حساب إجماليات السلة |
+| `SupplyOrderService.CreateDraftAsync` | حفظ SubTotal / TotalAmount |
+| `OrderDetailsPage.razor` | عرض تفاصيل الفاتورة |
+| `ProductDetailsPage.razor` | عرض تفاصيل المنتج |
+| `BundlesPage.razor` + `BundleService` | حساب سعر الباقة |
+| `PharmacyOrdersPage.razor` | عرض الإجمالي في القائمة |
+
+### 14.4 مثال عددي
+
+**الدواء 13169 (بريستو 20 قطعة):**
+- BasePrice (قبل الضريبة) = 56.00 EGP
+- Tax = 14%
+- PublicPrice (سعر الجمهور) = 56 × 1.14 = **63.84 EGP**
+
+**بعد خصم صيدلي 20% + خصم إضافي 5%:**
+- بعد خصم الصيدلي = 56 × 0.80 = 44.80
+- بعد الخصم الإضافي = 44.80 × 0.95 = 42.56
+- الضريبة = 42.56 × 0.14 = 5.96
+- **NetUnitPrice = 48.52 EGP** (ما يدفعه الصيدلي فعلياً)
+
+**في الفاتورة:**
+- السعر قبل الخصم = 63.84 EGP
+- الخصم = 15.32 EGP
+- السعر النهائي = 48.52 EGP
+- الضريبة المضمنة = 5.96 EGP
