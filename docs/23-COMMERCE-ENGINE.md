@@ -1293,197 +1293,82 @@ PAID ──[refund]──> REFUNDED
 **الشرط:** `EndDate > StartDate` (إن وُجد).
 **الخطأ:** `INVALID_DATE_RANGE`.
 
----
+---## 🌐 الجزء الرابع: API Endpoints (Implementation Reality)
 
-## 🌐 الجزء الرابع: API Endpoints (Design)
+### 4.1 Controllers المُنفذة
 
-### 4.1 Controllers المخططة
-
-| Controller | الموقع | الغرض |
+| Controller | الموقع | الحالة |
 |---|---|---|
-| `CatalogController` | `Api.Web/Controllers/Commerce/` | الصيدلي يتصفح كتالوج الشركة |
-| `SupplyOrdersController` | نفسه | CRUD + State Transitions |
-| `SupplyOrderPaymentsController` | نفسه | دفع + تأكيد |
-| `SupplyOrderShipmentsController` | نفسه | شحن + تتبع |
-| `SupplyOrderInvoicesController` | نفسه | فواتير |
-| `LedgerController` | نفسه | رصيد + تاريخ |
-| `CompanyStockController` | نفسه | إدارة المخزون (للشركة) |
-| `CompanyAgreementsController` | نفسه | إدارة العقود (للشركة + الصيدلية) |
+| `CatalogController` | `Api.Web/Controllers/Commerce/` | ✅ مُنفذ |
+| `SupplyOrdersController` | نفسه | ✅ مُنفذ |
+| `LedgerController` | نفسه | ✅ مُنفذ |
+| `CampaignsController` | نفسه | ✅ مُنفذ (CRUD) |
+| `BonusesController` | نفسه | ✅ مُنفذ (CRUD) |
+| `BundlesController` | نفسه | ✅ مُنفذ (CRUD) |
+| `SupplyOrderPaymentsController` | نفسه | ⏳ مُخطط |
+| `SupplyOrderShipmentsController` | نفسه | ⏳ مُخطط |
+| `SupplyOrderInvoicesController` | نفسه | ⏳ مُخطط |
+| `CompanyStockController` | نفسه | ⏳ مُخطط |
+| `CompanyAgreementsController` | نفسه | ⏳ مُخطط |
 
-### 4.2 `CatalogController` (الصيدلي)
+### 4.2 CatalogController (مُنفذ)
 
-**الغرض:** الصيدلي يتصفح كتالوج الشركة (الأدوية المتاحة + السعر + المخزون).
-
-| Method | Endpoint | الوصف |
-|---|---|---|
-| `GET` | `/api/commerce/catalog/{companyOrgId}` | كل الأدوية المتاحة للشركة |
-| `GET` | `/api/commerce/catalog/{companyOrgId}/medications` | بحث بالاسم (pagination) |
-| `GET` | `/api/commerce/catalog/{companyOrgId}/medications/{medicationId}` | تفاصيل دواء + سعر جملة + مخزون |
-| `GET` | `/api/commerce/catalog/companies` | الشركات المتاحة (لها عقود نشطة) |
-
-**Response Example:**
-```json
-{
-  "companyOrgId": 74,
-  "companyName": "BIOTECH EGYPT",
-  "medications": [
-    {
-      "pharmaCompanyMedicationId": 123,
-      "medicationNameAr": "باراسيتامول 500 مجم",
-      "medicationNameEn": "Paracetamol 500mg",
-      "wholesalePrice": 15.50,
-      "availableQuantity": 1000,
-      "minOrderQuantity": 10,
-      "maxOrderQuantity": 500,
-      "medicationImageUrl": "/uploads/medications/123.jpg"
-    }
-  ],
-  "totalCount": 401,
-  "page": 1,
-  "pageSize": 30
-}
-```
-
-**الصلاحيات:** `[Authorize]` + `CanManageFinance` (للصيدلية).
-
-### 4.3 `SupplyOrdersController` (الصيدلي + الشركة)
-
-| Method | Endpoint | الوصف | من؟ |
+| Method | Endpoint | الوصف | الحالة |
 |---|---|---|---|
-| `GET` | `/api/commerce/supply-orders` | قائمة الطلبات | الصيدلية + الشركة |
-| `GET` | `/api/commerce/supply-orders/{id}` | تفاصيل طلب | الصيدلية + الشركة |
-| `POST` | `/api/commerce/supply-orders` | إنشاء طلب (DRAFT) | الصيدلية |
-| `PUT` | `/api/commerce/supply-orders/{id}` | تعديل طلب (DRAFT فقط) | الصيدلية |
-| `POST` | `/api/commerce/supply-orders/{id}/submit` | إرسال (DRAFT → SUBMITTED) | الصيدلية |
-| `POST` | `/api/commerce/supply-orders/{id}/confirm` | تأكيد (SUBMITTED → CONFIRMED) | الشركة |
-| `POST` | `/api/commerce/supply-orders/{id}/reject` | رفض (SUBMITTED → REJECTED) | الشركة |
-| `POST` | `/api/commerce/supply-orders/{id}/prepare` | تجهيز (CONFIRMED → PREPARING) | الشركة |
-| `POST` | `/api/commerce/supply-orders/{id}/ship` | شحن (PREPARING → SHIPPED) | الشركة |
-| `POST` | `/api/commerce/supply-orders/{id}/deliver` | تأكيد استلام (SHIPPED → DELIVERED) | الصيدلية |
-| `POST` | `/api/commerce/supply-orders/{id}/complete` | إكمال (DELIVERED → COMPLETED) | النظام (auto) |
-| `POST` | `/api/commerce/supply-orders/{id}/cancel` | إلغاء | الصيدلية / الشركة |
-| `GET` | `/api/commerce/supply-orders/{id}/history` | سجل الحالات | الصيدلية + الشركة |
+| GET | `/api/commerce/catalog/companies` | الشركات المتاحة | ✅ |
+| GET | `/api/commerce/catalog/{companyOrgId}` | كتالوج الشركة | ✅ |
+| GET | `/api/commerce/catalog/{companyOrgId}/search?term=X` | بحث في الكتالوج | ✅ |
 
-**Request Example — Create:**
-```json
-POST /api/commerce/supply-orders
-{
-  "companyOrgId": 74,
-  "items": [
-    {
-      "pharmaCompanyMedicationId": 123,
-      "quantity": 100
-    },
-    {
-      "pharmaCompanyMedicationId": 456,
-      "quantity": 50
-    }
-  ],
-  "notes": "طلب توريد شهري"
-}
-```
+### 4.3 SupplyOrdersController (مُنفذ)
 
-**Response Example:**
-```json
-{
-  "supplyOrderId": 1001,
-  "serviceOrderId": 5001,
-  "orderNumber": "ORD-20261107-0001",
-  "status": "DRAFT",
-  "pharmacyOrgId": 1258,
-  "companyOrgId": 74,
-  "subTotal": 2000.00,
-  "taxAmount": 0,
-  "shippingAmount": 0,
-  "totalAmount": 2000.00,
-  "currencyCode": "EGP",
-  "fulfillmentMode": "DIRECT_COMPANY",
-  "createdDate": "2026-11-07T10:00:00Z"
-}
-```
+| Method | Endpoint | الوصف | الحالة |
+|---|---|---|---|
+| GET | `/api/commerce/supply-orders/pharmacy/{pharmacyOrgId}` | طلبات الصيدلية | ✅ |
+| GET | `/api/commerce/supply-orders/company/{companyOrgId}` | طلبات الشركة | ✅ |
+| GET | `/api/commerce/supply-orders/{id}` | تفاصيل طلب | ✅ |
+| POST | `/api/commerce/supply-orders` | إنشاء طلب (DRAFT) | ✅ |
+| POST | `/api/commerce/supply-orders/{id}/submit` | إرسال | ✅ |
+| POST | `/api/commerce/supply-orders/{id}/confirm` | تأكيد (شركة) | ✅ |
+| POST | `/api/commerce/supply-orders/{id}/reject` | رفض (شركة) | ✅ |
+| POST | `/api/commerce/supply-orders/{id}/prepare` | تجهيز (شركة) | ✅ |
+| POST | `/api/commerce/supply-orders/{id}/ship` | شحن (شركة) | ✅ |
+| POST | `/api/commerce/supply-orders/{id}/deliver` | تأكيد استلام (صيدلية) | ✅ |
+| POST | `/api/commerce/supply-orders/{id}/cancel` | إلغاء | ✅ |
 
-**الصلاحيات:**
-- `POST` / `PUT` / `submit` / `cancel` — `CanManageFinance` (للصيدلية).
-- `confirm` / `reject` / `prepare` / `ship` — `CanManageFinance` (للشركة).
-- `deliver` — `CanManageFinance` (للصيدلية).
+### 4.4 LedgerController (مُنفذ)
 
-### 4.4 `SupplyOrderPaymentsController`
+| Method | Endpoint | الوصف | الحالة |
+|---|---|---|---|
+| GET | `/api/commerce/ledger/{partyType}/{partyId}` | أرصدة الطرف | ✅ |
+| GET | `/api/commerce/ledger/{partyType}/{partyId}/{otherPartyType}/{otherPartyId}` | رصيد محدد | ✅ |
+| POST | `/api/commerce/ledger/{partyAType}/{partyAId}/{partyBType}/{partyBId}/ensure` | التأكد من وجود Ledger | ✅ |
 
-| Method | Endpoint | الوصف |
-|---|---|---|
-| `POST` | `/api/commerce/supply-orders/{id}/payments` | إنشاء دفعة (PENDING) |
-| `POST` | `/api/commerce/supply-orders/{id}/payments/{paymentId}/confirm` | تأكيد الدفع (PENDING → COMPLETED) |
-| `GET` | `/api/commerce/supply-orders/{id}/payments` | دفعات الطلب |
-| `POST` | `/api/commerce/supply-orders/{id}/payments/{paymentId}/refund` | استرداد |
+### 4.5 CampaignsController (مُنفذ)
 
-**Request Example — Create Payment:**
-```json
-POST /api/commerce/supply-orders/1001/payments
-{
-  "amount": 2000.00,
-  "paymentMethodId": 1,  // CASH_ON_DELIVERY
-  "externalReference": null
-}
-```
+| Method | Endpoint | الوصف | الحالة |
+|---|---|---|---|
+| GET | `/api/commerce/campaigns/company/{companyOrgId}` | حملات الشركة | ✅ |
+| GET | `/api/commerce/campaigns/{id}` | تفاصيل حملة | ✅ |
+| POST | `/api/commerce/campaigns` | إنشاء حملة | ✅ |
+| PUT | `/api/commerce/campaigns/{id}` | تعديل حملة | ✅ |
+| DELETE | `/api/commerce/campaigns/{id}` | حذف حملة | ✅ |
 
-### 4.5 `SupplyOrderShipmentsController`
+### 4.6 BonusesController (مُنفذ)
 
-| Method | Endpoint | الوصف |
-|---|---|---|
-| `POST` | `/api/commerce/supply-orders/{id}/shipments` | إنشاء شحنة (PENDING) |
-| `POST` | `/api/commerce/supply-orders/{id}/shipments/{shipmentId}/pick` | تم الاستلام من المخزن (PICKED) |
-| `POST` | `/api/commerce/supply-orders/{id}/shipments/{shipmentId}/ship` | تم الشحن (SHIPPED) |
-| `POST` | `/api/commerce/supply-orders/{id}/shipments/{shipmentId}/transit` | في الطريق (IN_TRANSIT) |
-| `POST` | `/api/commerce/supply-orders/{id}/shipments/{shipmentId}/deliver` | تم التوصيل (DELIVERED) |
-| `GET` | `/api/commerce/supply-orders/{id}/shipments` | شحنات الطلب |
+| Method | Endpoint | الوصف | الحالة |
+|---|---|---|---|
+| GET | `/api/commerce/bonuses/company/{companyOrgId}` | بونصات الشركة | ✅ |
+| POST | `/api/commerce/bonuses` | إنشاء/تحديث بونص (مع Tiers) | ✅ |
+| DELETE | `/api/commerce/bonuses/{id}` | حذف بونص | ✅ |
 
-### 4.6 `SupplyOrderInvoicesController`
+### 4.7 BundlesController (مُنفذ)
 
-| Method | Endpoint | الوصف |
-|---|---|---|
-| `POST` | `/api/commerce/supply-orders/{id}/invoices` | إنشاء فاتورة (DRAFT) |
-| `POST` | `/api/commerce/supply-orders/{id}/invoices/{invoiceId}/issue` | إصدار (ISSUED) |
-| `POST` | `/api/commerce/supply-orders/{id}/invoices/{invoiceId}/pay` | دفع (PAID) |
-| `GET` | `/api/commerce/supply-orders/{id}/invoices` | فواتير الطلب |
+| Method | Endpoint | الوصف | الحالة |
+|---|---|---|---|
+| GET | `/api/commerce/bundles/company/{companyOrgId}` | باقات الشركة | ✅ |
+| POST | `/api/commerce/bundles` | إنشاء باقة | ✅ |
+| DELETE | `/api/commerce/bundles/{id}` | حذف باقة | ✅ |
 
-### 4.7 `LedgerController`
-
-| Method | Endpoint | الوصف |
-|---|---|---|
-| `GET` | `/api/commerce/ledger/{partyType}/{partyId}` | أرصدة الطرف (مع كل الأطراف الأخرى) |
-| `GET` | `/api/commerce/ledger/{partyType}/{partyId}/{otherPartyType}/{otherPartyId}` | تفاصيل حساب محدد |
-| `GET` | `/api/commerce/ledger/{partyType}/{partyId}/{otherPartyType}/{otherPartyId}/transactions` | حركات الحساب |
-| `POST` | `/api/commerce/ledger/settle` | تسوية (settlement) |
-
-**Response Example — Balances:**
-```json
-GET /api/commerce/ledger/ORGANIZATION/1258
-{
-  "partyType": "ORGANIZATION",
-  "partyId": 1258,
-  "partyName": "صيدلية روبيك كير",
-  "balances": [
-    {
-      "otherPartyType": "ORGANIZATION",
-      "otherPartyId": 74,
-      "otherPartyName": "BIOTECH EGYPT",
-      "balance": -1500.00,  // على الصيدلية 1500
-      "currencyCode": "EGP",
-      "lastSettlementDate": null
-    },
-    {
-      "otherPartyType": "ORGANIZATION",
-      "otherPartyId": 129,
-      "otherPartyName": "EVA PHARMA",
-      "balance": 300.00,  // للصيدلية 300
-      "currencyCode": "EGP",
-      "lastSettlementDate": "2026-10-15"
-    }
-  ],
-  "totalReceivable": 300.00,  // مستحق للصيدلية
-  "totalPayable": 1500.00      // مستحق على الصيدلية
-}
-```
 
 ### 4.8 `CompanyStockController` (الشركة)
 
@@ -1672,191 +1557,56 @@ if (alreadyAwarded) return;
 - حملات تسويقية معقدة — لاحقاً.
 
 ---
+## 🎨 الجزء السادس: UI Plan (Implementation Reality)
 
-## 🎨 الجزء السادس: UI Plan (Pharmacy + Company)
+### 6.1 الصفحات المُنفذة (Pharmacy)
 
-### 6.1 مبادئ التصميم
+| الصفحة | المسار | الحالة | ملاحظات |
+|---|---|---|---|
+| `PharmacyCatalogPage.razor` | `/commerce/catalog` | ✅ | مع Grid/List View, Quantity Input, Net Price |
+| `PharmacyCartPage.razor` | `/commerce/cart` | ✅ | مع حسابات الخصم والضريبة |
+| `PharmacyOrdersPage.razor` | `/commerce/orders` | ✅ | قائمة الطلبات (مع فلاتر الحالة) |
+| `OrderDetailsPage.razor` | `/commerce/orders/{id}` | ✅ | مع Actions (Submit, Cancel, Deliver) + Track Order |
+| `OrderTrackingPage.razor` | `/commerce/tracking/{id}` | ✅ | Timeline (Draft → Submitted → ... → Delivered) |
+| `ProductDetailsPage.razor` | `/commerce/product-details/{id}` | ✅ | مع Bonus Calculator (Greedy) |
 
-**المرجع:** `10-UI-STYLE-GUIDE.md` + `01-ARCHITECTURE.md` (Blazor WebView constraints).
+### 6.2 الصفحات المُنفذة (Company)
 
-**القواعد:**
-- ✅ استخدام `Shared.UI` Components (PspGateway, PspDetail إلخ كأنماط).
-- ✅ RTL/LTR support (TranslationState + localStorage).
-- ✅ Loading/Empty/Error states.
-- ✅ Responsive (mobile-first).
-- ❌ لا `BlazorWebView` مع Parameters ديناميكية في ShellContent (انظر 13-MAUI § 6.5).
+| الصفحة | المسار | الحالة | ملاحظات |
+|---|---|---|---|
+| `CommerceLanding.razor` | `/commerce` | ✅ | Hub (كروت: Orders + Settings) |
+| `CompanyCommerceWrapper.razor` | `/commerce/orders` | ✅ | قائمة الطلبات الواردة |
+| `CompanyOrderDetails.razor` | `/commerce/orders/{id}` | ✅ | تفاصيل + Actions (Confirm, Reject, Prepare, Ship) |
+| `CommerceSettingsPage.razor` | `/commerce/settings` | ✅ | Hub (كروت: Campaigns, Bundles, Bonus, Tiers, Logistics) |
+| `CampaignsPage.razor` | `/commerce/settings/campaigns` | ✅ | CRUD كامل |
+| `BundlesPage.razor` | `/commerce/settings/bundles` | ✅ | Product Picker + CRUD |
+| `MedicationDetail.razor` | `/organization/{OrgId}/medication/{MedicationId}` | ✅ | مع Promotions Card (Bonus + Calculator + Manage) |
 
-### 6.2 صفحات الصيدلية (Pharmacy)
+### 6.3 الصفحات المُخططة (Pending)
 
-#### (أ) `PharmacyCatalogPage.razor`
-**الغرض:** تصفح كتالوج الشركة.
-
-**المكونات:**
-- **Header:** اسم الشركة + رصيد Ledger (دائن/مدين).
-- **Filter Bar:** بحث بالاسم + Filter (Category).
-- **Grid:** كروت الأدوية (صورة، اسم، سعر جملة، مخزون).
-- **Add to Cart:** زر لكل دواء (يفتح Drawer للكمية).
-
-**مصدر البيانات:** `GET /api/commerce/catalog/{companyOrgId}`.
-
-**المسار:** `/commerce/catalog/{companyOrgId}`.
-
-#### (ب) `PharmacyCartPage.razor`
-**الغرض:** سلة المشتريات + Checkout.
-
-**المكونات:**
-- **Cart Items:** قائمة (دواء، كمية، سعر، إجمالي).
-- **Edit Quantity:** + / -.
-- **Remove Item:** زر.
-- **Totals:** SubTotal + Tax + Shipping + Total.
-- **Notes:** textarea.
-- **Checkout Button:** → `ServiceOrder` (DRAFT → SUBMITTED).
-
-**مصدر البيانات:** Local state + `POST /api/commerce/supply-orders`.
-
-**المسار:** `/commerce/cart/{companyOrgId}`.
-
-#### (ج) `PharmacyOrdersPage.razor`
-**الغرض:** قائمة الطلبات (صيدلية).
-
-**المكونات:**
-- **Tabs:** All | DRAFT | SUBMITTED | CONFIRMED | SHIPPED | DELIVERED | COMPLETED | CANCELLED.
-- **List:** كروت (رقم الطلب، التاريخ، الشركة، الحالة، الإجمالي).
-- **Click:** → `PharmacyOrderDetailsPage`.
-
-**مصدر البيانات:** `GET /api/commerce/supply-orders?pharmacyOrgId=X`.
-
-**المسار:** `/commerce/orders`.
-
-#### (د) `PharmacyOrderDetailsPage.razor`
-**الغرض:** تفاصيل طلب + Actions.
-
-**المكونات:**
-- **Header:** رقم الطلب + الحالة (Badge) + الشركة.
-- **Timeline:** State History.
-- **Items:** جدول (دواء، كمية، سعر، إجمالي).
-- **Totals:** SubTotal + Tax + Shipping + Total.
-- **Actions:**
-  - `DRAFT` → Submit / Delete.
-  - `SUBMITTED` → Cancel.
-  - `SHIPPED` → Confirm Delivery.
-  - `DELIVERED` → View Invoice / Pay.
-- **Sidebar:** Payment + Shipment + Invoice.
-
-**مصدر البيانات:** `GET /api/commerce/supply-orders/{id}` + `/history` + `/payments` + `/shipments`.
-
-**المسار:** `/commerce/orders/{id}`.
-
-#### (هـ) `PharmacyLedgerPage.razor`
-**الغرض:** أرصدة الصيدلية مع كل الشركات.
-
-**المكونات:**
-- **Summary Cards:** Total Receivable + Total Payable.
-- **List:** الشركات (اسم، رصيد، آخر تسوية).
-- **Click:** → `LedgerDetailsPage`.
-
-**مصدر البيانات:** `GET /api/commerce/ledger/ORGANIZATION/{pharmacyOrgId}`.
-
-**المسار:** `/commerce/ledger`.
-
-#### (و) `PharmacyStockPage.razor` (اختياري — لاحقاً)
-**الغرض:** مخزون الصيدلية (بعد استلام الطلبات).
-
-**مؤجل — لا نبنيها الآن.**
-
-### 6.3 صفحات الشركة (Company)
-
-#### (أ) `CompanyOrdersPage.razor`
-**الغرض:** قائمة الطلبات الواردة.
-
-**المكونات:**
-- **Tabs:** All | SUBMITTED | CONFIRMED | PREPARING | SHIPPED.
-- **List:** كروت (رقم الطلب، التاريخ، الصيدلية، الحالة، الإجمالي).
-- **Click:** → `CompanyOrderDetailsPage`.
-
-**مصدر البيانات:** `GET /api/commerce/supply-orders?companyOrgId=X`.
-
-**المسار:** `/commerce/company/orders`.
-
-#### (ب) `CompanyOrderDetailsPage.razor`
-**الغرض:** تفاصيل طلب + Actions.
-
-**المكونات:**
-- **Header:** رقم الطلب + الحالة + الصيدلية.
-- **Timeline:** State History.
-- **Items:** جدول.
-- **Actions:**
-  - `SUBMITTED` → Confirm / Reject.
-  - `CONFIRMED` → Prepare / Cancel.
-  - `PREPARING` → Ship / Cancel.
-- **Sidebar:** Payment + Shipment + Invoice.
-
-**مصدر البيانات:** `GET /api/commerce/supply-orders/{id}` + `/history`.
-
-**المسار:** `/commerce/company/orders/{id}`.
-
-#### (ج) `CompanyStockPage.razor`
-**الغرض:** إدارة مخزون الشركة.
-
-**المكونات:**
-- **Search:** بحث دواء.
-- **Table:** (دواء، مخزون متاح، محجوز، سعر جملة، حد أدنى).
-- **Edit:** → Dialog (تعديل كمية/سعر).
-- **Restock:** → Dialog (إضافة كمية).
-
-**مصدر البيانات:** `GET /api/commerce/company/{companyOrgId}/stock` + `PUT` + `POST /restock`.
-
-**المسار:** `/commerce/company/stock`.
-
-#### (د) `CompanyAgreementsPage.razor`
-**الغرض:** إدارة العقود.
-
-**المكونات:**
-- **List:** عقود (صيدلية، خصم، حد ائتمان، حالة).
-- **Create:** → Dialog (صيدلية + شروط).
-- **Actions:** Suspend / Activate / Edit.
-
-**مصدر البيانات:** `GET /api/commerce/company/{companyOrgId}/agreements` + `POST` + `PUT`.
-
-**المسار:** `/commerce/company/agreements`.
-
-#### (هـ) `CompanyLedgerPage.razor`
-**الغرض:** أرصدة الشركة مع كل الصيدليات.
-
-**نفس نمط `PharmacyLedgerPage`** — لكن من منظور الشركة.
-
-**المسار:** `/commerce/company/ledger`.
-
-### 6.4 التنقل (Navigation)
-
-**في `PharmacyDashboard` (موجود):**
-- إضافة كارت جديد: "طلبات التوريد" → `/commerce/orders`.
-- إضافة كارت: "المستحقات" → `/commerce/ledger`.
-
-**في `PharmaCompanyDashboard` (موجود):**
-- إضافة كارت: "طلبات التوريد الواردة" → `/commerce/company/orders`.
-- إضافة كارت: "المخزون" → `/commerce/company/stock`.
-- إضافة كارت: "العقود" → `/commerce/company/agreements`.
-- إضافة كارت: "المستحقات" → `/commerce/company/ledger`.
-
-**التعديل على AppShell (MAUI) + NavMenu (PWA):**
-- إضافة الروابط الجديدة (ضمن `MOBILE.SHELL` translation keys).
-
-### 6.5 Shared.UI Components المخططة
-
-| المكون | الغرض | الحالة |
+| الصفحة | المسار | الحالة |
 |---|---|---|
-| `CommerceOrderCard.razor` | كارت طلب (في القوائم) | جديد |
-| `CommerceOrderTimeline.razor` | Timeline الحالات | جديد |
-| `CommerceLedgerCard.razor` | كارت رصيد | جديد |
-| `CommerceStockTable.razor` | جدول مخزون | جديد |
-| `CommercePaymentDialog.razor` | Dialog دفع | جديد |
-| `CommerceShipmentDialog.razor` | Dialog شحن | جديد |
-| `CommerceAgreementDialog.razor` | Dialog عقد | جديد |
-| `CommerceQuantityInput.razor` | Input كمية + validation | جديد |
+| `PharmacyLedgerPage.razor` | `/commerce/ledger` | ⏳ |
+| `CompanyLedgerPage.razor` | `/commerce/company/ledger` | ⏳ |
+| `CheckoutPage.razor` | `/commerce/checkout` | ⏳ |
+| `TiersPage.razor` | `/commerce/settings/tiers` | ⏳ |
+| `LogisticsPage.razor` | `/commerce/settings/logistics` | ⏳ |
+| `CompanyStockPage.razor` | `/commerce/company/stock` | ⏳ |
+| `CompanyAgreementsPage.razor` | `/commerce/company/agreements` | ⏳ |
 
-**كل هذه في `Shared.UI/Components/Commerce/`.**
+### 6.4 المكونات المشتركة (Shared.UI)
 
+| المكون | الحالة |
+|---|---|
+| `CommerceRootPage.razor` | ✅ (مع Breadcrumb + Switch) |
+| `CommerceProductDetailsFlow.xaml` (MAUI) | ✅ (مع BlazorWebView + Parameters) |
+| `CommerceNavigationBridge` (Bridge Pattern) | ✅ (للتواصل بين Shared.UI و Mobile) |
+
+### 6.5 قيود MAUI (تم حلها)
+
+- **مشكلة**: `BlazorWebView` مع `Parameters` ديناميكية في `ShellContent` يسبب "Reload".
+- **الحل**: استخدام `CommerceNavigationBridge` + `Navigation.PushModalAsync` + صفحة XAML منفصلة (`CommerceProductDetailsFlow`).
+- **المرجع**: `13-MAUI.md` (النمط 7).
 ### 6.6 أنماط التصميم
 
 **المرجع:** `10-UI-STYLE-GUIDE.md`.
@@ -1947,241 +1697,53 @@ Routing.RegisterRoute("commerce/company/ledger", typeof(CompanyLedgerFlow));
 - `/commerce/company/agreements`
 - `/commerce/company/ledger`
 
----
-## 🗓️ الجزء السابع: خطة العمل (Sprints)
+---## 🗓️ الجزء السابع: Sprint Status (Implementation Reality)
 
-### 7.1 نظرة عامة على Sprints
+### 7.1 Sprint Status Overview
 
-**الفلسفة:** تقسيم العمل إلى Sprints أسبوعية، كل Sprint يُسلّم **شيئاً قابلاً للاختبار**.
+| Sprint | الموضوع | التاريخ | الحالة | الإنجاز |
+|---|---|---|---|---|
+| S1 | Domain Entities + Migration | 2026-11-06 → 2026-11-08 | ✅ مكتمل | 12 كيان + Migrations |
+| S2 | Application Layer (Services) | 2026-11-08 → 2026-11-10 | ✅ مكتمل | 4 Services (SupplyOrder, Catalog, Ledger, ServiceOrder) |
+| S3 | API Controllers (Orders + Catalog) | 2026-11-09 → 2026-11-10 | ✅ مكتمل | 3 Controllers (SupplyOrders, Catalog, Ledger) |
+| S3.5 | B2B Future Features (Tiers, Bundles, Campaigns, Bonuses, Logistics) | 2026-11-10 → 2026-11-11 | ✅ مكتمل | 5 كيانات + 3 APIs (Campaigns, Bonuses, Bundles) |
+| S4 | UI Phase 1 (Pharmacy) | 2026-11-09 → 2026-11-11 | ✅ مكتمل | 6 صفحات (Catalog, Cart, Orders, OrderDetails, Tracking, ProductDetails) |
+| S5 | UI Phase 2 (Company) | 2026-11-10 → 2026-11-11 | ✅ مكتمل | 4 صفحات (Hub, Orders, Settings, Campaigns, Bundles) |
+| S6 | Bonus System (Tiers + Auto-Calc) | 2026-11-11 → 2026-11-12 | ✅ مكتمل | Entity + Service + UI + Greedy Calc |
+| S7 | Price & Tax Model (Simplified) | 2026-11-11 | ✅ مكتمل | تطبيق المعادلة في Cart, Catalog, OrderDetails, SupplyOrderService |
+| S8 | Ledger UI (Checkout + Ledger Pages) | — | ⏳ لم يبدأ | — |
+| S9 | Payments + Shipments + Invoices + Agreements APIs | — | ⏳ لم يبدأ | — |
+| S10 | Tiers + Logistics UI | — | ⏳ لم يبدأ | — |
+| S11 | B2B Points Integration | — | ⏳ لم يبدأ | — |
+| S12 | E2E Testing + Deployment | — | ⏳ لم يبدأ | — |
 
-| Sprint | الموضوع | المدة | الحالة |
-|---|---|---|---|
-| **S1** | Domain Entities + Migration | 3-4 أيام | ⏳ القادم |
-| **S2** | Application Layer (Services) | 3-4 أيام | ⏳ |
-| **S3** | API Controllers (Orders + Catalog) | 4-5 أيام | ⏳ |
-| **S4** | API Controllers (Payments + Shipments + Invoices + Ledger) | 4-5 أيام | ⏳ |
-| **S5** | UI Phase 1 (Pharmacy — 5 صفحات) | 5-7 أيام | ⏳ |
-| **S6** | UI Phase 2 (Company — 4 صفحات) | 4-5 أيام | ⏳ |
-| **S7** | Integration + E2E Testing | 3-4 أيام | ⏳ |
-| **S8** | Seed Data + Polish + Deployment | 2-3 أيام | ⏳ |
+### 7.2 ما تم إنجازه في هذه الجلسة (2026-11-11 → 2026-11-12)
 
-**المجموع:** 8 Sprints، ~30-37 يوم عمل (~6-7 أسابيع مع جداول واقعية).
+- ✅ إعادة تصميم Bonus (Tiers + Auto-Calc).
+- ✅ إنشاء `ProductDetailsPage.razor` (مع Bonus Calculator).
+- ✅ إنشاء `CommerceProductDetailsFlow` (MAUI) + `CommerceNavigationBridge`.
+- ✅ إصلاح `ProductDetailsPage` (المشاكل: Json, Cache, MAUI Reload).
+- ✅ إعادة تصميم `MedicationDetail.razor` (قسم Promotions + Bonus Calculator).
+- ✅ توثيق `Price & Tax Model` (القاعدة الذهبية).
+- ✅ إصلاح الحسابات (SupplyOrderService + Cart + Catalog).
 
-### 7.2 Sprint 1 — Domain Entities + Migration
+### 7.3 المتبقي (Priority Order)
 
-**الهدف:** بناء 12 كيان + Migration + تطبيق على Dev.
+#### 🔴 P1 (MVP Completion):
+1. **Checkout Page** (طريقة الدفع + رصيد الصيدلي).
+2. **Ledger UI** (Pharmacy + Company).
+3. **Payments API** (ServicePayment).
 
-**المهام:**
+#### 🟠 P2 (After MVP):
+4. **Tiers Page** (UI + API).
+5. **Logistics Page** (UI + API).
+6. **Agreements API** (PharmacyCompanyAgreement).
+7. **Stock API** (PharmaCompanyMedicationStock).
 
-| # | المهمة | التقدير | المخرج |
-|---|---|---|---|
-| 1.1 | إنشاء `RubikCare.Domain/Commerce/Engine/` + 7 كيانات | 4 ساعات | كود C# |
-| 1.2 | إنشاء `RubikCare.Domain/Commerce/B2B/` + 5 كيانات | 3 ساعات | كود C# |
-| 1.3 | إنشاء Enums (4 Engine + 2 B2B) | 1 ساعة | كود C# |
-| 1.4 | إضافة `DbSet<>` في `BusinessDbContext` | 1 ساعة | Patch |
-| 1.5 | Fluent Config في `OnModelCreating` (Indexes + Relations) | 2 ساعات | Patch |
-| 1.6 | Migration `AddCommerceEngineTables` (dotnet ef) | 1 ساعة | Migration |
-| 1.7 | مراجعة Migration المولّد | 1 ساعة | — |
-| 1.8 | Pre-Check + Apply على Dev | 1 ساعة | مطبّق |
-| 1.9 | التحقق (12 جدول موجود) | 30 دقيقة | — |
-| 1.10 | Pre-Check + Apply على ProdCopy | 1 ساعة | مطبّق |
-| 1.11 | تحديث `23-COMMERCE-ENGINE.md` (سجل) | 30 دقيقة | — |
-
-**المجموع:** ~16 ساعة (~2 يوم عمل مكثف، أو 3-4 أيام مع جداول).
-
-**المخاطر:**
-- ⚠️ Migration قد يفشل (Indexes متعارضة).
-- **الاحتياطي:** اختبار على Dev أولاً.
-
-**Deliverable:** 12 جدول على `RubikCare_Dev_V2` + `RubikCare_ProdCopy`.
-
-### 7.3 Sprint 2 — Application Layer (Services)
-
-**الهدف:** بناء Services للعمليات الأساسية.
-
-**المهام:**
-
-| # | المهمة | التقدير |
-|---|---|---|
-| 2.1 | `IServiceOrderService` + `ServiceOrderService` (Create, Get, Update) | 3 ساعات |
-| 2.2 | `ISupplyOrderService` + `SupplyOrderService` (State Machine) | 4 ساعات |
-| 2.3 | `ICatalogService` + `CatalogService` (Get Catalog by Company) | 2 ساعات |
-| 2.4 | `ILedgerService` + `LedgerService` (Get Balance, Charge, Credit) | 3 ساعات |
-| 2.5 | `IPaymentService` + `PaymentService` | 2 ساعات |
-| 2.6 | `IShipmentService` + `ShipmentService` | 2 ساعات |
-| 2.7 | `IStockService` + `StockService` (Reserve, Deduct, Release) | 2 ساعات |
-| 2.8 | `IAgreementService` + `AgreementService` | 2 ساعات |
-| 2.9 | Unit Tests (Business Rules: stock, credit, state) | 4 ساعات |
-| 2.10 | التسجيل في `Program.cs` | 30 دقيقة |
-
-**المجموع:** ~25 ساعة (~3-4 أيام).
-
-**المخاطر:**
-- ⚠️ Transaction boundaries في `SupplyOrderService` (Confirm + Stock Reserve + Ledger Charge — كلها في Transaction واحد).
-- **الاحتياطي:** استخدام `ExecuteWithNewContextAsync` (موجود).
-
-**Deliverable:** 8 Services + Unit Tests.
-
-### 7.4 Sprint 3 — API Controllers (Orders + Catalog)
-
-**الهدف:** 4 Controllers (Catalog, SupplyOrders, CompanyStock, CompanyAgreements).
-
-**المهام:**
-
-| # | المهمة | التقدير |
-|---|---|---|
-| 3.1 | `CatalogController` (4 endpoints) | 3 ساعات |
-| 3.2 | `SupplyOrdersController` (12 endpoints) | 6 ساعات |
-| 3.3 | `CompanyStockController` (4 endpoints) | 2 ساعات |
-| 3.4 | `CompanyAgreementsController` (6 endpoints) | 3 ساعات |
-| 3.5 | Authorization (`CanManageFinance` + تحقق) | 1 ساعة |
-| 3.6 | Swagger + OpenAPI annotations | 1 ساعة |
-| 3.7 | Postman Collection | 1 ساعة |
-| 3.8 | اختبار يدوي (Postman) | 2 ساعات |
-
-**المجموع:** ~19 ساعة (~2-3 أيام).
-
-**المخاطر:**
-- ⚠️ Endpoints Authorization قد يسبب 403 غير متوقع.
-- **الاحتياطي:** اختبار بـ `RubikCare_ProdCopy`.
-
-**Deliverable:** 26 endpoints جاهزة.
-
-### 7.5 Sprint 4 — API Controllers (Payments + Shipments + Invoices + Ledger)
-
-**الهدف:** 4 Controllers إضافية.
-
-**المهام:**
-
-| # | المهمة | التقدير |
-|---|---|---|
-| 4.1 | `SupplyOrderPaymentsController` (4 endpoints) | 3 ساعات |
-| 4.2 | `SupplyOrderShipmentsController` (6 endpoints) | 4 ساعات |
-| 4.3 | `SupplyOrderInvoicesController` (4 endpoints) | 3 ساعات |
-| 4.4 | `LedgerController` (4 endpoints) | 3 ساعات |
-| 4.5 | اختبار Integration (Order → Payment → Shipment → Invoice) | 4 ساعات |
-| 4.6 | Postman Collection محدّث | 1 ساعة |
-
-**المجموع:** ~18 ساعة (~2-3 أيام).
-
-**Deliverable:** 18 endpoints + اختبار E2E للدورة الكاملة.
-
-### 7.6 Sprint 5 — UI Phase 1 (Pharmacy)
-
-**الهدف:** 5 صفحات للصيدلية.
-
-**المهام:**
-
-| # | المهمة | التقدير |
-|---|---|---|
-| 5.1 | `CommerceOrderCard.razor` + `CommerceOrderTimeline.razor` | 3 ساعات |
-| 5.2 | `CommerceQuantityInput.razor` | 1 ساعة |
-| 5.3 | `PharmacyCatalogPage.razor` | 4 ساعات |
-| 5.4 | `PharmacyCartPage.razor` | 3 ساعات |
-| 5.5 | `PharmacyOrdersPage.razor` | 3 ساعات |
-| 5.6 | `PharmacyOrderDetailsPage.razor` | 4 ساعات |
-| 5.7 | `PharmacyLedgerPage.razor` | 3 ساعات |
-| 5.8 | Translation keys (bilingual) | 1 ساعة |
-| 5.9 | CSS (`commerce.css`) | 2 ساعات |
-| 5.10 | Navigation (`AppShell.xaml.cs` + PWA routes) | 1 ساعة |
-| 5.11 | Dashboard integration (`PharmacyDashboard.razor`) | 1 ساعة |
-
-**المجموع:** ~26 ساعة (~4 أيام).
-
-**المخاطر:**
-- ⚠️ BlazorWebView Parameters (إن استُخدمت في ShellContent).
-- **الاحتياطي:** استخدام `Routing.RegisterRoute` للصفحات الفرعية.
-
-**Deliverable:** 5 صفحات جاهزة (PWA + MAUI).
-
-### 7.7 Sprint 6 — UI Phase 2 (Company)
-
-**الهدف:** 4 صفحات للشركة.
-
-**المهام:**
-
-| # | المهمة | التقدير |
-|---|---|---|
-| 6.1 | `CommerceStockTable.razor` | 2 ساعات |
-| 6.2 | `CommerceAgreementDialog.razor` + `CommercePaymentDialog.razor` | 3 ساعات |
-| 6.3 | `CompanyOrdersPage.razor` | 3 ساعات |
-| 6.4 | `CompanyOrderDetailsPage.razor` | 4 ساعات |
-| 6.5 | `CompanyStockPage.razor` | 3 ساعات |
-| 6.6 | `CompanyAgreementsPage.razor` | 3 ساعات |
-| 6.7 | `CompanyLedgerPage.razor` | 2 ساعات |
-| 6.8 | Translation keys | 1 ساعة |
-| 6.9 | Navigation + Dashboard integration | 1 ساعة |
-
-**المجموع:** ~22 ساعة (~3-4 أيام).
-
-**Deliverable:** 4 صفحات جاهزة.
-
-### 7.8 Sprint 7 — Integration + E2E Testing
-
-**الهدف:** اختبار الدورة الكاملة.
-
-**المهام:**
-
-| # | المهمة | التقدير |
-|---|---|---|
-| 7.1 | اختبار كامل: صيدلية تطلب → شركة تؤكد → تشحن → الصيدلية تستلم | 4 ساعات |
-| 7.2 | اختبار Payment + Ledger + Settlement | 3 ساعات |
-| 7.3 | اختبار State Machine (كل التحولات) | 2 ساعات |
-| 7.4 | اختبار Authorization (403 للحالات غير المصرح) | 2 ساعات |
-| 7.5 | اختبار Edge Cases (CreditLimit, Stock, Reject) | 3 ساعات |
-| 7.6 | اختبار PWA (browser) | 2 ساعات |
-| 7.7 | اختبار MAUI (device/emulator) | 2 ساعات |
-| 7.8 | Bug Fixes | 4 ساعات |
-
-**المجموع:** ~22 ساعة (~3-4 أيام).
-
-### 7.9 Sprint 8 — Seed Data + Polish + Deployment
-
-**الهدف:** تجهيز النشر.
-
-**المهام:**
-
-| # | المهمة | التقدير |
-|---|---|---|
-| 8.1 | Seed Scripts (V004, V005, V006 — B2B Points) | 2 ساعات |
-| 8.2 | Seed Scripts (V007 — PaymentMethods) | 1 ساعة |
-| 8.3 | Translations (كل المفاتيح الجديدة) | 2 ساعات |
-| 8.4 | Documentation (تحديث `23-COMMERCE-ENGINE.md`) | 2 ساعات |
-| 8.5 | Pre-Check + Apply على `RubikCare_Production` | 1 ساعة |
-| 8.6 | Deployment (Web/API/PWA) | 2 ساعات |
-| 8.7 | Smoke Test على Production | 2 ساعات |
-| 8.8 | Rollback Plan موثّق | 1 ساعة |
-
-**المجموع:** ~13 ساعة (~2 أيام).
-
-### 7.10 Sprint 0 (تمهيدي — اختياري)
-
-**الهدف:** تجهيز البيئة.
-
-**المهام:**
-- ✅ `__SeedHistory` (مطبّق).
-- ✅ `Pre-Migration-Check.ps1` (مطبّق).
-- ✅ `Apply-Migrations.ps1` (مطبّق).
-- ⏳ `Backup-Before-Deploy.ps1` (اختياري — قبل Sprint 8).
-
-### 7.11 إجمالي التقديرات
-
-| Sprint | الساعات | الأيام (8h) |
-|---|---|---|
-| S1 | 16 | 2 |
-| S2 | 25 | 3-4 |
-| S3 | 19 | 2-3 |
-| S4 | 18 | 2-3 |
-| S5 | 26 | 3-4 |
-| S6 | 22 | 3-4 |
-| S7 | 22 | 3-4 |
-| S8 | 13 | 2 |
-| **المجموع** | **161** | **~20-26 يوم** |
-
-**معامل AI (0.3-0.5):** قد يُقلّص إلى **~10-15 يوم** مع AI Assistants.
-
-**الجدول الواقعي:** **6-7 أسابيع** (مع الاختبار والمراجعة).
-
+#### 🟡 P3 (Future):
+8. **B2B Points Integration**.
+9. **Shipments + Invoices APIs**.
+10. **Warehouse Layer**.
 ---
 
 ## ⚠️ الجزء الثامن: المخاطر + الدروس المتوقعة
