@@ -1,8 +1,8 @@
-# 📘 09 — API GUIDE v2.0 (النسخة النهائية المُحدَّثة)
+# 📘 09 — API GUIDE v2.1 (Commerce Edition)
 
-**آخر تحديث:** 16 أكتوبر 2026
-**الإصدار:** 2.0 (Full Controllers Edition — Verified)
-**الحالة:** ✅ مرجع شامل — موثّق من الكود الفعلي
+آخر تحديث: 12 نوفمبر 2026 
+الإصدار: 2.1 (Commerce Module Added) 
+الحالة: ✅ مرجع شامل — موثّق من الكود الفعلي (بما فيه Commerce)
 **الجمهور:** فريق التطوير، تكامل العملاء (Web, PWA, Mobile)، AI Assistants
 
 ---
@@ -13,13 +13,11 @@
 
 **الأرقام الفعلية (16 أكتوبر 2026) — مُتحقَّق منها من الكود:**
 
-| المقياس | القيمة |
-|:---|:---:|
-| **عدد Controllers** | 35+ |
-| **عدد Endpoints** | ~290 |
-| **عدد المجموعات** | 18 |
-| **المشاريع المعتمدة** | 9 |
-
+المقياس | القيمة
+---|---
+عدد Controllers | 41+
+عدد Endpoints | ~320
+عدد المجموعات | 19
 ---
 
 ## 📊 الجزء الأول: النظرة العامة
@@ -100,7 +98,15 @@ Api.Web/Controllers/
 │   └── RepController.cs                   (12 endpoints)
 │
 └── Reports/
-    └── ReportsController.cs               (8 endpoints)
+│   └── ReportsController.cs               (8 endpoints)
+│
+└── Commerce/                               ⭐ جديد
+    ├── CatalogController.cs                (3 endpoints)
+    ├── SupplyOrdersController.cs           (11 endpoints)
+    ├── LedgerController.cs                 (3 endpoints)
+    ├── CampaignsController.cs              (5 endpoints)
+    ├── BonusesController.cs                (3 endpoints)
+    └── BundlesController.cs                (3 endpoints)
 ```
 
 ### 1.2 جدول شامل للمجموعات
@@ -125,8 +131,8 @@ Api.Web/Controllers/
 | 16 | **Dashboard** | 1 | 1 | 🟠 |
 | 17 | **Misc** | 3 | 3 | 🟢 |
 | 18 | **Base** | 1 | 8 | — |
-| | **المجموع** | **~50 ملف** | **~290** | |
-
+19 | Commerce | 6 | 31 | 🔴|
+المجموع | ~56 ملف | ~321
 ---
 
 ## 🔐 الجزء الثاني: المصادقة والهوية
@@ -930,6 +936,209 @@ Api.Web/Controllers/
 | 8 | `GET` | `/api/reports/filters` | الفلاتر المتاحة |
 
 ---
+## 🛒 الجزء الرابع عشر-ب: Commerce (B2B Module) — ⭐ جديد
+
+### 21.1 CatalogController (3 endpoints)
+
+**المسار:** `Api.Web/Controllers/Commerce/CatalogController.cs`
+**Route:** `[Route("api/commerce/catalog")]`
+**Auth:** `[Authorize]`
+
+| # | Method | Endpoint | الوظيفة |
+|---|---|---|---|
+| 1 | GET | `/api/commerce/catalog/companies` | الشركات النشطة في B2B (لها اشتراك) |
+| 2 | GET | `/api/commerce/catalog/{companyOrgId}` | كتالوج أدوية الشركة |
+| 3 | GET | `/api/commerce/catalog/{companyOrgId}/search?term=X` | بحث في كتالوج الشركة |
+
+**ملاحظة:** يستخدم `CatalogService` (في `RubikCare.Application/Services/Commerce/`). يعيد `CatalogMedicationDto` (مع `PharmacistDiscount`, `AdditionalDiscount`, `SalesTax`).
+
+---
+
+### 21.2 SupplyOrdersController (11 endpoints)
+
+**المسار:** `Api.Web/Controllers/Commerce/SupplyOrdersController.cs`
+**Route:** `[Route("api/commerce/supply-orders")]`
+**Auth:** `[Authorize]`
+
+| # | Method | Endpoint | الوظيفة | من؟ |
+|---|---|---|---|---|
+| 1 | GET | `/api/commerce/supply-orders/{id}` | تفاصيل طلب | الصيدلية + الشركة |
+| 2 | GET | `/api/commerce/supply-orders/pharmacy/{pharmacyOrgId}` | طلبات الصيدلية | الصيدلية |
+| 3 | GET | `/api/commerce/supply-orders/company/{companyOrgId}` | طلبات الشركة | الشركة |
+| 4 | POST | `/api/commerce/supply-orders` | إنشاء طلب (DRAFT) | الصيدلية |
+| 5 | POST | `/api/commerce/supply-orders/{id}/submit` | إرسال (DRAFT → SUBMITTED) | الصيدلية |
+| 6 | POST | `/api/commerce/supply-orders/{id}/confirm` | تأكيد (SUBMITTED → CONFIRMED) | الشركة |
+| 7 | POST | `/api/commerce/supply-orders/{id}/reject` | رفض (SUBMITTED → REJECTED) | الشركة |
+| 8 | POST | `/api/commerce/supply-orders/{id}/prepare` | تجهيز (CONFIRMED → PREPARING) | الشركة |
+| 9 | POST | `/api/commerce/supply-orders/{id}/ship` | شحن (PREPARING → SHIPPED) | الشركة |
+| 10 | POST | `/api/commerce/supply-orders/{id}/deliver` | تأكيد استلام (SHIPPED → DELIVERED) | الصيدلية |
+| 11 | POST | `/api/commerce/supply-orders/{id}/cancel` | إلغاء (Reason) | الصيدلية / الشركة |
+
+**ملاحظة:** يستخدم `SupplyOrderService` (في `RubikCare.Application/Services/Commerce/`) — **State Machine** + **حساب البونص** (Greedy) + **تطبيق سياسات العرض** (`Apply*`).
+
+**مثال Request (Create):**
+```json
+{
+  "pharmacyOrgId": 1258,
+  "companyOrgId": 91,
+  "items": [
+    { "pharmaCompanyMedicationId": 11465, "quantity": 35 }
+  ],
+  "notes": "طلب توريد شهري"
+}
+```
+مثال Response (Create):
+
+
+```json
+{
+  "success": true,
+  "data": {
+    "supplyOrderId": 1001,
+    "serviceOrderId": 5001,
+    "orderNumber": "ORD-20261112-0001",
+    "status": "DRAFT",
+    "pharmacyOrgId": 1258,
+    "companyOrgId": 91,
+    "subTotal": 4650.00,
+    "taxAmount": 0,
+    "totalAmount": 2553.60,
+    "items": [
+      {
+        "supplyOrderItemId": 22,
+        "pharmaCompanyMedicationId": 11465,
+        "medicationName": "اوكسي فري 20 كبسولة",
+        "quantity": 10,
+        "unitPrice": 280,
+        "lineTotal": 2553.6,
+        "pharmacistDiscountPercent": 20,
+        "additionalDiscountPercent": 0,
+        "salesTaxPercent": 14,
+        "netUnitPrice": 255.36,
+        "bonusQuantity": 4
+      }
+    ]
+  }
+}
+```
+### 21.3 LedgerController (3 endpoints)
+المسار: Api.Web/Controllers/Commerce/LedgerController.cs
+Route: [Route("api/commerce/ledger")]
+Auth: [Authorize]
+
+#	Method	Endpoint	الوظيفة
+1	GET	/api/commerce/ledger/{partyType}/{partyId}	أرصدة الطرف (مع كل الأطراف)
+2	GET	/api/commerce/ledger/{partyAType}/{partyAId}/{partyBType}/{partyBId}	رصيد محدد بين طرفين
+3	POST	/api/commerce/ledger/{partyAType}/{partyAId}/{partyBType}/{partyBId}/ensure	التأكد من وجود Ledger (إنشاؤه إذا لم يوجد)
+ملاحظة: يستخدم LedgerService (في RubikCare.Application/Services/Commerce/). يعيد LedgerBalanceDto.
+
+مثال Response:
+
+```json
+{
+  "success": true,
+  "data": {
+    "serviceLedgerId": 1,
+    "partyAType": "ORGANIZATION",
+    "partyAId": 1258,
+    "partyAName": "صيدلية روبيك كير",
+    "partyBType": "ORGANIZATION",
+    "partyBId": 91,
+    "partyBName": "شركة ديفارت لاب",
+    "balance": 0,
+    "currencyCode": "EGP",
+    "lastSettlementDate": null
+  }
+}
+```
+### 21.4 CampaignsController (5 endpoints)
+المسار: Api.Web/Controllers/Commerce/CampaignsController.cs
+Route: [Route("api/commerce/campaigns")]
+Auth: [Authorize]
+
+#	Method	Endpoint	الوظيفة
+1	GET	/api/commerce/campaigns/company/{companyOrgId}	حملات الشركة
+2	GET	/api/commerce/campaigns/{id}	تفاصيل حملة
+3	POST	/api/commerce/campaigns	إنشاء حملة
+4	PUT	/api/commerce/campaigns/{id}	تعديل حملة
+5	DELETE	/api/commerce/campaigns/{id}	حذف حملة
+مثال Request (Create):
+
+```json
+{
+  "companyOrgId": 91,
+  "campaignName": "عرض الشتاء",
+  "description": "خصم 10% على جميع المنتجات",
+  "startDate": "2026-11-15",
+  "endDate": "2026-12-15",
+  "discountType": "PERCENTAGE",
+  "discountValue": 10
+}
+```
+ملاحظة: يستخدم CampaignService. يعيد CampaignDto. ملاحظة: الحملات لم تُطبق تلقائياً في SupplyOrderService بعد (CRUD فقط).
+
+### 21.5 BonusesController (3 endpoints)
+المسار: Api.Web/Controllers/Commerce/BonusesController.cs
+Route: [Route("api/commerce/bonuses")]
+Auth: [Authorize]
+
+#	Method	Endpoint	الوظيفة
+1	GET	/api/commerce/bonuses/company/{companyOrgId}	بونصات الشركة
+2	POST	/api/commerce/bonuses	إنشاء/تحديث بونص (مع Tiers)
+3	DELETE	/api/commerce/bonuses/{id}	حذف بونص
+مثال Request (Create):
+
+```json
+{
+  "companyOrgId": 91,
+  "pharmaCompanyMedicationId": 13487,
+  "bonusName": "Bonus for ارثينيا كريم 20جم",
+  "startDate": "2026-11-12",
+  "endDate": "2027-11-12",
+  "tiers": [
+    { "minQuantity": 10, "bonusQuantity": 1 },
+    { "minQuantity": 20, "bonusQuantity": 3 }
+  ]
+}
+```
+ملاحظة: يستخدم BonusService. إذا كان هناك بونص نشط للمنتج، يضيف الشرائح الجديدة إليه (لا ينشئ بونصاً جديداً). يتحقق من التكرار (نفس MinQuantity) ويرفضه.
+
+### 21.6 BundlesController (3 endpoints)
+المسار: Api.Web/Controllers/Commerce/BundlesController.cs
+Route: [Route("api/commerce/bundles")]
+Auth: [Authorize]
+
+#	Method	Endpoint	الوظيفة
+1	GET	/api/commerce/bundles/company/{companyOrgId}	باقات الشركة
+2	POST	/api/commerce/bundles	إنشاء باقة
+3	DELETE	/api/commerce/bundles/{id}	حذف باقة
+مثال Request (Create):
+
+```json
+{
+  "companyOrgId": 91,
+  "bundleName": "باقة الشتاء",
+  "description": "فيتامين C + زنك",
+  "bundlePrice": 250,
+  "items": [
+    { "pharmaCompanyMedicationId": 11465, "quantity": 2 },
+    { "pharmaCompanyMedicationId": 17628, "quantity": 1 }
+  ]
+}
+```
+ملاحظة: يستخدم BundleService. يعيد BundleDto (مع Tiers). ملاحظة: حساب BundlePrice (بعد الخصم) لم يُطبق تلقائياً بعد (يُدخل يدوياً).
+
+ 21.7###  جدول ملخص Commerce Endpoints
+Controller	عدد Endpoints	الحالة
+CatalogController	3	✅ مُنفذ
+SupplyOrdersController	11	✅ مُنفذ
+LedgerController	3	✅ مُنفذ
+CampaignsController	5	✅ مُنفذ
+BonusesController	3	✅ مُنفذ
+BundlesController	3	✅ مُنفذ
+المجموع	28	—
+ملاحظة: SupplyOrderPaymentsController, SupplyOrderShipmentsController, SupplyOrderInvoicesController, CompanyStockController, CompanyAgreementsController — لم تُنفذ بعد (مخطط لها).
+---
 
 ## 📈 الجزء الخامس عشر: Dashboard & Misc
 
@@ -1070,8 +1279,9 @@ public async Task<IActionResult> Create([FromBody] CreateRequest request)
 | Reports | 1 | 8 |
 | Dashboard | 1 | 1 |
 | Misc | 3 | 3 |
+| Commerce | 6 | 28 |
 | Base | 1 | 8 |
-| **المجموع** | **~50 ملف** | **~290** |
+| **المجموع** | ** ~56 ملف** | **~318** |
 
 ---
 
@@ -1095,6 +1305,8 @@ public async Task<IActionResult> Create([FromBody] CreateRequest request)
 |:---:|:---|:---|
 | **1.0** | **17 مايو 2026** | الإصدار الأولي — 7 Controllers رئيسية |
 | **2.0** | **16 أكتوبر 2026** | **شامل** — ~290 endpoint موثّق من الكود الفعلي: PSP (62) + Points (38) + Pharmacy (27) + Reminders (8) + PharmaCompanyMedications (18) |
+| 2.1 | 12 نوفمبر 2026 | إضافة Commerce Module (6 Controllers + 28 Endpoints): Catalog, SupplyOrders, Ledger, Campaigns, Bonuses, Bundles. |
+
 
 ---
 
