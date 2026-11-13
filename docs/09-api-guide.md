@@ -1282,7 +1282,7 @@ public async Task<IActionResult> Create([FromBody] CreateRequest request)
 | Misc | 3 | 3 |
 | Commerce | 6 | 28 |
 | Base | 1 | 8 |
-| **المجموع** | ** ~56 ملف** | **~318** |
+**المجموع** | ** ~56 ملف** | **~318** 
 
 ---
 
