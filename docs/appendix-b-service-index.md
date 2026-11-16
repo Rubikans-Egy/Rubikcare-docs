@@ -184,9 +184,73 @@ var result = await _dbFactory.ExecuteWithNewContextAsync(async context =>
 
 بهذا الدمج بين **Impersonation للقراءة والفحص** و **كيان واحد معزول بـ `IsTest` لاختبارات الـ QR Code والتفاعل**، يمكنك اختبار كل تحديث جديد على بيئة الإنتاج في دقائق معدودة وبأمان تام دون الحاجة لتعديل الكود أو بناء نسخ خاصة للاختبار.
 
-**آخر تحديث:** 18 يوليو 2026 | **الملف:** `appendix-b-service-index.md`
 
 ---
+## ماهي الجداول التي يتم تعديلها 
+لا يتطلب الأمر تعديل كل جداول قاعدة البيانات إطلاقاً. في البنية النظيفة (Clean Architecture) التي تستخدمها، يكفي وضع علامة `IsTest` على **الجداول الجذرية (Root Entities)** فقط، بينما تتبعها الجداول الفرعية (Child Entities) تلقائياً عبر العلاقات (Navigation Properties) و **Global Query Filters** في EF Core.
+
+### 1. قاعدة العزل الهرمي (تعديل الجداول الجذرية فقط)
+
+البيانات في منصتك تتبع هرمية واضحة تبدأ من **المؤسسة (Organization)** أو **المستخدم (User)** أو **البرنامج (PspProgram)**. أي حركة تتم داخل النظام (زيارة عيادة، صرف روشتة، مسح QR Code، إشعار، نقاط) لا تعيش في الفراغ، بل ترتبط دائماً بأحد هذه الجذور.
+
+* **التعديل المطلوب في قاعدة البيانات:** إضافة عمود واحد فقط (`bool IsTest = false`) في **3 جداول رئيسية فقط**:
+1. `Organizations` (يشمل العيادات، الصيدليات، وشركات الأدوية).
+2. `Users` (يشمل حساب المريض والطبيب والصيدلي التجريبي).
+3. `PspPrograms` (برامج دعم المرضى).
+
+
+* **الجداول الفرعية (مثل `Orders`, `QrScans`, `PatientPoints`, `Invitations`):** **لا تحتاج لأي تعديل**؛ لأنها مرتبطة بمفتاح خارجي (`OrganizationId` أو `UserId` أو `ProgramId`) يشير إلى الجذر.
+
+---
+
+### 2. كيف يتم العزل التلقائي في EF Core (Global Query Filters)؟
+
+في ملف `ApplicationDbContext.cs` داخل طبقة `Infrastructure`، يمكنك تعريف فلتر عام (Global Query Filter) يطبق تلقائياً على مستوى النظام دون الحاجة لتعديل أي استعلام LINQ قمت بكتابته سابقاً في طبقة `Application`:
+
+```csharp
+// داخل OnModelCreating في ApplicationDbContext
+protected override void OnModelCreating(ModelBuilder modelBuilder)
+{
+    base.OnModelCreating(modelBuilder);
+
+    // 1. عزل الجداول الجذرية
+    modelBuilder.Entity<Organization>().HasQueryFilter(o => !o.IsTest || _currentUserService.IsSandboxMode);
+    modelBuilder.Entity<ApplicationUser>().HasQueryFilter(u => !u.IsTest || _currentUserService.IsSandboxMode);
+    modelBuilder.Entity<PspProgram>().HasQueryFilter(p => !p.IsTest || _currentUserService.IsSandboxMode);
+
+    // 2. عزل الجداول الفرعية تلقائياً عبر العلاقة دون إضافة أعمدة جديدة لها!
+    modelBuilder.Entity<QrScanTransaction>()
+        .HasQueryFilter(t => !t.Organization.IsTest || _currentUserService.IsSandboxMode);
+
+    modelBuilder.Entity<PharmacyOrder>()
+        .HasQueryFilter(o => !o.Pharmacy.IsTest || _currentUserService.IsSandboxMode);
+}
+
+```
+
+#### كيف يعمل هذا الكود في بيئة الإنتاج؟
+
+* **للمستخدمين الحقيقيين (`IsSandboxMode == false`):** يقوم EF Core تلقائياً بإضافة شرط `WHERE IsTest = 0` إلى كل استعلامات العرض والتقارير والإحصائيات ولوحات تحكم شركات الأدوية. بالتالي، لا يرى أي مستخدم حقيقي العيادة أو الصيدلية أو برنامج الدعم التجريبي، ولا تدخل أي عملية مسح QR تجريبية في حسابات أو تقارير الشركات.
+* **لك كمسؤول أثناء الفحص (`IsSandboxMode == true`):** بمجرد دخولك بحساب الاختبار أو تفعيل وضع الفحص الإداري، يفتح EF Core الرؤية للكيانات التجريبية (`IsTest == true`) فتتمكن من مسح الـ QR Code وإتمام دورة العمل كاملة بشكل حي وطبيعي.
+
+---
+
+### 3. البديل الأسرع (Zero Schema Changes) إذا كنت لا تريد تعديل الجداول حالياً
+
+إذا أردت تطبيق الفكرة اليوم **دون عمل أي Migration لقاعدة البيانات على الإطلاق**:
+
+* **الاعتماد على بادئة معيارية أو قائمة معرّفات (Convention-Based Isolation):**
+1. أنشئ عيادة وصيدلية وشركة أدوية وبرنامج دعم واحد على الإنتاج، واجعل بريدهم الإلكتروني أو الكود التعريفي الخاص بهم يبدأ بـ `sandbox.` أو `test.` (مثل `sandbox.pharmacy@rubikcare.com` أو `Code = "SANDBOX_PSP"`).
+2. ضع هذه المعرّفات الثابتة (GUIDs / IDs) في إعدادات النظام (`appsettings.Production.json` تحت قسم `SandboxConfig:ExcludedTenantIds`).
+3. في `OnModelCreating` داخل `DbContext`، استثنِ هذه الـ IDs في الـ `HasQueryFilter` بنفس الطريقة أعلاه.
+
+
+
+**النتيجة:** تحصل على عزل تام وآمن على بيئة الإنتاج لاختبار تطبيق الموبايل (الطبيب، الصيدلية، شركة الأدوية، ومسح QR Code) دون تعديل جدول واحد في قاعدة البيانات، مع إمكانية تصفير بيانات هذه المعرّفات دورياً بـ Script بسيط.
+---
+**آخر تحديث:** 16 نوفمبر 2026 | **الملف:** `appendix-b-service-index.md`
+
+
 
 ### 📊 ملخص ما تم إضافته في هذا الملف:
 1. ✅ **روابط مباشرة** لشجرة القرار ومصفوفة الخدمات في المقدمة.
