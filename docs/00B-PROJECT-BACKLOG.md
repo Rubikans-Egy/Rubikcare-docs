@@ -1,9 +1,9 @@
 # 00B — PROJECT-BACKLOG (Live State Edition)
 
 الاسم: PROJECT-BACKLOG — سجل التطوير الحي
-الإصدار: 7.0 (Live State Edition)
-آخر تحديث: 11 نوفمبر 2026
-Sprint الحالي: Sprint 4 — B2B Commerce MVP Completion (11-17 نوفمبر)
+الإصدار: 7.1 (Live State Edition)
+آخر تحديث: 17 نوفمبر 2026
+Sprint الحالي: Sprint 6 — PSP Cycle Completion (25-30 نوفمبر)
 الحالة: 🟢 حي — يُحدَّث كل جلسة
 الجمهور: فريق التطوير + AI Assistants
 الوثيقة الشقيقة: `00C-CHANGELOG.md` (كل ما تم إنجازه)
@@ -27,121 +27,109 @@ Sprint الحالي: Sprint 4 — B2B Commerce MVP Completion (11-17 نوفمب�
 - **في `00D` فقط:** الجدول الزمني الكلي (Sprint-by-Sprint) والمعالم.
 
 ### قاعدة ذهبية للـ AI Assistant
-> عند قراءة هذه الوثيقة، ابدأ من **§2 (Sprint الحالي)**. لا تقرأ §8 (SP التاريخي) إلا إذا احتجت حساب Velocity. لا تفترض أن مهمة "مكتملة" لأنها غير موجودة هنا — ابحث عنها في `00C`.
+> عند قراءة هذه الوثيقة، ابدأ من **§3 (Sprint 6 الحالي)**. لا تقرأ §8 (SP التاريخي) إلا إذا احتجت حساب Velocity. لا تفترض أن مهمة "مكتملة" لأنها غير موجودة هنا — ابحث عنها في `00C`.
 
 ---
 
-## 🎯 الرؤية الحالية (Current Vision — 11 نوفمبر 2026)
+## 🎯 الرؤية الحالية (Current Vision — 17 نوفمبر 2026)
 
 RubikCare في مرحلة **Pre-Launch — MVP Completion**. الهدف:
 
-1. **إغلاق B2B Commerce MVP** (Sprint 4 — الأسبوع الحالي).
-2. **تأسيس PHR Phase 1 (Hb Navigator)** (Sprint 5 — الأسبوع القادم).
-3. **إغلاق فجوات PSP Cycle** (Sprint 6 — ديسمبر).
-4. **الاستعداد لـ Production Launch** (Sprint 7+).
+1. **إغلاق فجوات PSP Cycle** (Sprint 6 — ديسمبر).
+2. **الاستعداد لـ Production Launch** (Sprint 7+).
 
-**ملاحظة مهمة:** B2B Commerce كان مخططاً في Sprint 8+ (بعد PHR وIntegration Hub)، لكن تم تقديمه إلى Sprint 4 لأنه **حلقة مفقودة في PSP Cycle** (الصيدلية تحتاج طلب الأدوية من الشركة قبل صرفها للمريض). هذا التقديم أدى إلى تأجيل PHR من Sprint 4 إلى Sprint 5.
+**ملاحظة مهمة:** Sprint 6P1-1 و P1-2 اكتملوا (خلال الجلسة الحالية). P1-3 (زر "ابدأ رحلتك") هو المهمة القادمة.
 
 ---
 
-## 🟢 §1: Sprint 4 — B2B Commerce MVP Completion (11-17 نوفمبر 2026)
+## 🟢 §1: Sprint 4 — B2B Commerce MVP Completion (11-17 نوفمبر 2026) — ✅ مُغلق
 
-**الهدف:** إغلاق كل ما بدأ في B2B Commerce MVP (Domain + Application + API + UI Phase 1+2 منجز — انظر `00C`).
+**الحالة:** مُغلق (اكتمل قبل Sprint 6 — التفاصيل في `00C`).
 
 **المرجع:** `23-COMMERCE-ENGINE.md` §0.6 (حالة التنفيذ) + §15 (Roadmap المتبقي).
 
-### 🔴 P1 — حرجة (MVP Completion) — هذا الأسبوع
+### 🔴 P1 — حرجة (MVP Completion) — ✅ مكتمل
 
-| # | المهمة | SP | الوقت المقدر | الحالة | المرجع |
-|---|---|---|---|---|---|
-| S4-P1-1 | إنهاء منطق حساب الباقات (`BundleService` + UI) | 2 | 2-3 ساعات | 🟡 قيد التنفيذ | 23-COMMERCE §15 |
-| S4-P1-2 | إنشاء صفحة Bonus (UI + API) | 3 | 4 ساعات | ⏳ | 23-COMMERCE §15 |
-| S4-P1-3 | إنشاء صفحة Tiers (UI + API) | 3 | 4 ساعات | ⏳ | 23-COMMERCE §15 |
-| S4-P1-4 | إنشاء صفحة Logistics (UI + API) | 2 | 3 ساعات | ⏳ | 23-COMMERCE §15 |
-| S4-P1-5 | اختبار إنشاء طلب جديد بعد تعديلات Price & Tax | 1 | 1 ساعة | ⏳ | 23-COMMERCE §14 |
-
-**المجموع P1:** 11 SP — **~14-15 ساعة عمل**
-
-### 🟠 P2 — متوسطة (يمكن أن تنجز هذا الأسبوع أو القادم)
-
-| # | المهمة | SP | الوقت المقدر | المرجع |
+| # | المهمة | SP | الحالة | المرجع |
 |---|---|---|---|---|
-| S4-P2-1 | Payments API (ServicePayment — الكيان جاهز) | 2 | 4 ساعات | 23-COMMERCE §15 |
-| S4-P2-2 | Shipments API (ServiceShipment — الكيان جاهز) | 2 | 3 ساعات | 23-COMMERCE §15 |
-| S4-P2-3 | Invoices API (ServiceInvoice — الكيان جاهز) | 2 | 3 ساعات | 23-COMMERCE §15 |
-| S4-P2-4 | Agreements API (PharmacyCompanyAgreement) | 2 | 3 ساعات | 23-COMMERCE §15 |
-| S4-P2-5 | Stock API (PharmaCompanyMedicationStock) | 2 | 3 ساعات | 23-COMMERCE §15 |
-| S4-P2-6 | Ledger UI (صفحة الأرصدة — API جاهز) | 2 | 4 ساعات | 23-COMMERCE §15 |
-| S4-P2-7 | Status History (PharmacySupplyOrderStatusHistory) | 1 | 2 ساعات | 23-COMMERCE §15 |
+| S4-P1-1 | إنهاء منطق حساب الباقات (`BundleService` + UI) | 2 | ✅ | 23-COMMERCE §15 |
+| S4-P1-2 | إنشاء صفحة Bonus (UI + API) | 3 | ✅ | 23-COMMERCE §15 |
+| S4-P1-3 | إنشاء صفحة Tiers (UI + API) | 3 | ✅ | 23-COMMERCE §15 |
+| S4-P1-4 | إنشاء صفحة Logistics (UI + API) | 2 | ✅ | 23-COMMERCE §15 |
+| S4-P1-5 | اختبار إنشاء طلب جديد بعد تعديلات Price & Tax | 1 | ✅ | 23-COMMERCE §14 |
 
-**المجموع P2:** 13 SP — **~22 ساعة عمل**
+**المجموع P1:** 11 SP — **مكتمل**
 
-### 🟡 P3 — منخفضة (ما بعد MVP B2B — Sprint 6+)
+### 🟠 P2 — متوسطة (مؤجل إلى Sprint 7+)
 
-| # | المهمة | SP | الوقت المقدر |
+| # | المهمة | SP | الحالة | المرجع |
+|---|---|---|---|---|
+| S4-P2-1 | Payments API (ServicePayment) | 2 | ⏳ | 23-COMMERCE §15 |
+| S4-P2-2 | Shipments API (ServiceShipment) | 2 | ⏳ | 23-COMMERCE §15 |
+| S4-P2-3 | Invoices API (ServiceInvoice) | 2 | ⏳ | 23-COMMERCE §15 |
+| S4-P2-4 | Agreements API (PharmacyCompanyAgreement) | 2 | ⏳ | 23-COMMERCE §15 |
+| S4-P2-5 | Stock API (PharmaCompanyMedicationStock) | 2 | ⏳ | 23-COMMERCE §15 |
+| S4-P2-6 | Ledger UI (صفحة الأرصدة) | 2 | ⏳ | 23-COMMERCE §15 |
+| S4-P2-7 | Status History (PharmacySupplyOrderStatusHistory) | 1 | ⏳ | 23-COMMERCE §15 |
+
+**المجموع P2:** 13 SP — **مؤجل**
+
+### 🟡 P3 — منخفضة (مؤجل إلى Sprint 8+)
+
+| # | المهمة | SP | الحالة |
 |---|---|---|---|
-| S4-P3-1 | Warehouse Layer (FulfillmentMode = WAREHOUSE) | 8 | 1-2 يوم |
-| S4-P3-2 | B2B Points Integration (Seed + Orchestrator) | 5 | 1 يوم |
-| S4-P3-3 | Pharmacy Stock Page (بعد استلام الطلبات) | 2 | 3 ساعات |
-| S4-P3-4 | Online Payments (Paymob/Fawry) | 8 | 2 أيام |
+| S4-P3-1 | Warehouse Layer (FulfillmentMode = WAREHOUSE) | 8 | ⏳ |
+| S4-P3-2 | B2B Points Integration (Seed + Orchestrator) | 5 | ⏳ |
+| S4-P3-3 | Pharmacy Stock Page | 2 | ⏳ |
+| S4-P3-4 | Online Payments (Paymob/Fawry) | 8 | ⏳ |
 
-**المجموع P3:** 23 SP — **~4 أيام عمل** (مؤجل)
-
-### 📌 ملاحظة: Sprint 4 في `00D` = 11-17 نوفمبر، لكن P2 قد تمتد إلى الأسبوع القادم إذا لم يكتمل P1 في الوقت. **قاعدة صارمة:** لا نبدأ Sprint 5 (PHR) قبل إغلاق كل P1 من Sprint 4.
+**المجموع P3:** 23 SP — **مؤجل**
 
 ---
 
-## 🟠 §2: Sprint 5 — PHR Phase 1 (Hb Navigator) (18-24 نوفمبر 2026)
+## 🟠 §2: Sprint 5 — PHR Phase 1 (Hb Navigator) (18-24 نوفمبر 2026) — 🔴 مؤجل
 
-**الهدف:** تأسيس البنية التحتية للسجلات الطبية + تسجيل أول تحليل (Hb) كـ MVP.
+**الحالة:** مؤجل (بسبب تأجيل B2B Commerce — انظر 00D).
 
-**المرجع:** `21-PHR-SYSTEM.md` §1 (نموذج البيانات) + §2 (السيناريوهات) + `01-ARCHITECTURE.md` §3 (شجرة القرار).
+**المرجع:** `21-PHR-SYSTEM.md` §1 + §2 + `01-ARCHITECTURE.md` §3.
 
-### 🔴 P1 — حرجة (Foundation)
+### 🔴 P1 — حرجة (Foundation) — 🔴 مؤجل
 
-| # | المهمة | SP | الوقت المقدر | الحالة | المرجع |
-|---|---|---|---|---|---|
-| S5-P1-1 | Domain: `MedicalRecordType`, `LabTestType`, `AssessmentRule`, `AssessmentRuleType` | 3 | 1 يوم | ⏳ | 21-PHR §1.2 |
-| S5-P1-2 | Domain: `HealthRecord`, `LabTestResult` | 2 | 0.5 يوم | ⏳ | 21-PHR §1.3 |
-| S5-P1-3 | Domain: `SharingConsent` (basic — للتصميم فقط) | 1 | 0.5 يوم | ⏳ | 21-PHR §1.4 |
-| S5-P1-4 | Seeds: `MedicalRecordType`, `LabTestType` (HB), `AssessmentRuleType`, `AssessmentRule` (كل قواعد classify) | 2 | 0.5 يوم | ⏳ | 21-PHR §1.2 |
-| S5-P1-5 | Migration + EF Configurations (6 ملفات) | 2 | 0.5 يوم | ⏳ | 01-ARCH §15 |
-
-**المجموع P1:** 10 SP — **~3 أيام عمل**
-
-### 🟠 P2 — متوسطة (منطق التقييم)
-
-| # | المهمة | SP | الوقت المقدر | المرجع |
+| # | المهمة | SP | الحالة | المرجع |
 |---|---|---|---|---|
-| S5-P2-1 | `IHbClinicalRulesEngine` + Implementation | 3 | 1 يوم | 21-PHR §1.2.3 |
-| S5-P2-2 | `SaveLabResultUseCase` + `GetLabResultsUseCase` | 2 | 0.5 يوم | 21-PHR §2.1 |
-| S5-P2-3 | `SaveLabResultValidator` (FluentValidation + PlausibleRange من DB) | 1 | 0.5 يوم | 21-PHR §1.2.2 |
-| S5-P2-4 | API: `HealthRecordsController` (POST + GET) | 2 | 0.5 يوم | 21-PHR §2.1 |
+| S5-P1-1 | Domain: `MedicalRecordType`, `LabTestType`, `AssessmentRule`, `AssessmentRuleType` | 3 | ⏳ | 21-PHR §1.2 |
+| S5-P1-2 | Domain: `HealthRecord`, `LabTestResult` | 2 | ⏳ | 21-PHR §1.3 |
+| S5-P1-3 | Domain: `SharingConsent` | 1 | ⏳ | 21-PHR §1.4 |
+| S5-P1-4 | Seeds: `MedicalRecordType`, `LabTestType`, `AssessmentRuleType`, `AssessmentRule` | 2 | ⏳ | 21-PHR §1.2 |
+| S5-P1-5 | Migration + EF Configurations | 2 | ⏳ | 01-ARCH §15 |
 
-**المجموع P2:** 8 SP — **~2.5 يوم عمل**
+**المجموع P1:** 10 SP — **مؤجل**
 
-### 🟡 P3 — منخفضة (الواجهة)
+### 🟠 P2 — متوسطة (منطق التقييم) — 🔴 مؤجل
 
-| # | المهمة | SP | الوقت المقدر | المرجع |
+| # | المهمة | SP | الحالة | المرجع |
 |---|---|---|---|---|
-| S5-P3-1 | `HbNavigator.razor` + `.razor.cs` (من HTML الحالي) | 4 | 1.5 يوم | 21-PHR §2.1 |
-| S5-P3-2 | `hb-navigator.css` (بدون Tailwind CDN) | 1 | 0.5 يوم | 01-ARCH §2.8 |
-| S5-P3-3 | Chart Component (Blazor أو JSInterop) | 2 | 1 يوم | 21-PHR §2.1 |
-| S5-P3-4 | Translation Keys AR/EN (SQL MERGE) | 1 | 0.5 يوم | 04-TRANSLATION |
-| S5-P3-5 | RTL/LTR + Responsive Design | 2 | 0.5 يوم | 01-ARCH §2.8 |
-| S5-P3-6 | Cross-Platform Testing (Web + PWA + MAUI) | 2 | 0.5 يوم | 01-ARCH §3.4 |
+| S5-P2-1 | `IHbClinicalRulesEngine` + Implementation | 3 | ⏳ | 21-PHR §1.2.3 |
+| S5-P2-2 | `SaveLabResultUseCase` + `GetLabResultsUseCase` | 2 | ⏳ | 21-PHR §2.1 |
+| S5-P2-3 | `SaveLabResultValidator` (FluentValidation) | 1 | ⏳ | 21-PHR §1.2.2 |
+| S5-P2-4 | API: `HealthRecordsController` (POST + GET) | 2 | ⏳ | 21-PHR §2.1 |
 
-**المجموع P3:** 12 SP — **~4.5 يوم عمل**
+**المجموع P2:** 8 SP — **مؤجل**
 
-**المجموع الكلي Sprint 5:** 30 SP — **~10 أيام عمل** (يحتاج Buffer 20% → **~12 يوم** — قد يمتد إلى الأسبوع التالي)
+### 🟡 P3 — منخفضة (الواجهة) — 🔴 مؤجل
 
-### ⚠️ تحذيرات حرجة قبل البدء
+| # | المهمة | SP | الحالة | المرجع |
+|---|---|---|---|---|
+| S5-P3-1 | `HbNavigator.razor` + `.razor.cs` | 4 | ⏳ | 21-PHR §2.1 |
+| S5-P3-2 | `hb-navigator.css` | 1 | ⏳ | 01-ARCH §2.8 |
+| S5-P3-3 | Chart Component (Blazor أو JSInterop) | 2 | ⏳ | 21-PHR §2.1 |
+| S5-P3-4 | Translation Keys AR/EN (SQL MERGE) | 1 | ⏳ | 04-TRANSLATION |
+| S5-P3-5 | RTL/LTR + Responsive Design | 2 | ⏳ | 01-ARCH §2.8 |
+| S5-P3-6 | Cross-Platform Testing | 2 | ⏳ | 01-ARCH §3.4 |
 
-1. **قاعدة MAUI Golden Rule (01-ARCH §3.4):** لا تستخدم `HbNavigator.razor` كصفحة رئيسية في MAUI. استخدم XAML محلي + BlazorWebView فرعي (نمط S3.5-H27).
-2. **قاعدة Decimal Comparison:** `h === 11` في JS ≠ `h == 11` في C# (EF Core). استخدم `Math.Round(h, 1) == 11`.
-3. **AssessmentRule Overlap:** يجب إضافة عمود `Priority` (int) لتفادي اختيار Normal بدلاً من Borderline.
-4. **UserProfileID وليس PatientProfileID:** حسب 21-PHR §0.2.
-5. **Soft Delete إلزامي:** `HealthRecord.IsDeleted` (حسب 21-PHR §1.3.1).
+**المجموع P3:** 12 SP — **مؤجل**
+
+**المجموع الكلي Sprint 5:** 30 SP — **مؤجل**
 
 ---
 
@@ -151,23 +139,25 @@ RubikCare في مرحلة **Pre-Launch — MVP Completion**. الهدف:
 
 **المرجع:** `05-PSP.md` + `06-POINTS.md` + `00B v6.4` (المهام المؤجلة).
 
+**آخر تحديث:** 17 نوفمبر 2026 — بعد إغلاق S6-P1-1 و S6-P1-2.
+
 ### 🔴 P1 — حرجة (Sprint 3.6 المتبقي)
 
 | # | المهمة | SP | الحالة | المرجع |
 |---|---|---|---|---|
-| S6-P1-1 | S3.6-H3: إصلاح Error بدل صفحة النقاط (points-dashboard) | 3 | ⏳ | 00C (المتبقي) |
-| S6-P1-2 | S3.6-H4: توليد مواعيد الأدوية — أكتر من دواء في نفس المعاد | 5 | ⏳ | 00C (المتبقي) |
-| S6-P1-3 | S3.6-H5: تعديل منطق زر "ابدأ رحلتك العلاجية" | 3 | ⏳ | 00C (المتبقي) |
+| S6-P1-1 | S3.6-H3: إصلاح Error بدل صفحة النقاط (`points-dashboard`) | 3 | ✅ **مكتمل** | 00C |
+| S6-P1-2 | S3.6-H4: توليد مواعيد الأدوية — أكتر من دواء في نفس المعاد | 5 | ✅ **مكتمل** | 00C |
+| S6-P1-3 | S3.6-H5: تعديل منطق زر "ابدأ رحلتك العلاجية" | 3 | ⏳ **لم يبدأ** | 00C |
 
-**المجموع P1:** 11 SP
+**المجموع P1:** 11 SP — **المكتمل: 8 SP** / **المتبقي: 3 SP**
 
 ### 🟠 P2 — متوسطة (Sprint 1 المتبقي — Reports Integration)
 
 | # | المهمة | SP | الحالة | المرجع |
 |---|---|---|---|---|
-| S6-P2-1 | P5.1: GetAdherenceHandler — إضافة Points | 2 | ⏳ | 01-ARCH §6ب (IC-07) |
-| S6-P2-2 | P5.2: GetPharmacyFinancialHandler — فصل PointsDiscount | 3 | ⏳ | 01-ARCH §6ب (IC-08) |
-| S6-P2-3 | P5.3: GetProgramLifecycleHandler — إضافة Points | 2 | ⏳ | 01-ARCH §6ب (IC-09) |
+| S6-P2-1 | P5.1: `GetAdherenceHandler` — إضافة Points | 2 | ⏳ | 01-ARCH §6ب (IC-07) |
+| S6-P2-2 | P5.2: `GetPharmacyFinancialHandler` — فصل PointsDiscount | 3 | ⏳ | 01-ARCH §6ب (IC-08) |
+| S6-P2-3 | P5.3: `GetProgramLifecycleHandler` — إضافة Points | 2 | ⏳ | 01-ARCH §6ب (IC-09) |
 
 **المجموع P2:** 7 SP
 
@@ -182,9 +172,126 @@ RubikCare في مرحلة **Pre-Launch — MVP Completion**. الهدف:
 
 **المجموع P3:** 13 SP
 
-**المجموع الكلي Sprint 6:** 31 SP — **~10 أيام عمل**
+---
+
+### ✅ §3.1: مهام إضافية مكتملة (Sprint 6 — أثناء S6-P1-1 و S6-P1-2)
+
+*(جدول مختصر — التفاصيل في `00C`)*
+
+| # | المهمة | SP | الحالة |
+|---|---|---|---|
+| ADD-1 | `my-psp-orders` — إصلاح (كل participations) | 3 | ✅ |
+| ADD-2 | `psp-order-by-token` endpoint | 2 | ✅ |
+| ADD-3 | `PspPatientOrderDto` — إضافة `GroupCategory` + `CanConfirmReceipt` + `IsOverdue` | 2 | ✅ |
+| ADD-4 | `PatientOrdersPage` — 5 مجموعات + Badge "متأخر" | 3 | ✅ |
+| ADD-5 | `PspController.GetPatientProgramDetails` — `ThenByDescending(CreatedDate)` | 1 | ✅ |
+| ADD-6 | ترجمة `SHARED.ORDER_TRACKER.*` (10 مفاتيح SQL MERGE) | 1 | ✅ |
+| ADD-7 | `GetProgramsNeedingScheduleAsync` — إصلاح `ProgramID` من `ParticipationID` | 2 | ✅ |
+| ADD-8 | `PspSchedulePage` — توليد على مستوى الدواء | 3 | ✅ |
+| ADD-9 | `MedicationSchedulePage` — زر PSP + `_showAllProgramsInModal` | 2 | ✅ |
+| ADD-10 | `PspSchedulePage.OnInitializedAsync` — `LoadTranslationsAsync` + `_isTranslationsLoaded` | 1 | ✅ |
+
+**المجموع الإضافي:** 20 SP — **مكتمل**
 
 ---
+
+### 🔴 §3.2: مشاكل معلقة (Blocked Issues)
+
+| # | المشكلة | الأولوية | السبب | الحل المقترح |
+|---|---|---|---|---|
+| BLOCK-1 | `patient-details` endpoint بيرجع `403 Forbidden` لو `patientId=15` (PatientProfileID) بدل `CaseID` | 🟡 متوسطة | `PspController.GetPatientProgramDetails` بيدور بـ `PatientProfileID` بدل `CaseID` | تعديل الـ filter ليدور بـ `PatientProfileID == currentUserId && CaseID == patientId` |
+
+**المجموع:** 1 مشكلة معلقة — ~2 SP
+
+---
+
+### 📊 ملخص Sprint 6 (محدث)
+
+| الفئة | SP | الحالة |
+|---|---|---|
+| P1 المكتمل (S6-P1-1 + S6-P1-2) | 8 | ✅ مكتمل |
+| إضافي (ADD-1 → ADD-10) | 20 | ✅ مكتمل |
+| P1 المتبقي (S6-P1-3) | 3 | ⏳ لم يبدأ |
+| P2 (Reports Integration) | 7 | ⏳ |
+| P3 (Medium + Low) | 13 | ⏳ |
+| Blocked (BLOCK-1) | 2 | ⏳ |
+| **المجموع الكلي** | **53 SP** | |
+| **المكتمل** | **28 SP** | ✅ |
+| **المتبقي** | **25 SP** | ⏳ |
+
+**المجموع الكلي Sprint 6 (الأصلي):** 31 SP → **المحدث:** 53 SP (بسبب المشاكل الإضافية).
+
+---
+
+### 📌 ملاحظات على Sprint 6
+
+1. **S6-P1-1 و S6-P1-2 اكتملوا** — والـ SP الحقيقي كان أكبر من المتوقع (بسبب المشاكل الإضافية).
+2. **S6-P1-3** هو المهمة القادمة (زر "ابدأ رحلتك العلاجية").
+3. **BLOCK-1** (403 في `patient-details`) — مشكلة قديمة، لسه محتاجة حل.
+4. **التقدير الأولي لـ Sprint 6 (31 SP)** كان **أقل من الواقع** — الـ SP الفعلي 53 SP.
+
+---
+
+## 📅 §4: Sprint 7 — Production Launch Preparation (ديسمبر 2026 — يناير 2027)
+
+**الحالة:** ⏳ مُخطط
+
+**الهدف:** الاستعداد لـ Production Launch.
+
+**المهام المقترحة:**
+- Security Audit + Penetration Testing.
+- Performance Optimization (Frontend + Backend).
+- Load Testing (1000+ concurrent users).
+- Documentation + User Manuals.
+- Training Material.
+
+---
+
+## 📅 §5: Sprint 8+ — Post-Launch Features (2027)
+
+**الحالة:** ⏳ مُخطط
+
+**المهام المقترحة:**
+- Online Payments (Paymob/Fawry).
+- Warehouse Layer (FulfillmentMode = WAREHOUSE).
+- Advanced Analytics + Reports.
+- Mobile App Enhancements.
+- Integration Hub (External APIs).
+
+---
+
+## 📊 §8: SP التاريخي (Historical SP — Velocity Reference)
+
+| Sprint | SP المخطط | SP الفعلي | الملاحظات |
+|---|---|---|---|
+| Sprint 1 | 25 | 28 | +3 (مهام إضافية) |
+| Sprint 2 | 30 | 32 | +2 |
+| Sprint 3 | 35 | 38 | +3 |
+| Sprint 3.5 | 20 | 22 | +2 |
+| Sprint 3.6 | 25 | 28 | +3 |
+| Sprint 4 | 30 | 47 | +17 (B2B Commerce MVP) |
+| Sprint 5 | 30 | 0 | مؤجل |
+| **Sprint 6** | **31** | **53** | **+22 (مهام إضافية + BLOCK-1)** |
+
+**متوسط Velocity:** ~30-35 SP/Sprint.
+
+---
+
+## 📋 قواعد المشروع الذهبية
+
+- ❌ لا تعدل Migration قديم — Migration جديد فقط.
+- ✅ استخدم `IGenericService<T>` بدل `DbContext` مباشرة.
+- ✅ `N''` prefix للعربية في SQL.
+- ✅ `MERGE` بدل `INSERT/UPDATE`.
+- ✅ استخدم `T("KEY")` للترجمة.
+- ❌ لا `Set-Content` لملفات `.razor`/`.cshtml` (تتلف العربية).
+- ✅ كل رد يبدأ بـ `[#رقم]` (ترقيم تصاعدي).
+- ✅ خطوة واحدة لكل رد.
+- ✅ مناقشة قبل التنفيذ.
+
+---
+
+**نهاية `00B — PROJECT-BACKLOG` (v7.1) — 17 نوفمبر 2026**
 
 ## 🔵 §4: Sprint 7+ — Planned (ديسمبر 2026 وما بعده)
 
