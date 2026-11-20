@@ -508,6 +508,38 @@ public class FailoverEmailService : IEmailService
 
 ---
 
+## 🌐 المصادقة المشتركة بين التطبيقات (Cross-Application SSO Architecture)
+
+لتحقيق تجربة مستخدم سلسة وآمنة عند الانتقال بين مكونات النظام (Web Dashboard ↔ PWA ↔ MAUI)، تم اعتماد نمط **مبسط لـ OAuth 2.0 Authorization Code Flow** باستخدام رموز لمرة واحدة.
+
+### المبادئ الأمنية المطبقة:
+1. **عدم كشف الـ JWT في الروابط:** يمنع تسرب الرموز طويلة الأمد عبر سجل المتصفح (History) أو عناوين `Referer`.
+2. **الاستخدام لمرة واحدة (Single-Use / Nonce):** يتم حذف رمز الـ Handoff من ذاكرة الخادم (`IMemoryCache`) فور استبداله بنجاح.
+3. **عمر افتراضي قصير جداً (Short TTL):** صلاحية رمز الـ Handoff هي **60 ثانية** فقط، مما يجعل نافذة أي هجوم محتمل ضيقة جداً وغير عملية.
+4. **عزل بيئات التخزين:** 
+   - الويب: يعتمد على `Cookies` الآمنة للجلسة.
+   - PWA/MAUI: يعتمد على `localStorage` للـ JWT بعد الاستبدال الآمن.
+
+### مخطط التدفق (Flow Diagram):
+```text
+[1] مستخدم الويب (مصادق) 
+      │
+      ├─> POST /api/auth/generate-handoff-token (عبر Cookie Session)
+      │
+[2] الـ API: يولد رمزاً عشوائياً، يحفظه في IMemoryCache (60s)، ويعيده.
+      │
+[3] الويب: يوجه المتصفح إلى -> https://pwa-domain/login#handoff={token}
+      │
+[4] الـ PWA: يقرأ {token} من الـ Hash (لا يُرسل للخادم تلقائياً).
+      │
+      ├─> POST /api/auth/exchange-handoff-token (Body: {handoffToken})
+      │
+[5] الـ API: يتحقق من الرمز، يحذفه فوراً (One-Time Use)، ويولد JWT حقيقي.
+      │
+[6] الـ PWA: يحفظ الـ JWT في localStorage، ويوجه المستخدم إلى /dashboard.
+```
+---
+
 ## 🔴 الجزء الخامس: المشاكل والحلول
 
 ### 5.1 مشاكل Google Login
