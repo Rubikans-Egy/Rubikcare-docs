@@ -194,7 +194,26 @@ Api.Web/Controllers/
   }
 }
 ```
+## 🔐 المصادقة المشتركة الآمنة (Secure Cross-App SSO)
 
+لتحقيق انتقال آمن للمستخدم من تطبيق الويب (Blazor Server) إلى تطبيق PWA أو MAUI دون تعريض رمز الـ JWT طويل الأمد لخطر التسرب عبر روابط المتصفح، تم تطبيق نمط **رمز الانتقال لمرة واحدة (One-Time Handoff Token)**.
+
+### 1. توليد رمز الانتقال (Generate Handoff Token)
+يُستدعى هذا الـ Endpoint من تطبيق الويب (المصادق عليه بالفعل عبر الـ Session/Cookie) لتوليد رمز مؤقت.
+
+- **Method:** `POST`
+- **Route:** `/api/auth/generate-handoff-token`
+- **Authorization:** `[Authorize]` (يتطلب جلسة ويب صالحة أو Bearer Token)
+- **Request Body:** `{}` (فارغ)
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "handoffToken": "aB3xY9...[Random 32-byte String]...zQ1",
+  "message": "تم توليد رمز الانتقال بنجاح"
+}
+```
 ---
 
 ## 👥 الجزء الثالث: المنظمات
