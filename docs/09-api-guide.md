@@ -214,6 +214,25 @@ Api.Web/Controllers/
   "message": "تم توليد رمز الانتقال بنجاح"
 }
 ```
+ملاحظة أمنية: يتم حفظ هذا الرمز في IMemoryCache لمدة 60 ثانية فقط، وهو مرتبط بـ UserId و UserProfileId للمستخدم الحالي.
+2. استبدال رمز الانتقال بـ JWT حقيقي (Exchange Handoff Token)
+يُستدعى هذا الـ Endpoint من تطبيق PWA أو MAUI بعد استقباله للرمز المؤقت عبر الرابط.
+```json
+
+Method: POST
+Route: /api/auth/exchange-handoff-token
+Authorization: [AllowAnonymous]
+Request Body:
+```
+```json
+
+123
+Response (200 OK):
+json
+
+1234567891011
+ملاحظة أمنية: بمجرد نجاح هذا الطلب، يقوم الـ API بحذف الرمز المؤقت فوراً من الـ Cache لضمان استخدامه لمرة واحدة فقط (One-Time Use) ومنع هجمات إعادة الاستخدام (Replay Attacks).
+```
 ---
 
 ## 👥 الجزء الثالث: المنظمات
