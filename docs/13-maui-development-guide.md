@@ -356,7 +356,10 @@ public class CurrentUserProfileState
 **⚠️ تحذير:** `CurrentUserProfileState` **Singleton** — **لا يعمل** إذا كان `BlazorWebView` له حاوية DI مستقلة (§ 2.1). **لكن** — في `DashboardFlowPage`، **يعمل** لأن `RootComponent` في XAML + `CurrentUserProfileState` Singleton = **نفس النسخة** (لأن `BlazorWebView` في `DashboardFlowPage` يحقن `CurrentUserProfileState` من حاوية MAUI — وليس من حاوية Blazor). **⚠️ هذا ليس موثقاً في `13-MAUI` السابق — لكنه يعمل.**
 
 ---
-
+⚠️ القاعدة الذهبية لصفحات MAUI Shell + BlazorWebView:
+"لا تعتمد على [QueryProperty] أو Constructor Injection لتمرير المعاملات الأساسية (مثل OrganizationId). بدلاً من ذلك، استخدم Constructor فارغ تماماً، واقرأ القيمة ديناميكياً داخل الدالة باستخدام:
+var orgState = IPlatformApplication.Current?.Services?.GetService<CurrentOrganizationState>();
+واجعل المكون (Blazor Component) يحتوي على Fallback يقرأ من هذه الخدمة إذا كان الـ Parameter يساوي 0."
 ---
 
 #### 🌟 النمط 8: NavigationBridge + PushAsync + RootComponents.Add (للصفحات الفرعية المعقدة)
