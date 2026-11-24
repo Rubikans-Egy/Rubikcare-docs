@@ -678,6 +678,77 @@ private async Task TryAwardPointsViaOrchestratorAsync(
 | `RemindersController` | 8 |
 
 ---
+## 🆕 v2: تكامل العيادات والوصفات متعددة الأدوية (Clinic Integration & Multi-Medication eRX)
+
+> **تاريخ الإضافة:** نوفمبر 2026  
+> **الحالة:** قيد التطوير  
+> **ملاحظة:** هذا القسم يضيف وظائف جديدة ولا يلغي أو يعدل أي مما ورد في الأقسام السابقة.
+
+### 🎯 الأهداف
+1. تمكين الطبيب من كتابة وصفة تحتوي على **أدوية متعددة** (مدعومة وغير مدعومة) في سجل واحد.
+2. فصل "الوصفة الطبية العامة" عن "وصفة الدعم" مع إمكانية الربط بينهما.
+3. توفير **كود إحالة ثابت** للعيادة يقلل الاحتكاك في عملية اشتراك المرضى.
+4. دعم سيناريوهات المرضى الثلاثة: بدون حساب / حساب جديد / مريض قديم.
+
+### 📦 الكيانات الجديدة
+
+#### ClinicProgramReferral ⭐
+كود إحالة ثابت يربط عيادة ببرنامج دعم.
+- **الحقول:** `ClinicID`, `ProgramID`, `ReferralCode` (فريد), `QrData`, `IsActive`
+- **الدور:** نقطة الدخول الموحدة لجميع سيناريوهات المرضى. عند مسح المريض لهذا الكود، يتعرف النظام على العيادة والبرنامج تلقائياً.
+- **العلاقة مع PSPInvitation:** لا يحل محله، بل يعمل بالتوازي معه. `PSPInvitation` للدعوات الفردية، و`ClinicProgramReferral` للكود الثابت المتعدد الاستخدام.
+
+#### Prescription (رأس الوصفة العامة - Clinic Domain)
+وصفة طبية مستقلة عن برامج الدعم، تابعة للعيادة.
+- **الحقول:** `PrescriptionID`, `PrescriptionCode` (للمشاركة عبر واتساب/QR), `CaseID`, `DoctorID`, `ClinicID`, `PrescriptionDate`, `Notes`
+- **الرؤية المستقبلية:** سينتقل هذا الكيان لقاعدة بيانات العيادة المستقلة عند فصل وحدة أعمال إدارة العيادات.
+
+#### PrescriptionItem (تفاصيل الوصفة العامة - Clinic Domain)
+- **الحقول:** `PrescriptionItemID`, `PrescriptionID` (FK), `MedicationID`, `Dosage`, `Frequency`, `Instructions`, `TotalQuantity`
+- **الربط الاختياري بالدعم:** `LinkedPspERxItemID` (int? nullable) → إذا كان الدواء مدعوماً، يتم ربطه بسجل `PSPeRXItem` المقابل.
+
+#### PSPeRX (رأس وصفة الدعم - PSP Domain) ⭐ مُعدّل
+- **التعديل عن النسخة السابقة:** `MedicationID` أصبح **nullable** (كان إلزامياً `[Required]`).
+- **الحقول:** `ERxID`, `ERxCode`, `CaseID`, `DoctorID`, `ProgramID` (إلزامي), `PrescriptionDate`, `Notes`, `Status`
+- **الدور:** يمثل الوصفة المرتبطة ببرنامج دعم محدد. يحتفظ بجميع علاقاته القائمة مع `PSPDispensation` و`PSPPatient`.
+
+#### PSPeRXItem ⭐ جديد (تفاصيل الأدوية المدعومة)
+- **الحقول:** `ERxItemID`, `ERxID` (FK إلى PSPeRX), `ProgramMedicationID` (FK إلى PSPProgramMedication), `Dosage`, `Frequency`, `Instructions`, `Quantity`
+- **تعديل نظام التناول (Override):** 
+  - `OverrideTimesPerDay` (int? nullable)
+  - `OverrideQuantityPerDispense` (int? nullable)
+  - `IsOverridden` (bool) → لتتبع ما إذا كان الطبيب قد عدّل الإعدادات الافتراضية المحددة من شركة الأدوية.
+- **القيد:** لا يمكن إضافة دواء غير موجود في `PSPProgramMedication` للبرنامج المختار. المصدر الحقيقي للأدوية المدعومة ونظام صرفها يظل `PSPProgramMedication` و`PSPDispensationPlanPhaseMedication`.
+
+### 🔄 تدفق عمل الطبيب (Workflow)
+
+1. الطبيب يفتح صفحة كتابة وصفة لمريض.
+2. يختار المريض من قائمة مرضاه في العيادة.
+3. **للأدوية العادية (غير المدعومة):** يضيفها مباشرة → تُنشأ `PrescriptionItem` فقط (`LinkedPspERxItemID = null`).
+4. **للأدوية المدعومة:**
+   - يختار برنامج دعم من قائمة برامعه المشتركة (`PSPParticipation`).
+   - تظهر له قائمة `PSPProgramMedication` الخاصة بهذا البرنامج، مع تفاصيل الصرف والتناول المحددة من الشركة (`PSPDispensationPlanPhaseMedication`).
+   - يختار دواءً أو أكثر من هذه القائمة (ليس جميعها بالضرورة).
+   - إذا سمح البرنامج بتعديل نظام التناول، تظهر حقول `TimesPerDay` و`QuantityPerDispense` قابلة للتعديل.
+   - عند الحفظ:
+     - تُنشأ `PSPeRX` مرتبطة بالبرنامج والمريض.
+     - تُنشأ `PSPeRXItems` للأدوية المختارة.
+     - تُنشأ `PrescriptionItems` مقابلة، كل منها مرتبط بـ `LinkedPspERxItemID`.
+
+### 👥 سيناريوهات المرضى
+
+| السيناريو | الإجراء التقني | الكيانات المعنية |
+|---------|---------------|-----------------|
+| **مريض بدون حساب** | الطبيب يكتب وصفة → يولد `PrescriptionCode` للمشاركة → المريض يستخدمه لاحقاً للتسجيل | `Prescription`, `PrescriptionItem` |
+| **مريض جديد (داخل العيادة)** | يمسح `ClinicProgramReferral` QR → يظهر البرنامج والعيادة → يشترك → يحجز موعداً فورياً → يظهر للطبيب → يكتب الوصفة | `ClinicProgramReferral`, `PSPPatient`, `Prescription`, `PSPeRX` |
+| **مريض قديم (متابعة)** | يمسح نفس QR → النظام يتعرف عليه عبر `UserProfileID` → يجد اشتراكه فعالاً في `PSPPatient` → يفتح شاشة حجز متابعة → الطبيب يكتب وصفة جديدة مرتبطة بنفس `CaseID` | `ClinicProgramReferral`, `PSPPatient`, `Prescription`, `PSPeRX` |
+
+### 🔮 الرؤية المستقبلية (Scalability)
+- `Prescription` و`PrescriptionItem` سينتقلان لقاعدة بيانات العيادة المستقلة عند اكتمال وحدة أعمال إدارة العيادات.
+- `PSPeRX` و`PSPeRXItem` سيبقيان في قاعدة PSP المركزية.
+- الربط بين القاعدتين سيتم عبر `LinkedPspERxItemID` كـ Foreign Key اختياري، أو عبر API/Event Bus بعد الفصل الكامل.
+- تفعيل `DoctorNote` و`PSPRequiredDataEntry` في واجهة الطبيب والمريض ضمن نفس التدفق.
+---
 
 ## 📌 الجزء السابع: الـ UI
 
