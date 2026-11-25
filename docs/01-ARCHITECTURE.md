@@ -1,22 +1,22 @@
 # 01 — ARCHITECTURE (الهيكل المعماري الشامل + Program.cs)
 
-**الإصدار:** 2.0 (Unified Edition)
-**آخر تحديث:** 16 أكتوبر 2026
-**الحالة:** ✅ محدّث — يدمج 00 + 01 + 24
-**الجمهور:** فريق التطوير + AI Assistants
-**المرجع الإلزامي:** يُقرأ قبل أي تطوير جديد
+الإصدار: 2.2 (Unified Edition — Gap-Aware) 
+آخر تحديث: 24 نوفمبر 2026 
+الحالة: ✅ محدّث — يدمج 00 + 01 + 24 + توحيد CaseID 
+الجمهور: فريق التطوير + AI Assistants 
+المرجع الإلزامي: يُقرأ قبل أي تطوير جديد
 
 ---
 
 ## 📌 الجزء صفر: فلسفة البناء (نص المؤلف الحرفي)
 
-> **⚠️ ملاحظة:**
-> هذا القسم يحتوي على **نص الكاتب الحرفي** — دون إعادة صياغة.
-> الهدف: حفظ الرؤية الكاملة كما صيغت.
+⚠️ ملاحظة:
+هذا القسم يحتوي على نص الكاتب الحرفي — دون إعادة صياغة.
+الهدف: حفظ الرؤية الكاملة كما صيغت.
 
-نظام **RubikCare** هو منصة صحية متكاملة، صُممت لتوحيد إدارة المرضى، ومقدمي الرعاية (أطباء، صيادلة، مندوبين)، وبرامج الدعم (PSP) في منظومة رقمية واحدة. يعتمد النظام على **Clean Architecture** لضمان فصل واضح للمسؤوليات، وقابلية عالية للتطوير، وسهولة في الصيانة والاختبار.
+نظام RubikCare هو منصة صحية متكاملة، صُممت لتوحيد إدارة المرضى، ومقدمي الرعاية (أطباء، صيادلة، مندوبين)، وبرامج الدعم (PSP) في منظومة رقمية واحدة. يعتمد النظام على Clean Architecture لضمان فصل واضح للمسؤوليات، وقابلية عالية للتطوير، وسهولة في الصيانة والاختبار.
 
-تمتد المنصة عبر **تسعة مشاريع برمجية**، تنقسم إلى طبقات أساسية (Core) وتطبيقات طرفية (Clients)، جميعها تشترك في مكونات UI موحدة وتتواصل عبر واجهة برمجية (API) مركزية.
+تمتد المنصة عبر تسعة مشاريع برمجية، تنقسم إلى طبقات أساسية (Core) وتطبيقات طرفية (Clients)، جميعها تشترك في مكونات UI موحدة وتتواصل عبر واجهة برمجية (API) مركزية.
 
 ---
 
@@ -62,34 +62,35 @@ graph TD
 ### 1.2 الجدول التنفيذي للمشاريع
 
 | المشروع | التقنية الأساسية | المسؤولية الرئيسية | يعتمد على (مباشر) |
-| :--- | :--- | :--- | :--- |
-| **Domain** | .NET 10 Class Library | الكيانات الأساسية، التعدادات، وواجهات النطاق المجردة. | لا يعتمد على أي مشروع. |
-| **Application** | .NET 10 Class Library | منطق الأعمال، حالات الاستخدام (Use Cases)، وخدمات التطبيق. | `Domain` فقط. |
-| **Infrastructure** | .NET 10, EF Core 10, SQL Server | تنفيذ واجهات الـ `Application`، الوصول للبيانات، الترحيلات (Migrations). | `Application` و `Domain`. |
-| **Api.Web** | ASP.NET Core 10 | نقطة النهاية الموحدة (REST API) لجميع العملاء. | `Application` و `Infrastructure`. |
-| **Web** | Blazor Server 10 | تطبيق الويب الرئيسي (تفاعلي مع SignalR). | `Api.Web` (ضمنياً) و `Shared.UI`. |
-| **PWA** | Blazor WebAssembly 10 | تطبيق ويب تقدمي (نسخة كربونية من Mobile). | `Api.Web` (عبر HTTP) و `Shared.UI`. |
-| **Mobile** | .NET MAUI 10 | تطبيق الهواتف الذكية (Android, iOS). | `Api.Web` (عبر HTTP) و `Shared.UI`. |
-| **Shared.UI** | Razor Class Library (RCL) | مكونات Razor قابلة لإعادة الاستخدام + خدمات مشتركة. | لا يعتمد على تطبيقات محددة. |
-| **Tests** | xUnit, Moq | اختبارات الوحدة والتكامل والمعمارية. | جميع المشاريع (حسب الحاجة). |
+|---|---|---|---|
+| `Domain` | .NET 10 Class Library | الكيانات الأساسية، التعدادات، وواجهات النطاق المجردة. | لا يعتمد على أي مشروع. |
+| `Application` | .NET 10 Class Library | منطق الأعمال، حالات الاستخدام (Use Cases)، وخدمات التطبيق. | `Domain` فقط. |
+| `Infrastructure` | .NET 10, EF Core 10, SQL Server | تنفيذ واجهات الـ Application، الوصول للبيانات، الترحيلات (Migrations). | `Application` و`Domain`. |
+| `Api.Web` | ASP.NET Core 10 | نقطة النهاية الموحدة (REST API) لجميع العملاء. | `Application` و`Infrastructure`. |
+| `Web` | Blazor Server 10 | تطبيق الويب الرئيسي (تفاعلي مع SignalR). | `Api.Web` (ضمنياً) و`Shared.UI`. |
+| `PWA` | Blazor WebAssembly 10 | تطبيق ويب تقدمي (نسخة كربونية من Mobile). | `Api.Web` (عبر HTTP) و`Shared.UI`. |
+| `Mobile` | .NET MAUI 10 | تطبيق الهواتف الذكية (Android, iOS). | `Api.Web` (عبر HTTP) و`Shared.UI`. |
+| `Shared.UI` | Razor Class Library (RCL) | مكونات Razor قابلة لإعادة الاستخدام + خدمات مشتركة. | لا يعتمد على تطبيقات محددة. |
+| `Tests` | xUnit, Moq | اختبارات الوحدة والتكامل والمعمارية. | جميع المشاريع (حسب الحاجة). |
 
 ---
 
 ## 🧩 الجزء الثاني: مسؤوليات كل مشروع بالتفصيل
 
-### 2.1 `RubikCare.Domain` — القلب النابض 🫀
+### 2.1 `RubikCare.Domain` — القلب النابض
 
-**أكثر طبقة استقراراً ونقاءً.**
+أكثر طبقة استقراراً ونقاءً.
 
 لا تعرف هذه الطبقة شيئاً عن قواعد البيانات، أو واجهات المستخدم، أو حتى كيفية نقل البيانات. همها الوحيد هو تمثيل مفاهيم العمل (Business Concepts).
 
 - **المحتويات**: الكيانات (Entities) مثل `ApplicationUser`, `Patient`, `Medication`، التعدادات (Enums)، كائنات القيمة (Value Objects) كـ `Address`، وأحداث النطاق (Domain Events).
 - **إضافة حديثة**: كيانات نظام النقاط (`PSPProgramPointScheme`, `PSPProgramPointRule`, إلخ).
-- **قاعدة ذهبية**: **ممنوع** إضافة أي مرجعيات لـ Entity Framework أو مكتبات خارجية متعلقة بالبيانات.
+- **إضافة حديثة (نوفمبر 2026)**: كيانات `ClinicProgramReferral`, `Prescription`, `PrescriptionItem`, `PSPeRXItem` — انظر [05 - PSP](./05-psp-system.md) §v2.
+- **قاعدة ذهبية**: ممنوع إضافة أي مرجعيات لـ Entity Framework أو مكتبات خارجية متعلقة بالبيانات.
 
 ### 2.2 `RubikCare.Application` — عقل النظام 🧠
 
-**هنا يُتخذ القرار.**
+هنا يُتخذ القرار.
 
 تحتوي على حالات الاستخدام (Use Cases) التي تمثل متطلبات المستخدم الفعلية (مثل: `EnrollPatientInPspUseCase`). تقوم بتنسيق تدفق البيانات بين الـ `Api.Web` والـ `Infrastructure`، وتطبق منطق الأعمال.
 
@@ -98,101 +99,125 @@ graph TD
   - `PSPEnrollmentService` — تسجيل المرضى في برامج الدعم.
   - `PSPPointSchemeService` — قراءة نظام النقاط.
 - **قاعدة ذهبية**: لا تعتمد إلا على `Domain` ولا تعرف كيف أو من أين تأتي البيانات (مستودع، خدمة خارجية، إلخ).
+- **للتفاصيل الكاملة عن كيانات PSP وتدفقها**: راجع [05 - PSP](./05-psp-system.md).
 
 ### 2.3 `RubikCare.Infrastructure` — الجسر إلى العالم الخارجي 🌉
 
-**التفاصيل التقنية هنا.**
+التفاصيل التقنية هنا.
 
 هذا هو مكان تنفيذ الواجهات المجردة التي عرّفها الـ `Application`. مسؤول عن التواصل مع قواعد البيانات، وإرسال البريد الإلكتروني، والخدمات السحابية.
 
 - **المحتويات**: `BusinessDbContext` (EF Core)، تنفيذ المستودعات (Repositories)، ملفات الترحيل (Migrations)، وخدمات خارجية (مثل `EmailService`).
 - **إضافات حديثة**:
-  - **19 Handler** لنظام النقاط في `UseCases/PSP/Points/`.
-  - **`PSPEnrollmentService`** في `Services/PSP/` (يستخدم `IGenericService<T>`).
-- **قاعدة ذهبية**: يُسمح لها بالاعتماد على `Application` و `Domain` فقط، ولا يُستدعى مباشرة من قبل التطبيقات العميلة (Web, PWA, Mobile).
+  - 19 Handler لنظام النقاط في `UseCases/PSP/Points/`.
+  - `PSPEnrollmentService` في `Services/PSP/` (يستخدم `IGenericService<T>`).
+- **قاعدة ذهبية**: يُسمح لها بالاعتماد على `Application` و`Domain` فقط، ولا يُستدعى مباشرة من قبل التطبيقات العميلة (Web, PWA, Mobile).
 
 ### 2.4 `RubikCare.Api.Web` — بوابة النظام الموحدة 🚪
 
-**نقطة الدخول الوحيدة للبيانات.**
+نقطة الدخول الوحيدة للبيانات.
 
 هي واجهة برمجية (REST API) مركزية تخدم جميع العملاء (Web, PWA, Mobile). تتولى المصادقة (JWT)، والتحقق من الصلاحيات، وتنسيق الطلبات.
 
 - **المحتويات**: وحدات التحكم (Controllers)، `Program.cs`، وMiddleware (معالجة الأخطاء، التسجيل).
-- **Controllers حديثة**:
-  - `PointSchemesController` (4 endpoints)
+- **Controllers حديثة** (نظام النقاط):
+  - `PointSchemesController` (13 endpoint)
   - `PointRulesController` (5 endpoints)
-  - `PointBalancesController` (3 endpoints)
+  - `PointBalancesController` (7 endpoints)
   - `PointEarningController` (1 endpoint)
-  - `PointRedeemController` (5 endpoints)
-- **قاعدة ذهبية**: وحدات التحكم يجب أن تكون **رفيعة جداً** (Thin Controllers)؛ كل المنطق يُفوض إلى الخدمات في طبقة `Application` أو إلى Handlers في `Infrastructure`.
+  - `PointRedeemController` (8 endpoints)
+  - `PointLookupsController` (4 endpoints)
+  - **الإجمالي**: 38 endpoint
+- **Controllers حديثة** (Clinic Integration):
+  - `ClinicProgramReferralController` ⭐ (توليد كود الإحالة + تقارير)
+  - `PrescriptionController` ⭐ (إنشاء/عرض الوصفات)
+  - `DoctorNoteController` ⭐ (CRUD ملاحظات الطبيب) — ⚠️ غير مؤكد
+- **قاعدة ذهبية**: وحدات التحكم يجب أن تكون رفيعة جداً (Thin Controllers)؛ كل المنطق يُفوض إلى الخدمات في طبقة `Application` أو إلى Handlers في `Infrastructure`.
 
 ### 2.5 `RubikCare.Web` — التطبيق التفاعلي الغني 💻
 
-**تطبيق Blazor Server.**
+تطبيق Blazor Server.
 
 يُستخدم في بيئات الإدارة واللوحات التي تتطلب تفاعلاً فورياً. يحافظ على اتصال مستمر (SignalR) مع الخادم، مما يوفر تجربة مستخدم سلسة.
 
 - **المحتويات**: صفحات (Pages)، مكونات خاصة بالويب، وخدمات محلية لإدارة الحالة.
 - **إضافات حديثة**:
-  - **`PSPStep2b_PointScheme.razor`** — واجهة إدارة نظام النقاط للشركة.
-  - **قسم "نظام النقاط"** في `PSPProgramsDetails.razor`.
+  - `PSPStep2b_PointScheme.razor` — واجهة إدارة نظام النقاط للشركة.
+  - قسم "نظام النقاط" في `PSPProgramsDetails.razor`.
 - **قاعدة ذهبية**: يتواصل مع الـ `Api.Web` عبر HTTP، ولا يتفاعل مباشرة مع قواعد البيانات.
 
 ### 2.6 `RubikCare.PWA` — التطبيق الخفيف متعدد المنصات 📱
 
-**تطبيق Blazor WebAssembly — نسخة كربونية من MAUI.**
+تطبيق Blazor WebAssembly — نسخة كربونية من MAUI.
 
-تمت إضافته ليكون بديلاً لتطبيق الموبايل على اجهزة iPhone ، وأيضاً ليكون حلاً سريعاً ومستقراً للوصول إلى النظام من أي متصفح. لحين نشر تطبيق MAUI على متجر Istore
+تمت إضافته ليكون بديلاً لتطبيق الموبايل على اجهزة iPhone، وأيضاً ليكون حلاً سريعاً ومستقراً للوصول إلى النظام من أي متصفح. لحين نشر تطبيق MAUI على متجر Istore.
 
-- **طبيعة التشغيل**: يعمل كلياً داخل متصفح المستخدم بعد تحميل ملفات `WebAssembly`. يُنشر كملفات **ثابتة** (Static Files) على خادم ويب (مثل IIS).
+- **طبيعة التشغيل**: يعمل كلياً داخل متصفح المستخدم بعد تحميل ملفات WebAssembly. يُنشر كملفات ثابتة (Static Files) على خادم ويب (مثل IIS).
 - **المحتويات**:
   - صفحات Razor مكافئة لـ `RubikCare.Mobile`.
   - خدمات للتواصل مع الـ API (مثل `WebApiService`).
   - `googleAuth.js` — تكامل Google Identity Services.
   - `cache-reset.html` — لتنظيف Service Worker تلقائياً.
 - **إضافات حديثة**:
-  - **`PointDashboard.razor`** — محفظة النقاط.
-- **الرابط المرجعي**: [دليل PWA](./14-PWA.md).
+  - `PointDashboard.razor` — محفظة النقاط.
+- **الرابط المرجعي**: دليل PWA.
 
 ### 2.7 `RubikCare.Mobile` — تجربة الهواتف الذكية 📲
 
-**تطبيق MAUI الأصلي.**
+تطبيق MAUI الأصلي.
 
 يستخدم `BlazorWebView` لعرض مكونات `Shared.UI`، مما يسمح بإعادة استخدام كبير للكود مع تطبيقات الويب. يوفر إمكانية الوصول إلى ميزات الجهاز (الكاميرا، GPS، الإشعارات المحلية).
 
 - **المحتويات**: صفحات XAML، ViewModels، وخدمات خاصة بالمنصة (مثل `MauiLocalNotificationService`).
 - **إضافات حديثة**:
-  - **`PointsDashboardPage.xaml`** — Container لعرض `PointDashboard.razor`.
+  - `PointsDashboardPage.xaml` — Container لعرض `PointDashboard.razor`.
 - **قاعدة ذهبية**: لا يعتمد على أي مشروع آخر باستثناء `Shared.UI`؛ يتواصل مع النظام حصراً عبر `Api.Web` باستخدام HTTP.
 
 ### 2.8 `RubikCare.Shared.UI` — مستودع المكونات المشتركة 🧩
 
-**اللبنة الأساسية لواجهات المستخدم.**
+اللبنة الأساسية لواجهات المستخدم.
 
 مكتبة تحتوي على كل المكونات البصرية والخدمات المساعدة التي تستخدمها التطبيقات العميلة الثلاثة (Web, PWA, Mobile)، مما يضمن توحيد الشكل والأداء.
 
-- **المحتويات**:
-  - **68** مكون Razor (مثل `RubikSmartTable`, `RubikButton`).
-  - **120+** ملف CSS منظم.
-  - **25** خدمة/واجهة مشتركة (مثل `ITranslationService`).
-- **إضافات حديثة**:
-  - **`PointDashboard.razor`** + `PointDashboardNavigationBridge.cs` + `PointModels.cs`.
-  - **`point-dashboard.css`**.
-- قاعدة ذهبية: تحتوي على مكونات قابلة لإعادة الاستخدام عبر المنصات (Web + PWA + MAUI). هذا يشمل:
-  - **مكونات UI** (مثل `RubikSmartTable`, `RubikButton`) — تستخدم في أي مكان.
-  - **مكونات الصفحات (Page Components)** — التي تُستدعى داخل `BlazorWebView` في MAUI (كصفحات فرعية فقط) أو كصفحات Razor في PWA/Web.
-  
-  **الممنوع:** 
-  - وضع منطق تطبيق كامل (مثل `@page` مع Routing خاص بمنصة واحدة) داخل `Shared.UI`.
-  - استخدام `BlazorWebView` في MAUI كصفحة رئيسية (`ShellContent`) مع `Parameters` ديناميكية (انظر `13-MAUI` § 6.5).
-  
-  **المسموح:**
-  - مكونات `.razor` بدون `@page`، تُستدعى من الصفحات الحاوية في كل منصة.
-  - مكونات صفحات (بـ `@page`) تُستدعى كصفحات فرعية في MAUI (`Routing.RegisterRoute`).
-  - 
+**المحتويات**:
+- 68 مكون Razor (مثل `RubikSmartTable`, `RubikButton`).
+- 120+ ملف CSS منظم.
+- 25 خدمة/واجهة مشتركة (مثل `ITranslationService`).
+
+**إضافات حديثة**:
+- `PointDashboard.razor` + `PointDashboardNavigationBridge.cs` + `PointModels.cs`.
+- `point-dashboard.css`.
+
+**إضافات حديثة (نوفمبر 2026)**:
+- `ClinicDashboard.razor` + `ClinicNavigationBridge.cs`.
+- `ClinicPatientDetails.razor` + `ClinicPatientDetailsNavigationBridge.cs`.
+- `ClinicPatientsList.razor` + `ClinicPatientsNavigationBridge.cs`.
+- `MyClinic.razor`.
+- `MyPatientInvitations.razor`.
+- `InvitePatient.razor`.
+- `Join.razor` (`/join`) — ⚠️ لا يكمل الاشتراك.
+- ❌ `WritePrescriptionPage.razor` — **غير موجود**.
+- ❌ `PrescriptionViewPage.razor` — **غير موجود**.
+- ❌ `DoctorNotesTab.razor` — **غير موجود**.
+- ❌ `PatientRequiredDataEntryPage.razor` — **غير موجود**.
+- ❓ `ClinicReferralCard.razor` — **غير مؤكد**.
+
+**قاعدة ذهبية**: تحتوي على مكونات قابلة لإعادة الاستخدام عبر المنصات (Web + PWA + MAUI). هذا يشمل:
+
+- مكونات UI (مثل `RubikSmartTable`, `RubikButton`) — تستخدم في أي مكان.
+- مكونات الصفحات (Page Components) — التي تُستدعى داخل `BlazorWebView` في MAUI (كصفحات فرعية فقط) أو كصفحات Razor في PWA/Web.
+
+**الممنوع**:
+- وضع منطق تطبيق كامل (مثل `@page` مع Routing خاص بمنصة واحدة) داخل `Shared.UI`.
+- استخدام `BlazorWebView` في MAUI كصفحة رئيسية (`ShellContent`) مع Parameters ديناميكية (انظر [13-MAUI](./13-MAUI.md) § 6.5).
+
+**المسموح**:
+- مكونات `.razor` بدون `@page`، تُستدعى من الصفحات الحاوية في كل منصة.
+- مكونات صفحات (بـ `@page`) تُستدعى كصفحات فرعية في MAUI (`Routing.RegisterRoute`).
+
 ### 2.9 `RubikCare.Tests` — شبكة الأمان الجودة 🛡️
 
-**ضمان استقرار المعمارية.**
+ضمان استقرار المعمارية.
 
 يحتوي على اختبارات الوحدة (Unit Tests) لكل طبقة، واختبارات تكامل (Integration Tests) بين الطبقات، بالإضافة إلى اختبارات معماريّة باستخدام `NetArchTest` للتأكد من عدم كسر قواعد التبعية.
 
@@ -208,55 +233,61 @@ graph TD
 ### 3.1 مستويات "النقاء المعماري" (من العملي إلى النظري)
 
 | المستوى | الوصف | النهج |
-| :--- | :--- | :--- |
-| **LVL 1** | **مقبول للصفحات القديمة جداً** (يُنصح بالترقية). | `Blazor Page` ← `DbContext` مباشرة. |
-| **LVL 2** | **مناسب للعمليات البسيطة (CRUD)**. | `Blazor Page` ← `IGenericService<T>` ← `DbContext`. |
-| **LVL 3** | **الموصى به للعمليات المعقدة والجديدة**. | `Blazor/MAUI/PWA Page` ← `UseCase` (في `Application`) ← `Repository` (في `Infrastructure`). |
-| **LVL 4** | **الأنقى للعمليات المشتركة بين العملاء**. | `Client (Web/PWA/Mobile)` → (HTTP) → `Api.Web` → `UseCase`. |
+|---|---|---|
+| LVL 1 | مقبول للصفحات القديمة جداً (يُنصح بالترقية). | Blazor Page ← `DbContext` مباشرة. |
+| LVL 2 | مناسب للعمليات البسيطة (CRUD). | Blazor Page ← `IGenericService<T>` ← `DbContext`. |
+| LVL 3 | الموصى به للعمليات المعقدة والجديدة. | Blazor/MAUI/PWA Page ← UseCase (في Application) ← Repository (في Infrastructure). |
+| LVL 4 | الأنقى للعمليات المشتركة بين العملاء. | Client (Web/PWA/Mobile) → (HTTP) → Api.Web → UseCase. |
 
 ### 3.2 القاعدة الذهبية: اختر النهج حسب التعقيد والمشاركة
 
 | نوع الصفحة/الوظيفة | النهج الأمثل | مثال تطبيقي |
-| :--- | :--- | :--- |
-| **CRUD بسيط** (إضافة/تعديل/حذف لكيان واحد) | **LVL 2**: `IGenericService<T>` | عرض قائمة الأدوية، تعديل ملف المستخدم. |
-| **منطق أعمال معقد** (متعدد الخطوات والشروط) | **LVL 3**: `UseCase` (في `Application`) | تسجيل مريض في برنامج دعم (PSP)، عملية مزامنة مع نظام خارجي. |
-| **وظيفة مشتركة بين Web و PWA و Mobile** | **LVL 4**: `UseCase` (في `Application`) + `API` | إرسال إشعار، إنشاء تقرير، البحث المتقدم. |
-| **عمليات حساسة جداً** (مالية، مصادقة) | **LVL 4**: `UseCase` + `API` مع تحقق إضافي (Validation). | معالجة الدفع، تغيير كلمة المرور. |
-| **استعلامات تقارير معقدة** (قراءة فقط) | **استخدام** `DbContextFactoryService` مباشرة في الصفحة (مع الحذر). | لوحة التحكم (Dashboard) بإحصائيات متعددة. |
+|---|---|---|
+| CRUD بسيط (إضافة/تعديل/حذف لكيان واحد) | LVL 2: `IGenericService<T>` | عرض قائمة الأدوية، تعديل ملف المستخدم. |
+| منطق أعمال معقد (متعدد الخطوات والشروط) | LVL 3: UseCase (في Application) | تسجيل مريض في برنامج دعم (PSP)، عملية مزامنة مع نظام خارجي. |
+| وظيفة مشتركة بين Web و PWA و Mobile | LVL 4: UseCase (في Application) + API | إرسال إشعار، إنشاء تقرير، البحث المتقدم. |
+| عمليات حساسة جداً (مالية، مصادقة) | LVL 4: UseCase + API مع تحقق إضافي (Validation). | معالجة الدفع، تغيير كلمة المرور. |
+| استعلامات تقارير معقدة (قراءة فقط) | استخدام `DbContextFactoryService` مباشرة في الصفحة (مع الحذر). | لوحة التحكم (Dashboard) بإحصائيات متعددة. |
 
 ### 3.3 ⚠️ تحذيرات معمارية صارمة
 
-- **لا تكسر تبعية الطبقات**: ممنوع استدعاء `Infrastructure` أو `DbContext` مباشرة من `Web` أو `PWA` أو `Mobile`.
-- **الـ `API` للجميع**: تطبيقات `Mobile` و `PWA` **لا تعتمد** على أي مشروع آخر (`Domain`, `Application`...)، وتتواصل فقط مع `Api.Web` عبر HTTP.
-- ** Shared.UI للمكونات القابلة لإعادة الاستخدام عبر المنصات، بما فيها "مكونات الصفحات" (Page Components) التي تُستدعى داخل BlazorWebView في MAUI أو كصفحات Razor في PWA/Web. الممنوع هو وضع منطق تطبيق كامل (مثل @page مع Routing خاص بمنصة واحدة) داخل Shared.UI. المسموح: مكوّنات .razor بدون @page، تُستدعى من الصفحات الحاوية في كل منصة.
+1. **لا تكسر تبعية الطبقات**: ممنوع استدعاء `Infrastructure` أو `DbContext` مباشرة من Web أو PWA أو Mobile.
 
-- **استخدم DTOs**: لا تُرجع كائنات `Domain` (Entities) مباشرة من الـ `API`، استخدم DTOs لمنع تسرب تفاصيل النطاق وتقليل حجم البيانات.
+2. **الـ API للجميع**: تطبيقات Mobile و PWA لا تعتمد على أي مشروع آخر (Domain, Application...)، وتتواصل فقط مع `Api.Web` عبر HTTP.
 
-## 🗄️ الجزء الثالث-ب: قواعد البيانات العلائقية — `PatientProfileID` vs `CaseID`
+3. **`Shared.UI` للمكونات القابلة لإعادة الاستخدام** عبر المنصات، بما فيها "مكونات الصفحات" (Page Components) التي تُستدعى داخل `BlazorWebView` في MAUI أو كصفحات Razor في PWA/Web. الممنوع هو وضع منطق تطبيق كامل (مثل `@page` مع Routing خاص بمنصة واحدة) داخل `Shared.UI`. المسموح: مكوّنات `.razor` بدون `@page`، تُستدعى من الصفحات الحاوية في كل منصة.
+
+4. **استخدم DTOs**: لا تُرجع كائنات `Domain` (Entities) مباشرة من الـ API، استخدم DTOs لمنع تسرب تفاصيل النطاق وتقليل حجم البيانات.
+
+---
+
+## 🗄️ الجزء الثالث-ب: قواعد البيانات العلائقية — `CaseID` (المعرّف الرسمي)
+
+> ⭐ **تحديث جوهري (24 نوفمبر 2026)**: تم توحيد المصطلح. **`CaseID` هو المعرّف الرسمي**، و`PatientProfileID` كان اسماً قديماً تم تعديله. أي ذكر لـ `PatientProfileID` كاسم حقل في الوثائق السابقة يُعتبر **مهجوراً**.
 
 ### 3ب.1 المشكلة الجذرية (التي أُصلحت في جلسة #136)
 
-**قبل الإصلاح:**
-- كان النظام ينشئ `PSPPatient` (وبالتالي `PatientID`) جديداً **لكل مشاركة** في برنامج جديد.
+**قبل الإصلاح**:
+- كان النظام ينشئ `PSPPatient` (وبالتالي `PatientID`) جديداً لكل مشاركة في برنامج جديد.
 - هذا أدى إلى:
   - وجود عدة `PatientID` لنفس الشخص (`UserProfileID`).
   - فوضى في نظام النقاط (النقاط تذهب لـ `PatientID` عشوائي).
   - تقارير خاطئة (تحسب الشخص أكثر من مرة).
   - مواعيد مكررة (لكل `PatientID`).
 
-**مثال حقيقي:**
-- shadyelzaher@rubikcare.com لديه:
+**مثال حقيقي**:
+- `shadyelzaher@rubikcare.com` لديه:
   - `PatientID = 18` (البرنامج 2 — Infertility).
   - `PatientID = 1081` (البرنامج 1 — pregnant case).
 
-**النتيجة:** النظام يعتبره "مريضين منفصلين"، وكل نظام فرعي (نقاط، تقارير، مواعيد) يعامله بشكل مختلف.
+**النتيجة**: النظام يعتبره "مريضين منفصلين"، وكل نظام فرعي (نقاط، تقارير، مواعيد) يعامله بشكل مختلف.
 
 ### 3ب.2 البنية الصحيحة (بعد الإصلاح)
 
 ```
 UserProfile (شخص واحد — UserProfileID = 15)
     │
-    └── PSPPatient (سجل واحد — CaseID)
+    └── PSPPatient (سجل واحد — CaseID = 1083)
             ├── PSPParticipation (البرنامج 1 — ParticipationID = 1023)
             │       └── PSPeRX (الوصفات)
             │       └── PSPDispensations (التوكنات)
@@ -271,24 +302,24 @@ UserProfile (شخص واحد — UserProfileID = 15)
 ### 3ب.3 القواعد الصارمة (Domain Rules)
 
 | # | القاعدة | السبب |
-|---|---------|-------|
-| **R1** | **`PatientProfileID` = "الشخص" (لا يتكرر أبداً).** | هو `UserProfileID` من `AspNetUsers`. |
-| **R2** | **`CaseID` = "الحالة" (يتكرر لكل برنامج).** | هو `PSPPatients.CaseID` (المفتاح الأساسي). |
-| **R3** | **`UNIQUE INDEX` على `PatientProfileID` في `PSPPatients`.** | يمنع تكرار المريض نهائياً. |
-| **R4** | **لا تنشئ `PSPPatient` جديداً إذا كان `PatientProfileID` موجوداً.** | استخدم `Participations` للتعدد. |
-| **R5** | **في `PointsContext`، استخدم `CaseID = PatientProfileID` (وليس `PSPPatients.CaseID`).** | `EarnPointsHandler` يبحث عن `Balance` بـ `PatientProfileID`. |
-| **R6** | **`PSPPatient.ParticipationID` يشير إلى "أول مشاركة" فقط (موروث).** | لا تعتمد عليه للبحث عن "كل المشاركات". |
-
+|---|---|---|
+| R1 | **`CaseID` = "الحالة" (المفتاح الأساسي في `PSPPatients`).** | هو المعرّف الرسمي بعد جلسة #136. |
+| R2 | **`UserProfileID` = "الشخص" (لا يتكرر أبداً).** | هو `UserProfileID` من `AspNetUsers`. |
+| R3 | **`UNIQUE INDEX` على `PatientProfileID` في `PSPPatients`.** | يمنع تكرار المريض نهائياً (الحقل `PatientProfileID` باقٍ كـ FK، لكنه ليس المعرّف الأساسي). |
+| R4 | **لا تنشئ `PSPPatient` جديداً إذا كان `PatientProfileID` موجوداً.** | استخدم `Participations` للتعدد. |
+| R5 | **في `PointsContext`، استخدم `CaseID` كـ `BeneficiaryID` — والقيمة المُمرَّرة هي `PatientProfileID`.** | `EarnPointsHandler` يبحث عن `Balance` بـ `PatientProfileID`. الحقل اسمه `CaseID` لكن قيمته `PatientProfileID` — هذا تصميم حالي يجب توثيقه صراحةً في `PointsContext.cs`. |
+| R6 | **`PSPPatient.ParticipationID` يشير إلى "أول مشاركة" فقط (موروث).** | لا تعتمد عليه للبحث عن "كل المشاركات". |
+| R7 | **`PSPParticipation` = مشاركة منظمة (عيادة/صيدلية)، وليست اشتراك مريض.** | ⭐ توضيح جديد — لا تخلط بينهما. |
 
 ### 3ب.4 التأثير على كل طبقة
 
 | الطبقة | التغيير | الملفات |
-|--------|---------|---------|
-| **Domain** | `PatientID` → `CaseID` في الكيانات | `PSPPatient.cs`, `PSPeRX.cs`, `PSPReminder.cs`, `PSPTestResult.cs`, `PSPFollowUpRecord.cs`, `PSPAdverseEvent.cs`, `DoctorNote.cs` |
-| **Application** | `PointsContext` يستخدم `CaseID` | `PointsContext.cs` |
-| **Infrastructure** | `EarnPointsHandler` يبحث بـ `PatientProfileID` | `EarnPointsHandler.cs` |
-| **API** | `GetUserActivePrograms` يعيد كل البرامج | `PspController.Helpers.cs` |
-| **Migration** | `RenameColumn` (PatientID → CaseID) | `20261021XXXXXX_RenamePatientIdToCaseId.cs` |
+|---|---|---|
+| Domain | `PatientID` → `CaseID` في الكيانات | `PSPPatient.cs`, `PSPeRX.cs`, `PSPReminder.cs`, `PSPTestResult.cs`, `PSPFollowUpRecord.cs`, `PSPAdverseEvent.cs`, `DoctorNote.cs` |
+| Application | `PointsContext` يستخدم `CaseID` | `PointsContext.cs` |
+| Infrastructure | `EarnPointsHandler` يبحث بـ `PatientProfileID` | `EarnPointsHandler.cs` |
+| API | `GetUserActivePrograms` يعيد كل البرامج | `PspController.Helpers.cs` |
+| Migration | `RenameColumn` (`PatientID` → `CaseID`) | `20261021XXXXXX_RenamePatientIdToCaseId.cs` |
 
 ### 3ب.5 كيف يعمل نظام النقاط الآن
 
@@ -297,34 +328,35 @@ Schedule (ProgramID = 1) + PatientProfileID = 15
     ↓
 TryAwardDailyDosePointsAsync
     ├── جلب PSPPatient (CaseID=1083, ProfileID=15, ProgramID=1)
-    ├── بناء PointsContext (CaseID=15, OrganizationID=1267)
+    ├── بناء PointsContext (CaseID=15, OrganizationID=1267)   ← القيمة هنا PatientProfileID
     └── AwardByCampaignAsync(campaignId=1)
             ↓
         Scheme 1 (PSP.CUP) → Rule (ActivityTypeID=8) → Balance(BeneficiaryID=15)
 ```
 
-**⚠️ ملاحظة:** `BeneficiaryID` في `PSPProgramPointBalance` هو `PatientProfileID` (وليس `CaseID`).
+**`BeneficiaryID` في `PSPProgramPointBalance` هو `PatientProfileID`** (وليس `PSPPatients.CaseID`).
 
 ### 3ب.6 Checklist لأي تعديل مستقبلي
 
 - [ ] لا تنشئ `PSPPatient` جديداً إذا كان `PatientProfileID` موجوداً.
-- [ ] استخدم `PatientProfileID` (وليس `CaseID`) للبحث عن "الشخص".
-- [ ] استخدم `CaseID` في `PointsContext` كـ `BeneficiaryID` (لأن `EarnPointsHandler` يعتمد عليه).
+- [ ] استخدم `CaseID` كمعرّف الحالة (المفتاح الأساسي في `PSPPatients`).
+- [ ] استخدم `PatientProfileID` للبحث عن "الشخص" (وليس `CaseID`).
+- [ ] في `PointsContext`، الحقل اسمه `CaseID` لكن قيمته `PatientProfileID` — وثّق ذلك في الكود بتعليق XML.
 - [ ] لا تعتمد على `PSPPatient.ParticipationID` للبحث عن "كل المشاركات".
 - [ ] في `GetUserActivePrograms`، لا تتخطى البرنامج إذا لم يجد `eRx` أو `Dispensation`.
 - [ ] أضف `UNIQUE INDEX` على `PatientProfileID` في `PSPPatients` (إذا لم يكن موجوداً).
 
----
-### 3.4 ⚠️ قيود `BlazorWebView` في MAUI (4 نوفمبر 2026)
+### 3ب.7 ⚠️ قيود `BlazorWebView` في MAUI (4 نوفمبر 2026)
 
-**القاعدة الذهبية:** `Shared.UI` (مكونات الصفحات) **لا تُستخدم كصفحات رئيسية** (`ShellContent`) في MAUI مع `Parameters` ديناميكية. هذا تعارض معماري في MAUI 10، وليس خطأً في الكود.
+**القاعدة الذهبية**: `Shared.UI` (مكونات الصفحات) لا تُستخدم كصفحات رئيسية (`ShellContent`) في MAUI مع Parameters ديناميكية. هذا تعارض معماري في MAUI 10، وليس خطأً في الكود.
 
 | نوع الصفحة | هل يمكن استخدام `BlazorWebView`؟ | التوصية |
 |---|---|---|
-| **صفحة رئيسية (`ShellContent`)** | ⚠️ نعم، **فقط** إذا كانت لا تحتاج `Parameters` ديناميكية (مثل `ClinicDashboard` — تعتمد على `CurrentOrganizationState`). | **الأفضل:** XAML محلي (مثل `DashboardPage.xaml`). |
-| **صفحة فرعية (`Routing.RegisterRoute`)** | ✅ نعم، مع `RootComponents.Add` في `Constructor`/`OnAppearing` + `Parameters` (مثل `PatientPointsFlow`، `MedicineGuideFlow`). | **موصى به:** `BlazorWebView` + `Parameters`. |
+| صفحة رئيسية (`ShellContent`) | Parameters ديناميكية (مثل `ClinicDashboard` — تعتمد على `CurrentOrganizationState`). | الأفضل: XAML محلي (مثل `DashboardPage.xaml`). |
+| صفحة فرعية (`Routing.RegisterRoute`) | ✅ نعم، مع `RootComponents.Add` في Constructor/OnAppearing + Parameters (مثل `PatientPointsFlow`, `MedicineGuideFlow`). | موصى به: `BlazorWebView` + Parameters. |
 
-**المرجع:** `13-MAUI` § 6.5 (قيود `BlazorWebView` + `ShellContent`).
+**المرجع**: [13-MAUI](./13-MAUI.md) § 6.5 (قيود `BlazorWebView` + `ShellContent`).
+
 ---
 
 ## 📋 الجزء الرابع: العلاقات والتبعيات (بصيغة مبسطة)
@@ -352,11 +384,11 @@ flowchart LR
 
 ---
 
-## 🔧 الجزء الخامس: Program.cs — مصدر الحقيقة الوحيد للتسجيلات
+## 🔧 الجزء الخامس: `Program.cs` — مصدر الحقيقة الوحيد للتسجيلات
 
 ### 5.1 الغرض
 
-هذا الملف هو **المصدر الوحيد** لكل الخدمات والإعدادات في النظام. أي خدمة تريد استخدامها في صفحتك **يجب** أن تكون مسجلة هنا.
+هذا الملف هو المصدر الوحيد لكل الخدمات والإعدادات في النظام. أي خدمة تريد استخدامها في صفحتك يجب أن تكون مسجلة هنا.
 
 ### 5.2 منطقة الأساسيات ودعم SSR
 
@@ -381,7 +413,7 @@ builder.Services.AddAuthentication()
     });
 ```
 
-⚠️ **تحذير:** تأكد من وجود `ClientId` و `ClientSecret` في `appsettings.json`.
+`ClientId` و`ClientSecret` في `appsettings.json`.
 
 ### 5.4 منطقة قاعدة البيانات (الأهم والأكثر خطأً)
 
@@ -399,10 +431,9 @@ builder.Services.AddDbContextFactory<BusinessDbContext>(options =>
     ServiceLifetime.Scoped); // ⭐ هذا ما كان ناقصاً ويسبب أخطاء
 ```
 
-**⚠️ تحذير حرج:**
-- تأكد من وجود `ServiceLifetime.Scoped` في `AddDbContextFactory`
-- لا تحذف `AddDbContext` إلا بعد ترحيل كل الصفحات القديمة
-- `AddDbContextFactory` هو الموصى به للصفحات الجديدة لمنع مشكلة "A second operation started"
+- تأكد من وجود `ServiceLifetime.Scoped` في `AddDbContextFactory`.
+- لا تحذف `AddDbContext` إلا بعد ترحيل كل الصفحات القديمة.
+- `AddDbContextFactory` هو الموصى به للصفحات الجديدة لمنع مشكلة "A second operation started".
 
 ### 5.5 منطقة الهوية (Identity)
 
@@ -505,11 +536,11 @@ app.MapGet("/api/localization/page/{page}", async (
 app.Run();
 ```
 
-⚠️ **ترتيب Middleware إلزامي:** يجب أن يكون `UseAuthentication` قبل `UseAuthorization`. أي تبديل يؤدي إلى فشل المصادقة.
+**`UseAuthentication` قبل `UseAuthorization`**. أي تبديل يؤدي إلى فشل المصادقة.
 
 ---
 
-## 📄 الجزء السادس: App.razor — تدفق التطبيق
+## 📄 الجزء السادس: `App.razor` — تدفق التطبيق
 
 ### 6.1 الكود الكامل
 
@@ -546,15 +577,17 @@ app.Run();
 
 ### 6.2 النقاط الحرجة
 
-- **التهيئة المبكرة للغة:** بدون استدعاء `TranslationState.InitializeAsync()` هنا، ستعرض الصفحة الأولى اللغة الافتراضية ثم "تومض" عند تحميل اللغة الحقيقية.
-- **التوجيه الموحد:** `DefaultLayout="@typeof(MainLayout)"` يضمن أن كل الصفحات ترث التخطيط نفسه.
+- **التهيئة المبكرة للغة**: بدون استدعاء `TranslationState.InitializeAsync()` هنا، ستعرض الصفحة الأولى اللغة الافتراضية ثم "تومض" عند تحميل اللغة الحقيقية.
+- **التوجيه الموحد**: `DefaultLayout="@typeof(MainLayout)"` يضمن أن كل الصفحات ترث التخطيط نفسه.
 
 ---
+
 ## 🔗 الجزء السادس-ب: Integration Contracts (عقود التكامل)
 
 ### 📌 الغرض
 
 كل تكامل بين نظامين في RubikCare يجب أن يكون مكتوباً هنا كـ "عقد" (Contract) — يحدد:
+
 - **From → To**: أي نظام يُطلق الحدث؟
 - **Event**: ما هو الحدث؟
 - **Method**: ما الدالة المسؤولة؟
@@ -562,148 +595,187 @@ app.Run();
 - **Idempotency**: كيف نمنع التكرار؟
 - **Status**: ما حالة التنفيذ؟
 
-**القاعدة الذهبية:** لا تكامل بدون عقد موثق هنا.
+**القاعدة الذهبية**: لا تكامل بدون عقد موثق هنا.
 
 ### 📊 جدول العقود
 
 | # | From → To | Event | Method | Reference | Idempotency | Status |
-|---|-----------|-------|--------|-----------|-------------|--------|
-| **IC-01** | PSP → Points | DispensationCompleted | `IEarnPointsOrchestrator.AwardByCampaignAsync` | `DISPENSATION/{DispensationID}` | ⚠️ يحتاج | 🟡 يعمل بدون Idempotency |
-| **IC-02** | PSP → Points | RefillCompleted | (نفس IC-01) | (نفس IC-01) | ⚠️ يحتاج | 🟡 |
-| **IC-03** | Reminders → Points | DailyDoseTaken | `AwardByCampaignAsync` | `SCHEDULE/{ScheduleID}` | ⚠️ يحتاج | 🟡 |
-| **IC-04** | PSP → Points | PointsRedeem | `GenerateNextToken` | `DISPENSATION/{DispensationID}` | ❌ | 🔴 **مكسور** |
-| **IC-05** | Points → Notifications | PointsEarned | `SendPointsEarnedNotification` | `TRANSACTION/{TransactionID}` | N/A | ⏳ Sprint 1 |
-| **IC-06** | Points → Notifications | PointsRedeemed | `SendPointsRedeemedNotification` | `TRANSACTION/{TransactionID}` | N/A | ⏳ Sprint 1 |
-| **IC-07** | Points → Reports | AdherencePoints | تحديث `GetAdherenceHandler` | — | N/A | ⏳ Sprint 1 |
-| **IC-08** | Points → Reports | FinancialWithPoints | تحديث `GetPharmacyFinancialHandler` | — | N/A | ⏳ Sprint 1 |
-| **IC-09** | Points → Reports | ProgramLifecyclePoints | تحديث `GetProgramLifecycleHandler` | — | N/A | ⏳ Sprint 1 |
+|---|---|---|---|---|---|---|
+| IC-01 | PSP → Points | DispensationCompleted | `IEarnPointsOrchestrator.AwardByCampaignAsync` | `DISPENSATION/{DispensationID}` | 🟡 يعمل بدون Idempotency | ✅ |
+| IC-02 | PSP → Points | RefillCompleted | (نفس IC-01) | (نفس IC-01) | 🟡 | ✅ |
+| IC-03 | Reminders → Points | DailyDoseTaken | `AwardByCampaignAsync` | `SCHEDULE/{ScheduleID}` | 🟡 | ✅ |
+| IC-04 | PSP → Points | PointsRedeem | `GenerateNextToken` | `DISPENSATION/{DispensationID}` | ❌ | 🔴 مكسور |
+| IC-05 | Points → Notifications | PointsEarned | `SendPointsEarnedNotification` | `TRANSACTION/{TransactionID}` | N/A | ⏳ Sprint 1 |
+| IC-06 | Points → Notifications | PointsRedeemed | `SendPointsRedeemedNotification` | `TRANSACTION/{TransactionID}` | N/A | ⏳ Sprint 1 |
+| IC-07 | Points → Reports | AdherencePoints | تحديث `GetAdherenceHandler` | — | N/A | ⏳ Sprint 1 |
+| IC-08 | Points → Reports | FinancialWithPoints | تحديث `GetPharmacyFinancialHandler` | — | N/A | ⏳ Sprint 1 |
+| IC-09 | Points → Reports | ProgramLifecyclePoints | تحديث `GetProgramLifecycleHandler` | — | N/A | ⏳ Sprint 1 |
+| ⭐ IC-10 | Clinic → PSP | ReferralUsed | `PSPEnrollmentService.EnrollViaReferralAsync` | `REFERRAL/{ReferralID}` | 🟡 يعمل بدون Idempotency | ❓ **جديد** |
+| ⭐ IC-11 | Clinic → PSP | PrescriptionCreated | `PSPeRXService.CreateFromPrescriptionAsync` | `PRESCRIPTION/{PrescriptionID}` | 🟡 | ❓ **جديد** |
 
 ### 📝 تفاصيل كل عقد
 
 #### IC-01: PSP → Points (DispensationCompleted)
 
-**الحدث:** تأكيد صرف دواء من الصيدلي.
-**المكان:** `DispenseController.ConfirmDispense` + `DispenseController.ScanAndDispense`.
-**Method:**
-```csharp
-await TryAwardPointsViaOrchestratorAsync(
-    patientId: eRx.PatientID,
-    programId: eRx.ProgramID,
-    activityTypeId: dispensation.RefillNumber > 0 
-        ? PointActivityTypeIds.RefillCompleted 
-        : PointActivityTypeIds.DispensationCompleted,
-    referenceType: "DISPENSATION",
-    referenceId: dispensation.DispensationID,
-    currentUserId: pharmacistId);
+- **الحدث**: تأكيد صرف دواء من الصيدلي.
+- **المكان**: `DispenseController.ConfirmDispense` + `DispenseController.ScanAndDispense`.
+- **Method**:
+  ```csharp
+  await TryAwardPointsViaOrchestratorAsync(
+      patientId: eRx.CaseID,
+      programId: eRx.ProgramID,
+      activityTypeId: dispensation.RefillNumber > 0 
+          ? PointActivityTypeIds.RefillCompleted 
+          : PointActivityTypeIds.DispensationCompleted,
+      referenceType: "DISPENSATION",
+      referenceId: dispensation.DispensationID,
+      currentUserId: pharmacistId);
+  ```
+- **Idempotency**: فحص مسبق قبل الاستدعاء:
+  ```csharp
+  var exists = await db.Set<PSPProgramPointTransaction>()
+      .AnyAsync(t => t.ReferenceType == "DISPENSATION" 
+                 && t.ReferenceID == dispensation.DispensationID
+                 && t.TransactionTypeID == PointTransactionTypeIds.Earn);
+  if (exists) return;
+  ```
 
-Idempotency: فحص مسبق قبل الاستدعاء:
+#### IC-02: PSP → Points (RefillCompleted)
 
-```csharp
-var exists = await db.Set<PSPProgramPointTransaction>()
-    .AnyAsync(t => t.ReferenceType == "DISPENSATION" 
-               && t.ReferenceID == dispensation.DispensationID
-               && t.TransactionTypeID == PointTransactionTypeIds.Earn);
-if (exists) return;
-IC-02: PSP → Points (RefillCompleted)
-الحدث: تأكيد صرف دواء (Refill > 0).
-المكان: (نفس IC-01).
-Method: (نفس IC-01، مع activityTypeId = PointActivityTypeIds.RefillCompleted).
-Idempotency: (نفس IC-01).
+- **الحدث**: تأكيد صرف دواء (Refill > 0).
+- **المكان**: (نفس IC-01).
+- **Method**: (نفس IC-01، مع `activityTypeId = PointActivityTypeIds.RefillCompleted`).
+- **Idempotency**: (نفس IC-01).
 
-IC-03: Reminders → Points (DailyDoseTaken)
-الحدث: تأكيد تناول جرعة يومية.
-المكان: AcknowledgeReminderHandler.HandleAsync → TryAwardDailyDosePointsAsync.
-Method:
+#### IC-03: Reminders → Points (DailyDoseTaken)
 
-```csharp
-await _pointsOrchestrator.AwardByCampaignAsync(
-    campaignId: programId,
-    pointSystemTypeID: 1,
-    activityTypeId: PointActivityTypeIds.DailyDoseTaken,
-    context: new PointsContext { ... },
-    referenceType: "SCHEDULE",
-    referenceId: scheduleId,
-    currentUserId: null);
-Idempotency: فحص مسبق:
+- **الحدث**: تأكيد تناول جرعة يومية.
+- **المكان**: `AcknowledgeReminderHandler.HandleAsync` → `TryAwardDailyDosePointsAsync`.
+- **Method**:
+  ```csharp
+  await _pointsOrchestrator.AwardByCampaignAsync(
+      campaignId: programId,
+      pointSystemTypeID: 1,
+      activityTypeId: PointActivityTypeIds.DailyDoseTaken,
+      context: new PointsContext { ... },
+      referenceType: "SCHEDULE",
+      referenceId: scheduleId,
+      currentUserId: null);
+  ```
+- **Idempotency**: فحص مسبق:
+  ```csharp
+  var exists = await db.Set<PSPProgramPointTransaction>()
+      .AnyAsync(t => t.ReferenceType == "SCHEDULE" 
+                 && t.ReferenceID == scheduleId
+                 && t.TransactionTypeID == PointTransactionTypeIds.Earn);
+  if (exists) return;
+  ```
 
-```csharp
-var exists = await db.Set<PSPProgramPointTransaction>()
-    .AnyAsync(t => t.ReferenceType == "SCHEDULE" 
-               && t.ReferenceID == scheduleId
-               && t.TransactionTypeID == PointTransactionTypeIds.Earn);
-if (exists) return;
-IC-04: PSP → Points (PointsRedeem) — 🔴 Sprint 1
-الحدث: تجديد توكن مع PointsToRedeem > 0.
-المكان: DispenseController.GenerateNextToken.
-Method: (يُنفذ داخل Transaction واحد — انظر تفاصيل التنفيذ في Sprint 1).
-Idempotency: فحص ReferenceType="DISPENSATION" && ReferenceID=DispensationID && TransactionTypeID=REDEEM_DISPENSATION.
-Reference:
+#### IC-04: PSP → Points (PointsRedeem) — 🔴 Sprint 1
 
-```csharp
-var redemptionTransaction = new PSPProgramPointTransaction
-{
-    BalanceID = dbBalance.BalanceID,
-    TransactionTypeID = PointTransactionTypeIds.RedeemDispensation,  // 9
-    Points = -pointsToRedeem,
-    BalanceBefore = balanceBefore,
-    BalanceAfter = balanceAfter,
-    ReferenceType = "DISPENSATION",
-    ReferenceID = newDispensation.DispensationID,
-    Description = $"خصم نقاط على التوكن {newTokenCode}",
-    CreatedBy = userId,
-    CreatedDate = DateTime.UtcNow
-};
-IC-05: Points → Notifications (PointsEarned) — ⏳ Sprint 1
-الحدث: كسب نقاط (من أي Handler).
-المكان: Helper SendPointsEarnedNotification يُستدعى من IEarnPointsOrchestrator.
-الرسالة: "🎉 كسبت X نقطة من [نشاط]".
-Idempotency: N/A (إشعار قد يتكرر — مقبول).
+- **الحدث**: تجديد توكن مع `PointsToRedeem > 0`.
+- **المكان**: `DispenseController.GenerateNextToken`.
+- **Method**: (يُنفذ داخل Transaction واحد — انظر تفاصيل التنفيذ في Sprint 1).
+- **Idempotency**: فحص `ReferenceType="DISPENSATION" && ReferenceID=DispensationID && TransactionTypeID=REDEEM_DISPENSATION`.
+- **Reference**:
+  ```csharp
+  var redemptionTransaction = new PSPProgramPointTransaction
+  {
+      BalanceID = dbBalance.BalanceID,
+      TransactionTypeID = PointTransactionTypeIds.RedeemDispensation,  // 9
+      Points = -pointsToRedeem,
+      BalanceBefore = balanceBefore,
+      BalanceAfter = balanceAfter,
+      ReferenceType = "DISPENSATION",
+      ReferenceID = newDispensation.DispensationID,
+      Description = $"خصم نقاط على التوكن {newTokenCode}",
+      CreatedBy = userId,
+      CreatedDate = DateTime.UtcNow
+  };
+  ```
 
-IC-06: Points → Notifications (PointsRedeemed) — ⏳ Sprint 1
-الحدث: خصم نقاط (من GenerateNextToken).
-المكان: DispenseController.GenerateNextToken → بعد Commit الناجح.
-الرسالة: "💎 استخدمت X نقطة كخصم على توكنك (بقيمة Y ج.م)".
-Idempotency: N/A.
+#### IC-05: Points → Notifications (PointsEarned) — ⏳ Sprint 1
 
-IC-07: Points → Reports (AdherencePoints) — ⏳ Sprint 1
-الحدث: طلب تقرير الالتزام.
-المكان: GetAdherenceHandler.HandleAsync.
-الإضافة: لكل AdherencePatientDto إضافة PointsEarned, PointsRedeemed, CurrentBalance.
-المصدر: PSPProgramPointBalance + PSPProgramPointTransaction.
+- **الحدث**: كسب نقاط (من أي Handler).
+- **المكان**: Helper `SendPointsEarnedNotification` يُستدعى من `IEarnPointsOrchestrator`.
+- **الرسالة**: "🎉 كسبت X نقطة من [نشاط]".
+- **Idempotency**: N/A (إشعار قد يتكرر — مقبول).
 
-IC-08: Points → Reports (FinancialWithPoints) — ⏳ Sprint 1
-الحدث: طلب تقرير مالي للصيدلية.
-المكان: GetPharmacyFinancialHandler.HandleAsync.
-الإضافة: لكل Dispensation تمييز:
+#### IC-06: Points → Notifications (PointsRedeemed) — ⏳ Sprint 1
 
-ProgramDiscount (من PlanMedication.DiscountPercentage).
+- **الحدث**: خصم نقاط (من `GenerateNextToken`).
+- **المكان**: `DispenseController.GenerateNextToken` → بعد Commit الناجح.
+- **الرسالة**: "💎 استخدمت X نقطة كخصم على توكنك (بقيمة Y ج.م)".
+- **Idempotency**: N/A.
 
-PointsDiscount (من PSPProgramPointTransaction حيث TransactionTypeID=REDEEM_DISPENSATION).
-الحقول الجديدة: TotalPointsDiscount, TotalReimbursement (معدل).
+#### IC-07: Points → Reports (AdherencePoints) — ⏳ Sprint 1
 
-IC-09: Points → Reports (ProgramLifecyclePoints) — ⏳ Sprint 1
-الحدث: طلب تقرير دورة حياة البرنامج.
-المكان: GetProgramLifecycleHandler.HandleAsync.
-الإضافة:
+- **الحدث**: طلب تقرير الالتزام.
+- **المكان**: `GetAdherenceHandler.HandleAsync`.
+- **الإضافة**: لكل `AdherencePatientDto` إضافة `PointsEarned`, `PointsRedeemed`, `CurrentBalance`.
+- **المصدر**: `PSPProgramPointBalance` + `PSPProgramPointTransaction`.
 
-TotalPointsEarned (مجموع EARN).
+#### IC-08: Points → Reports (FinancialWithPoints) — ⏳ Sprint 1
 
-TotalPointsRedeemed (مجموع REDEEM_DISPENSATION).
+- **الحدث**: طلب تقرير مالي للصيدلية.
+- **المكان**: `GetPharmacyFinancialHandler.HandleAsync`.
+- **الإضافة**: لكل `Dispensation` تمييز:
+  - `ProgramDiscount` (من `PlanMedication.DiscountPercentage`).
+  - `PointsDiscount` (من `PSPProgramPointTransaction` حيث `TransactionTypeID=REDEEM_DISPENSATION`).
+- **الحقول الجديدة**: `TotalPointsDiscount`, `TotalReimbursement` (معدل).
 
-TotalPointsInCirculation (مجموع Balance).
+#### IC-09: Points → Reports (ProgramLifecyclePoints) — ⏳ Sprint 1
 
-ActivePointsUsers (عدد المرضى الذين لديهم رصيد > 0).
+- **الحدث**: طلب تقرير دورة حياة البرنامج.
+- **المكان**: `GetProgramLifecycleHandler.HandleAsync`.
+- **الإضافة**:
+  - `TotalPointsEarned` (مجموع EARN).
+  - `TotalPointsRedeemed` (مجموع REDEEM_DISPENSATION).
+  - `TotalPointsInCirculation` (مجموع Balance).
+  - `ActivePointsUsers` (عدد المرضى الذين لديهم رصيد > 0).
 
-🚨 قواعد إلزامية
-كل تكامل جديد يجب أن يضاف إلى الجدول.
-كل عقد يجب أن يُوثَّق قبل التنفيذ.
+#### ⭐ IC-10: Clinic → PSP (ReferralUsed) — ❓ جديد
 
-Idempotency إلزامي لأي تكامل يخصم/يمنح نقاط.
-Reference Type يجب أن يكون واضحاً (DISPENSATION, SCHEDULE, CONTENT, إلخ).
-Reference ID يجب أن يكون int (معرّف الكيان).
-لا تكامل مباشر بين نظامين بدون Orchestrator/Service.
+- **الحدث**: مريض يستخدم `ClinicProgramReferral` للاشتراك.
+- **المكان**: `PSPEnrollmentService.EnrollViaReferralAsync` (جديد — غير مؤكد).
+- **Method**:
+  ```csharp
+  await _enrollmentService.EnrollViaReferralAsync(
+      caseId: pspPatient.CaseID,
+      referralId: referral.ReferralID,
+      programId: referral.ProgramID,
+      clinicId: referral.ClinicID);
+  ```
+- **Reference**: `REFERRAL/{ReferralID}`.
+- **Idempotency**: فحص `PSPPatient` موجود بالفعل للبرنامج نفسه (لا تُنشئ تكراراً).
+- **Status**: ❓ **جديد** — يحتاج تأكيد وجود `EnrollViaReferralAsync` + ربط `ReferralID` في `PSPPatient`.
 
+#### ⭐ IC-11: Clinic → PSP (PrescriptionCreated) — ❓ جديد
 
+- **الحدث**: طبيب ينشئ `Prescription` تحتوي على أدوية مدعومة.
+- **المكان**: `PSPeRXService.CreateFromPrescriptionAsync` (جديد — غير مؤكد).
+- **Method**:
+  ```csharp
+  await _erxService.CreateFromPrescriptionAsync(
+      prescriptionId: prescription.PrescriptionID,
+      programId: selectedProgramId,
+      caseId: prescription.CaseID,
+      doctorId: prescription.DoctorID);
+  ```
+- **Reference**: `PRESCRIPTION/{PrescriptionID}`.
+- **Idempotency**: فحص `PSPeRX` موجود بالفعل لنفس `PrescriptionID`.
+- **Status**: ❓ **جديد** — يحتاج تأكيد وجود `CreateFromPrescriptionAsync` + Endpoint.
+
+### 🚨 قواعد إلزامية
+
+1. كل تكامل جديد يجب أن يضاف إلى الجدول.
+2. كل عقد يجب أن يُوثَّق قبل التنفيذ.
+3. **Idempotency إلزامي** لأي تكامل يخصم/يمنح نقاط.
+4. **Reference Type** يجب أن يكون واضحاً (`DISPENSATION`, `SCHEDULE`, `CONTENT`, `REFERRAL`, `PRESCRIPTION`, إلخ).
+5. **Reference ID** يجب أن يكون `int` (معرّف الكيان).
+6. لا تكامل مباشر بين نظامين بدون Orchestrator/Service.
+
+---
 
 ## 🎯 الجزء السابع: مصفوفة اختيار الخدمة
 
@@ -716,45 +788,43 @@ Reference ID يجب أن يكون int (معرّف الكيان).
 #### 7.2.1 خدمات أساسية (ضرورية لكل صفحة)
 
 | الخدمة | الواجهة | متى تستخدمها؟ | مثال |
-|--------|---------|---------------|------|
+|---|---|---|---|
 | `GenericService<T>` | `IGenericService<T>` | **CRUD بسيط** على كيان واحد (عرض/إضافة/تعديل/حذف) | قائمة الأدوية، تعديل اسم منظمة |
-| `DbContextFactoryService` | - | **استعلامات قراءة مخصصة** معقدة (تقارير، فلترة متعددة) | لوحة التحكم، تقارير المبيعات |
+| `DbContextFactoryService` | — | **استعلامات قراءة مخصصة** معقدة (تقارير، فلترة متعددة) | لوحة التحكم، تقارير المبيعات |
 | `UserContextService` | `IUserContextService` | **معلومات المستخدم الحالي** (ID، الأدوار، الصلاحيات) | أي صفحة تحتاج معرفة من هو المسجل |
 
 #### 7.2.2 خدمات الترجمة (لأي صفحة تدعم اللغتين)
 
 | الخدمة | الواجهة | متى تستخدمها؟ | مثال |
-|--------|---------|---------------|------|
-| `TranslationStateService` | - | معرفة **اللغة الحالية** والاشتراك في تغييراتها | أي صفحة تدعم AR/EN |
+|---|---|---|---|
+| `TranslationStateService` | — | معرفة **اللغة الحالية** والاشتراك في تغييراتها | أي صفحة تدعم AR/EN |
 | `ILocalizationService` | `ILocalizationService` | جلب **الترجمات من قاعدة البيانات** | عرض النصوص المترجمة |
 | `LayoutDirectionService` | `ILayoutDirectionService` | إدارة **اتجاه الصفحة** (RTL/LTR) | ضبط `dir` attribute |
 
 #### 7.2.3 خدمات المستخدم والسياق
 
 | الخدمة | الواجهة | متى تستخدمها؟ | مثال |
-|--------|---------|---------------|------|
+|---|---|---|---|
 | `UserContextService` | `IUserContextService` | ID المستخدم، الأدوار، الصلاحيات | التحقق من صلاحية الوصول |
 | `IUserSessionService` | `IUserSessionService` | localStorage + إدارة الجلسات | حفظ تفضيلات الجلسة |
-| `IUserRoleService` | `IUserRoleService` | **إدارة الأدوار الموسعة** (AspNetUserRoles) | إضافة/تعديل/حذف أدوار المستخدمين |
+| `IUserRoleService` | `IUserRoleService` | **إدارة الأدوار الموسعة** (`AspNetUserRoles`) | إضافة/تعديل/حذف أدوار المستخدمين |
 
 #### 7.2.4 خدمات التنقل والقوائم
 
 | الخدمة | الواجهة | متى تستخدمها؟ | مثال |
-|--------|---------|---------------|------|
-| `DynamicMenuService` | - | جلب **القوائم الديناميكية** للمستخدم | عرض القائمة الجانبية |
+|---|---|---|---|
+| `DynamicMenuService` | — | جلب **القوائم الديناميكية** للمستخدم | عرض القائمة الجانبية |
 
 #### 7.2.5 خدمات مساعدة
 
 | الخدمة | الواجهة | متى تستخدمها؟ | مثال |
-|--------|---------|---------------|------|
+|---|---|---|---|
 | `ExcelService` | `IExcelService<T>` | استيراد/تصدير Excel | تصدير قائمة مرضى |
 | `IImageService` | `IImageService` | رفع ومعالجة الصور | رفع صورة البروفايل |
 
-
----
 ### 7.3 ⚠️ متى تستخدم `Shared.UI` (مكونات الصفحات) في MAUI؟
 
-**السياق:** `Shared.UI` يحتوي على مكونات صفحات (مثل `DashboardPage.razor`) تُستخدم في PWA/Web. في MAUI، استخدامها يعتمد على نوع الصفحة.
+**السياق**: `Shared.UI` يحتوي على مكونات صفحات (مثل `DashboardPage.razor`) تُستخدم في PWA/Web. في MAUI، استخدامها يعتمد على نوع الصفحة.
 
 | الحالة | الاستخدام | المثال |
 |---|---|---|
@@ -763,8 +833,9 @@ Reference ID يجب أن يكون int (معرّف الكيان).
 | **صفحة فرعية (`Routing.RegisterRoute`)** | ✅ استخدم `BlazorWebView` + `RootComponents.Add` مع `Parameters`. | `PatientPointsFlow.xaml.cs` (يعمل). |
 | **مكون UI (بدون `@page`)** | ✅ يمكن استخدامه في أي مكان (داخل `BlazorWebView`). | `RubikSmartTable` (يعمل). |
 
-**المرجع:** `13-MAUI` § 6.5.
-```
+**المرجع**: [13-MAUI](./13-MAUI.md) § 6.5.
+
+---
 
 ## 🧭 الجزء الثامن: شجرة قرار اختيار الخدمة
 
@@ -818,20 +889,20 @@ Reference ID يجب أن يكون int (معرّف الكيان).
 
 ### 9.1 ✅ مثال 1: صفحة CRUD بسيطة (عرض قائمة أدوية)
 
-**القرار:** استخدم `IGenericService<T>`
+**القرار**: استخدم `IGenericService<T>`
 
-```csharp
+```razor
 // في Web/Pages/Admin/Medications.razor
 @inject IGenericService<Medication> MedicationService
 
 @code {
     private List<Medication> medications = new();
-    
+
     protected override async Task OnInitializedAsync()
     {
         medications = await MedicationService.GetAllAsync().ToListAsync();
     }
-    
+
     private async Task DeleteMedication(int id)
     {
         await MedicationService.DeleteAsync(id);
@@ -839,20 +910,18 @@ Reference ID يجب أن يكون int (معرّف الكيان).
 }
 ```
 
-**السبب:** عملية قراءة/حذف بسيطة، لا تحتاج UseCase.
-
----
+**السبب**: عملية قراءة/حذف بسيطة، لا تحتاج UseCase.
 
 ### 9.2 ✅ مثال 2: عملية معقدة (مزامنة أدوية الشركة)
 
-**القرار:** استخدم UseCase
+**القرار**: استخدم UseCase
 
 ```csharp
 // في Application/UseCases/Medication/SyncCompanyMedicationsUseCase.cs
 public class SyncCompanyMedicationsUseCase
 {
     private readonly IMedicationRepository _repository;
-    
+
     public async Task<Result> ExecuteAsync(int companyId)
     {
         // منطق معقد: مزامنة، تحقق، تحويل
@@ -862,7 +931,9 @@ public class SyncCompanyMedicationsUseCase
         return Result.Success();
     }
 }
+```
 
+```razor
 // في Web/Pages/Admin/SyncMedications.razor
 @inject SyncCompanyMedicationsUseCase SyncUseCase
 
@@ -875,25 +946,23 @@ public class SyncCompanyMedicationsUseCase
 }
 ```
 
-**السبب:** عملية معقدة متعددة الخطوات، تحتاج UseCase.
-
----
+**السبب**: عملية معقدة متعددة الخطوات، تحتاج UseCase.
 
 ### 9.3 ✅ مثال 3: استعلام قراءة معقد (لوحة التحكم)
 
-**القرار:** استخدم `DbContextFactoryService`
+**القرار**: استخدم `DbContextFactoryService`
 
-```csharp
+```razor
 // في Web/Pages/Dashboard.razor
 @inject DbContextFactoryService DbFactory
 
 @code {
     private DashboardStats? stats;
-    
+
     protected override async Task OnInitializedAsync()
     {
         await using var context = await DbFactory.CreateDbContextAsync();
-        
+
         stats = new DashboardStats
         {
             TotalPatients = await context.UserProfiles
@@ -909,13 +978,11 @@ public class SyncCompanyMedicationsUseCase
 }
 ```
 
-**السبب:** استعلام مخصص معقد، لا يناسب `IGenericService<T>`.
-
----
+**السبب**: استعلام مخصص معقد، لا يناسب `IGenericService<T>`.
 
 ### 9.4 ✅ مثال 4: عملية مشتركة (Web + Mobile)
 
-**القرار:** استخدم UseCase + API
+**القرار**: استخدم UseCase + API
 
 ```csharp
 // 1. في Application/UseCases/Medication/SyncCompanyMedicationsUseCase.cs
@@ -938,20 +1005,20 @@ var result = await ApiService.PostAsync<SyncResult>(
 var result = await SyncUseCase.ExecuteAsync(123);
 ```
 
-**السبب:** العملية مشتركة، نضع UseCase في Application ونستدعيها بطرق مختلفة.
+**السبب**: العملية مشتركة، نضع UseCase في Application ونستدعيها بطرق مختلفة.
 
 ---
 
 ## 🎯 الجزء العاشر: مصفوفة "متى تستخدم ماذا" — مرجع سريع
 
 | نوع الصفحة | النهج الموصى به | الخدمة | مثال |
-|-----------|----------------|--------|------|
-| **CRUD بسيط** (إضافة/تعديل/حذف) | `IGenericService<T>` | GenericService | قائمة أدوية، تعديل اسم |
-| **صفحة معقدة** (تقارير، عمليات تجارية) | **UseCase** | UseCase في Application | إنشاء PSP، تسجيل مريض |
-| **صفحة مشتركة بين Web و Mobile** | **API** | UseCase + API | المزامنة، الإشعارات |
-| **عمليات حساسة** (دفع، مصادقة) | **UseCase + API** | UseCase + Validation | الدفع، تغيير كلمة المرور |
-| **تقارير ولوحات تحكم** | `DbContextFactoryService` | DbFactory | Dashboard، إحصائيات |
-| **صفحات قديمة** | ترحيل تدريجي | - | استخدم IGenericService بدلاً من DbContext |
+|---|---|---|---|
+| CRUD بسيط (إضافة/تعديل/حذف) | `IGenericService<T>` | `GenericService` | قائمة أدوية، تعديل اسم |
+| صفحة معقدة (تقارير، عمليات تجارية) | UseCase | UseCase في Application | إنشاء PSP، تسجيل مريض |
+| صفحة مشتركة بين Web و Mobile | API | UseCase + API | المزامنة، الإشعارات |
+| عمليات حساسة (دفع، مصادقة) | UseCase + API | UseCase + Validation | الدفع، تغيير كلمة المرور |
+| تقارير ولوحات تحكم | `DbContextFactoryService` | `DbFactory` | Dashboard، إحصائيات |
+| صفحات قديمة | ترحيل تدريجي | — | استخدم `IGenericService` بدلاً من `DbContext` |
 
 ---
 
@@ -971,15 +1038,15 @@ var result = await SyncUseCase.ExecuteAsync(123);
 
 ### 11.3 التحقق من نمط الصفحة
 
-- [ ] **هل الصفحة جديدة؟** → استخدم `IGenericService<T>` و `DbContextFactory`
-- [ ] **هل العملية معقدة؟** → استخدم UseCase في Application
-- [ ] **هل العملية مشتركة بين Web و Mobile؟** → استخدم UseCase + API
-- [ ] **هل الصفحة قديمة وتستخدم `@inject BusinessDbContext` مباشرة؟** → خطط لترحيلها
-- [ ] **هل راجعت شجرة القرار في [00 - الهيكل المعماري](./01-ARCHITECTURE.md#-الجزء-الثالث-شجرة-القرار-المعماري-دليل-المطور)؟**
+- [ ] هل الصفحة جديدة؟ → استخدم `IGenericService<T>` و`DbContextFactory`.
+- [ ] هل العملية معقدة؟ → استخدم UseCase في Application.
+- [ ] هل العملية مشتركة بين Web و Mobile؟ → استخدم UseCase + API.
+- [ ] هل الصفحة قديمة وتستخدم `@inject BusinessDbContext` مباشرة؟ → خطط لترحيلها.
+- [ ] هل راجعت شجرة القرار في [00 - الهيكل المعماري](./01-ARCHITECTURE.md)؟
 
 ### 11.4 التحقق من الترجمة
 
-- [ ] هل أضفت مفاتيح الترجمة في قاعدة البيانات مع `N'' prefix` للعربية؟
+- [ ] هل أضفت مفاتيح الترجمة في قاعدة البيانات مع `N''` prefix للعربية؟
 - [ ] هل تستخدم `T()` المساعدة بدلاً من `<LocalizedText />`؟
 
 ---
@@ -987,18 +1054,21 @@ var result = await SyncUseCase.ExecuteAsync(123);
 ## ⚠️ الجزء الثاني عشر: تحذيرات ومحاذير
 
 | # | التحذير |
-|---|---------|
-| 1 | لا تغير ترتيب Middleware - `UseAuthentication` قبل `UseAuthorization` دائماً |
-| 2 | لا تنسى `ServiceLifetime.Scoped` في `AddDbContextFactory` |
-| 3 | استخدم `DbContextFactory` للصفحات الجديدة - لا تحقن `DbContext` مباشرة |
-| 4 | سجل خدماتك قبل `builder.Build()` - أي تسجيل بعد البناء لن يعمل |
-| 5 | تأكد من وجود `AddMemoryCache()` - ضروري للترجمة والقوائم |
-| 6 | ⭐ **لا تستخدم `IGenericService<T>` للعمليات المعقدة** - استخدم UseCase |
-| 7 | ⭐ **لا تضع منطق أعمال في Controllers** - Controllers للتنسيق فقط |
-| 8 | ⭐ **Mobile لا يعتمد على أي مشروع** - التواصل عبر HTTP فقط |
-| 9 | ⚠️ لا تستخدم `BlazorWebView` كصفحة رئيسية (`ShellContent`) مع `Parameters` ديناميكية | تعارض معماري في MAUI 10 (انظر `13-MAUI` § 6.5). |
-| 10 | ⚠️ لا تعتمد على Singleton Services (`CurrentUserProfileState`) للتواصل بين MAUI و BlazorWebView | نسختان (حاويتان مختلفتان) — انظر `13-MAUI` § 11.5. |
-| 11 | ⚠️ `Console.WriteLine` في `BlazorWebView` → Logcat (وليس Output Window) | استخدم Logcat للتشخيص (انظر `13-MAUI` § 11.7). |
+|---|---|
+| 1 | لا تغير ترتيب Middleware — `UseAuthentication` قبل `UseAuthorization` دائماً. |
+| 2 | لا تنسى `ServiceLifetime.Scoped` في `AddDbContextFactory`. |
+| 3 | استخدم `DbContextFactory` للصفحات الجديدة — لا تحقن `DbContext` مباشرة. |
+| 4 | سجل خدماتك قبل `builder.Build()` — أي تسجيل بعد البناء لن يعمل. |
+| 5 | تأكد من وجود `AddMemoryCache()` — ضروري للترجمة والقوائم. |
+| 6 | ⭐ لا تستخدم `IGenericService<T>` للعمليات المعقدة — استخدم UseCase. |
+| 7 | ⭐ لا تضع منطق أعمال في Controllers — Controllers للتنسيق فقط. |
+| 8 | ⭐ Mobile لا يعتمد على أي مشروع — التواصل عبر HTTP فقط. |
+| 9 | ⭐ لا تستخدم `BlazorWebView` كصفحة رئيسية (`ShellContent`) مع Parameters ديناميكية. |
+| 10 | ⭐ استخدم `CurrentUserProfileState` (وليس `CurrentOrganizationState`) للتواصل بين MAUI وBlazorWebView. |
+| 11 | ⭐ `Console.WriteLine` في `BlazorWebView` → `Logcat` (وليس Output Window). |
+| 12 | ⭐ **لا تخلط بين `CaseID` و`PatientProfileID`** — `CaseID` هو المعرّف الرسمي للحالة، `PatientProfileID` للشخص (انظر §3ب). |
+| 13 | ⭐ **لا تخلط بين `PSPParticipation` (مشاركة منظمة) واشتراك المريض** — انظر [05 - PSP](./05-psp-system.md) §1.5.3 R6. |
+| 14 | ⭐ **لا تخلط بين `ClinicProgramReferral` (كود ثابت متعدد الاستخدام) و`PSPInvitation` (دعوة فردية)** — انظر [05 - PSP](./05-psp-system.md) §1.5.3 R7. |
 
 ---
 
@@ -1007,10 +1077,10 @@ var result = await SyncUseCase.ExecuteAsync(123);
 ### 13.1 نظرة عامة على المشاريع
 
 | المشروع | التقنية | الغرض | عدد المكونات/الصفحات |
-|---------|---------|-------|----------------------|
-| **Shared.UI** | Razor Class Library (RCL) | مكونات UI مشتركة بين جميع المنصات | **68** مكون Razor + **120+** ملف CSS + **25** خدمة |
-| **Mobile** | .NET MAUI + BlazorWebView | تطبيق الموبايل (Android + iOS) | **57** صفحة XAML + **16** ViewModel + **20+** خدمة |
-| **PWA** | Blazor WebAssembly | نسخة كربونية من MAUI للمتصفح | **25+** صفحة Razor |
+|---|---|---|---|
+| `Shared.UI` | Razor Class Library (RCL) | مكونات UI مشتركة بين جميع المنصات | 68 مكون Razor + 120+ ملف CSS + 25 خدمة |
+| `Mobile` | .NET MAUI + BlazorWebView | تطبيق الموبايل (Android + iOS) | 57 صفحة XAML + 16 ViewModel + 20+ خدمة |
+| `PWA` | Blazor WebAssembly | نسخة كربونية من MAUI للمتصفح | 25+ صفحة Razor |
 
 ### 13.2 العلاقة بين المشاريع الثلاثة
 
@@ -1033,21 +1103,31 @@ var result = await SyncUseCase.ExecuteAsync(123);
 └─────────────────┘          └─────────────────┘          └─────────────────┘
 ```
 
-### 13.3 جرد شامل: Shared.UI (68 مكون)
+### 13.3 جرد شامل: `Shared.UI` (68 مكون)
 
-#### 🏥 فئة العيادة (Clinic) — 4 مكونات
+#### 🏥 فئة العيادة (Clinic) — 10 مكونات ⭐ (محدّث)
 
-| المكون | الوظيفة |
-|--------|---------|
-| `ClinicDashboard.razor` | لوحة تحكم الطبيب |
-| `ClinicPatientDetails.razor` | تفاصيل مريض |
-| `ClinicPatientsList.razor` | قائمة المرضى |
-| `MyPatientInvitations.razor` | دعوات المرضى |
+| المكون | الوظيفة | الحالة |
+|---|---|---|
+| `ClinicDashboard.razor` | لوحة تحكم الطبيب | ✅ |
+| `ClinicPatientDetails.razor` | تفاصيل مريض | ✅ |
+| `ClinicPatientsList.razor` | قائمة المرضى | ✅ |
+| `MyClinic.razor` | إدارة العيادة | ✅ |
+| `MyPatientInvitations.razor` | دعوات المرضى | ✅ |
+| `InvitePatient.razor` | دعوة مريض (QR + ShortCode) | ✅ |
+| `Join.razor` (`/join`) | استقبال `?token=` | ⚠️ لا يكمل الاشتراك |
+| `WritePrescriptionPage.razor` | كتابة eRX متعدد الأدوية | ❌ **غير موجود** |
+| `PrescriptionViewPage.razor` | عرض الوصفة للمريض | ❌ **غير موجود** |
+| `DoctorNotesTab.razor` | ملاحظات الطبيب | ❌ **غير موجود** |
+| `PatientRequiredDataEntryPage.razor` | إدخال البيانات المطلوبة | ❌ **غير موجود** |
+| `ClinicReferralCard.razor` | كارت QR + ShortCode للإحالة | ❓ **غير مؤكد** |
+
+**الإجمالي الفعلي**: 7 موجود + 4 غير موجود + 1 غير مؤكد.
 
 #### 💊 فئة الصيدلية (Pharmacy) — 12 مكون
 
 | المكون | الوظيفة |
-|--------|---------|
+|---|---|
 | `PharmacyDashboard.razor` | لوحة تحكم الصيدلية |
 | `PharmacyDetailPage.razor` | تفاصيل صيدلية |
 | `PharmacySearchPage.razor` | بحث صيدليات |
@@ -1064,7 +1144,7 @@ var result = await SyncUseCase.ExecuteAsync(123);
 #### 👔 فئة المندوب (Rep) — 5 مكونات
 
 | المكون | الوظيفة |
-|--------|---------|
+|---|---|
 | `RepDashboard.razor` | لوحة المندوب |
 | `PharmaCompanyDashboard.razor` | لوحة شركة الأدوية |
 | `InviteDoctor.razor` | دعوة طبيب |
@@ -1074,7 +1154,7 @@ var result = await SyncUseCase.ExecuteAsync(123);
 #### 👤 فئة المريض (Patient) — 16 مكون
 
 | المكون | الوظيفة |
-|--------|---------|
+|---|---|
 | `SettingsPage.razor` | الإعدادات الرئيسية |
 | `MyProfilePage.razor` | ملفي الشخصي |
 | `EditProfilePage.razor` | تعديل الملف |
@@ -1096,7 +1176,7 @@ var result = await SyncUseCase.ExecuteAsync(123);
 #### 💬 فئة المحادثات (Messaging) — 7 مكونات
 
 | المكون | الوظيفة |
-|--------|---------|
+|---|---|
 | `MessagingHubPage.razor` | مركز المحادثات |
 | `ChatPage.razor` | صفحة الدردشة |
 | `ChatMessage.razor` | مكون رسالة |
@@ -1108,7 +1188,7 @@ var result = await SyncUseCase.ExecuteAsync(123);
 #### 🌿 فئة برامج الدعم (PSP) — 8 مكونات
 
 | المكون | الوظيفة |
-|--------|---------|
+|---|---|
 | `PspAboutPage.razor` | عن برامج الدعم |
 | `PspGateway.razor` | بوابة PSP |
 | `PspSearch.razor` | بحث برامج |
@@ -1116,12 +1196,12 @@ var result = await SyncUseCase.ExecuteAsync(123);
 | `PspScheduleSetup.razor` | إعداد جدولة |
 | `PspDetailComponent.razor` | تفاصيل برنامج |
 | `ProgramDetailsComponent.razor` | تفاصيل برنامج (طبيب) |
-| **`PointDashboard.razor`** ⭐ | **محفظة النقاط (جديد)** |
+| `PointDashboard.razor` ⭐ | محفظة النقاط (جديد) |
 
 #### 🏢 إدارة المنظمات (OrganizationManagement) — 4 مكونات
 
 | المكون | الوظيفة |
-|--------|---------|
+|---|---|
 | `CreateOrganizationPage.razor` | إنشاء منظمة |
 | `MembersTab.razor` | تبويب الأعضاء |
 | `MemberTitlesTab.razor` | ألقاب الأعضاء |
@@ -1130,14 +1210,14 @@ var result = await SyncUseCase.ExecuteAsync(123);
 #### ⚖️ الفئة القانونية (Legal) — 2 مكونات
 
 | المكون | الوظيفة |
-|--------|---------|
+|---|---|
 | `PrivacyPolicy.razor` | سياسة الخصوصية |
 | `TermsOfService.razor` | شروط الاستخدام |
 
 #### 🛠️ مكونات مساعدة مشتركة — 7 مكونات
 
 | المكون | الوظيفة |
-|--------|---------|
+|---|---|
 | `LoaderOverlay.razor` | شاشة تحميل |
 | `RubikButton.razor` | زر موحد |
 | `TestPage.razor` | صفحة اختبار |
@@ -1146,10 +1226,10 @@ var result = await SyncUseCase.ExecuteAsync(123);
 | `RubikSmartTable.razor` | جدول ذكي |
 | `SupportPage.razor` | صفحة دعم |
 
-### 13.4 خدمات وواجهات Shared.UI (25 ملف)
+### 13.4 خدمات وواجهات `Shared.UI` (25 ملف)
 
 | الخدمة/الواجهة | النوع | الحالة |
-|-----------------|-------|--------|
+|---|---|---|
 | `IApiService.cs` | واجهة | ✅ |
 | `ITranslationService.cs` | واجهة | ✅ |
 | `ITranslationState.cs` | واجهة | ✅ |
@@ -1167,30 +1247,33 @@ var result = await SyncUseCase.ExecuteAsync(123);
 | `InviteNavigationBridge.cs` | جسر | ✅ |
 | `RepNavigationBridge.cs` | جسر | ✅ |
 | `PspGatewayNavigationBridge.cs` | جسر | ✅ |
-| **`PointDashboardNavigationBridge.cs`** ⭐ | **جسر (جديد)** | ✅ |
-| `OsmPharmacyService.cs` | تنفيذ | ⚠️ |
+| `PointDashboardNavigationBridge.cs` ⭐ | جسر (جديد) | ✅ |
+| `ClinicNavigationBridge.cs` ⭐ | جسر (جديد) | ✅ |
+| `ClinicPatientDetailsNavigationBridge.cs` ⭐ | جسر (جديد) | ✅ |
+| `ClinicPatientsNavigationBridge.cs` ⭐ | جسر (جديد) | ❓ غير مؤكد |
+| `OsmPharmacyService.cs` | تنفيذ | ✅ |
 | `PendingRequestService.cs` | خدمة | ⚠️ |
 | `Models/NotificationItem.cs` | نموذج | ✅ |
 | `Models/PspModels.cs` | نموذج | ✅ |
 | `Models/LicenseSubmitData.cs` | نموذج | ✅ |
 | `Models/MedicationRequestStatus.cs` | نموذج | ✅ |
-| **`Models/PointModels.cs`** ⭐ | **نموذج (جديد)** | ✅ |
+| `Models/PointModels.cs` ⭐ | نموذج (جديد) | ✅ |
 
 ### 13.5 حالة الـ PWA — نسبة الإنجاز
 
 | العنصر | النسبة |
-|--------|:------:|
-| **البنية التحتية** | ✅ 100% |
-| **صفحات المصادقة** | ✅ 100% |
-| **صفحات PSP** | ✅ 100% |
-| **صفحات المريض** | ✅ 100% |
-| **صفحات الطبيب** | ✅ 100% |
-| **صفحات الصيدلية** | ✅ 100% |
-| **صفحات المندوب** | ✅ 100% |
-| **نظام النقاط** | ✅ 100% |
-| **نظام المحادثات** | ✅ 90% |
-| **الإشعارات Push** | ✅ 100% |
-| **Google Login** | ✅ 100% |
+|---|---|
+| البنية التحتية | ✅ 100% |
+| صفحات المصادقة | ✅ 100% |
+| صفحات PSP | ✅ 100% |
+| صفحات المريض | ✅ 100% |
+| صفحات الطبيب | ✅ 100% |
+| صفحات الصيدلية | ✅ 100% |
+| صفحات المندوب | ✅ 100% |
+| نظام النقاط | ✅ 100% |
+| نظام المحادثات | ✅ 90% |
+| الإشعارات Push | ✅ 100% |
+| Google Login | ✅ 100% |
 | **الإجمالي** | **~95%** |
 
 ### 13.6 جرد نظام النقاط
@@ -1198,24 +1281,24 @@ var result = await SyncUseCase.ExecuteAsync(123);
 #### 13.6.1 الموقع في المشاريع الثلاثة
 
 | الطبقة | المكوّن | العدد | الموقع |
-|--------|---------|:-----:|--------|
-| **Domain** | كيانات | 8 | `Entities/PSP/Points/` |
-| **Domain** | Lookups | 3 | `Entities/PSP/Points/Lookups/` |
-| **Domain** | Constants | 3 | `Constants/PSP/Points/` |
-| **Application** | Services | 2 | `Services/PSP/` |
-| **Infrastructure** | Handlers | 19 | `UseCases/PSP/Points/` |
-| **Api.Web** | Controllers | 5 | `Controllers/PSP/Points/` |
-| **Shared.UI** | Components | 1 | `Components/PSP/Points/` |
-| **Shared.UI** | Bridge | 1 | `Components/PSP/Points/` |
-| **Shared.UI** | Models | 1 | `Components/PSP/Points/` |
-| **Web** | Razor | 1 | `Components/Pages/Professional/PSPSteps/` |
-| **PWA** | Page | 1 | `Pages/PSP/Points/` |
-| **MAUI** | Container | 1 | `Features/PSP/Doctor/Views/` |
+|---|---|---|---|
+| Domain | كيانات | 8 | `Entities/PSP/Points/` |
+| Domain | Lookups | 3 | `Entities/PSP/Points/Lookups/` |
+| Domain | Constants | 3 | `Constants/PSP/Points/` |
+| Application | Services | 2 | `Services/PSP/` |
+| Infrastructure | Handlers | 19 | `UseCases/PSP/Points/` |
+| Api.Web | Controllers | 5 | `Controllers/PSP/Points/` |
+| Shared.UI | Components | 1 | `Components/PSP/Points/` |
+| Shared.UI | Bridge | 1 | `Components/PSP/Points/` |
+| Shared.UI | Models | 1 | `Components/PSP/Points/` |
+| Web | Razor | 1 | `Components/Pages/Professional/PSPSteps/` |
+| PWA | Page | 1 | `Pages/PSP/Points/` |
+| MAUI | Container | 1 | `Features/PSP/Doctor/Views/` |
 
 #### 13.6.2 الكيانات (Domain) — 8
 
 | # | الكيان | الغرض |
-|---|--------|-------|
+|---|---|---|
 | 1 | `PSPActivityType` | Lookup — أنواع الأحداث (7) |
 | 2 | `PSPProgramPointTransactionType` | Lookup — أنواع المعاملات (4) |
 | 3 | `PSPProgramPointRedeemStatus` | Lookup — حالات Redeem (4) |
@@ -1228,36 +1311,40 @@ var result = await SyncUseCase.ExecuteAsync(123);
 #### 13.6.3 Handlers (Infrastructure) — 19
 
 | المجموعة | العدد | الملفات |
-|----------|:-----:|---------|
-| **Schemes** | 4 | `CreatePointSchemeHandler`, `UpdatePointSchemeHandler`, `GetPointSchemeByProgramHandler`, `DeactivatePointSchemeHandler` |
-| **Rules** | 5 | `CreatePointRuleHandler`, `UpdatePointRuleHandler`, `DeletePointRuleHandler`, `GetPointRulesBySchemeHandler`, `TogglePointRuleHandler` |
-| **Balances** | 3 | `GetBalanceByOrganizationHandler`, `GetAllBalancesBySchemeHandler`, `GetOrganizationPointSummaryHandler` |
-| **Earning** | 2 | **`EarnPointsHandler`** ⭐, `GetPointTransactionsHandler` |
-| **Redeem** | 5 | `CreateRedeemRequestHandler` ⭐, `AcceptRedeemRequestHandler` ⭐, `RejectRedeemRequestHandler`, `GetRedeemRequestsHandler`, `GetRedeemRequestDetailsHandler` |
+|---|---|---|
+| Schemes | 4 | `CreatePointSchemeHandler`, `UpdatePointSchemeHandler`, `GetPointSchemeByProgramHandler`, `DeactivatePointSchemeHandler` |
+| Rules | 5 | `CreatePointRuleHandler`, `UpdatePointRuleHandler`, `DeletePointRuleHandler`, `GetPointRulesBySchemeHandler`, `TogglePointRuleHandler` |
+| Balances | 3 | `GetBalanceByOrganizationHandler`, `GetAllBalancesBySchemeHandler`, `GetOrganizationPointSummaryHandler` |
+| Earning | 2 | `EarnPointsHandler` ⭐, `GetPointTransactionsHandler` |
+| Redeem | 5 | `CreateRedeemRequestHandler` ⭐, `AcceptRedeemRequestHandler` ⭐, `RejectRedeemRequestHandler`, `GetRedeemRequestsHandler`, `GetRedeemRequestDetailsHandler` |
 
-**⚠️ الـ Transaction مُطبَّق في:** `EarnPointsHandler`, `CreateRedeemRequestHandler`, `AcceptRedeemRequestHandler`.
+**الأهم**: `EarnPointsHandler`, `CreateRedeemRequestHandler`, `AcceptRedeemRequestHandler`.
 
-#### 13.6.4 Controllers (Api.Web) — 5
+#### 13.6.4 Controllers (Api.Web) — 6 ⭐ (محدّث)
 
 | Controller | Endpoints |
-|-----------|:---------:|
-| `PointSchemesController` | 4 |
+|---|---|
+| `PointSchemesController` | 13 |
 | `PointRulesController` | 5 |
-| `PointBalancesController` | 3 |
+| `PointBalancesController` | 7 |
 | `PointEarningController` | 1 |
-| `PointRedeemController` | 5 |
+| `PointRedeemController` | 8 |
+| `PointLookupsController` | 4 |
+| **الإجمالي** | **38** |
 
-#### 13.6.5 ربط الأحداث — 5 من 7
+**ملاحظة**: العدد 38 (وليس 18 كما كان في §13.6.4 سابقاً، وليس 62 كما في `05-PSP §6.1` قبل التصحيح).
+
+#### 13.6.5 ربط الأحداث — 5 منفذة + 2 مؤجلة (من أصل 7)
 
 | # | الحدث | الموقع | الحالة |
-|---|-------|--------|:------:|
-| 1 | `PATIENT_INVITED` | `PSPEnrollmentService` | ✅ |
-| 2 | `PATIENT_ENROLLED` | `PSPEnrollmentService` | ✅ |
-| 3 | `ERX_CREATED` | `PSPEnrollmentService` | ✅ |
-| 4 | `DISPENSATION_COMPLETED` | `DispenseController` | ✅ |
-| 5 | `REFILL_COMPLETED` | `DispenseController` | ✅ |
-| 6 | `PROGRAM_COMPLETED` | مؤجل | ⏸️ |
-| 7 | `LAB_TEST_UPLOADED` | مؤجل | ⏸️ |
+|---|---|---|---|
+| 1 | PATIENT_INVITED | `PSPEnrollmentService` | ✅ |
+| 2 | PATIENT_ENROLLED | `PSPEnrollmentService` | ✅ |
+| 3 | ERX_CREATED | `PSPEnrollmentService` | ✅ |
+| 4 | DISPENSATION_COMPLETED | `DispenseController` | ✅ |
+| 5 | REFILL_COMPLETED | `DispenseController` | ✅ |
+| 6 | PROGRAM_COMPLETED | مؤجل | ⏸️ |
+| 7 | LAB_TEST_UPLOADED | مؤجل | ⏸️ |
 
 ---
 
@@ -1265,39 +1352,36 @@ var result = await SyncUseCase.ExecuteAsync(123);
 
 ### 14.1 المفهوم
 
-> **"كل ميزة = خدمة مستقلة قابلة لإعادة الاستخدام."**
+"كل ميزة = خدمة مستقلة قابلة لإعادة الاستخدام."
 
-**⚠️ من `08-Strategic-Roadmap`:**
-
-- **التنبيهات**
-- **الإشعارات**
-- **الترجمة**
-- **المحادثات**
-- **نظام النقاط**
-- **AI** (لاحقاً)
-- **الفواتير + الطلبات + المخزون + الفوترة + Checkout** (لاحقاً)
+انظر `08-Strategic-Roadmap`:
+- التنبيهات
+- الإشعارات
+- الترجمة
+- المحادثات
+- نظام النقاط
+- AI (لاحقاً)
+- الفواتير + الطلبات + المخزون + الفوترة + Checkout (لاحقاً)
 
 ### 14.2 أمثلة حية
 
 | الخدمة | الحالة | الموقع |
-|--------|:------:|--------|
-| **`IPointEngineService`** | ✅ منفّذ | `Application + Infrastructure` |
-| **`INotificationService`** | ✅ منفّذ | `Application + Infrastructure` |
-| **`ITranslationService`** | ✅ منفّذ | `Application + Infrastructure` |
-| **`IMessagingService`** | ✅ منفّذ | `Application + Infrastructure` |
-| **`IAIService`** | ⏸️ مستقبلاً | — |
-| **`IInvoicingService`** | ⏸️ مستقبل | — |
+|---|---|---|
+| `IPointEngineService` | ✅ منفّذ | `Application` + `Infrastructure` |
+| `INotificationService` | ✅ منفّذ | `Application` + `Infrastructure` |
+| `ITranslationService` | ✅ منفّذ | `Application` + `Infrastructure` |
+| `IMessagingService` | ✅ منفّذ | `Application` + `Infrastructure` |
+| `IAIService` | ⏸️ مستقبلاً | — |
+| `IInvoicingService` | ⏸️ مستقبل | — |
 
 ### 14.3 كيف تبني Reusable Service؟
 
-**⚠️ الخطوات:**
-
-1. **`Domain`** — كيان + Enums.
-2. **`Application`** — `IXxxService` + DTOs.
-3. **`Infrastructure`** — `XxxService` (Implementation).
-4. **`Api.Web`** — Controller (Thin).
-5. **`Shared.UI`** — Components (اختياري).
-6. **`Client`** — `IXxxClient` (اختياري).
+1. **Domain** — كيان + Enums.
+2. **Application** — `IXxxService` + DTOs.
+3. **Infrastructure** — `XxxService` (Implementation).
+4. **Api.Web** — Controller (Thin).
+5. **Shared.UI** — Components (اختياري).
+6. **Client** — `IXxxClient` (اختياري).
 
 ---
 
@@ -1305,18 +1389,16 @@ var result = await SyncUseCase.ExecuteAsync(123);
 
 ### 15.1 المبدأ الأساسي
 
-> **"Code-First إلزامي. لا تعديل يدوي على Migration files."**
+**"Code-First إلزامي. لا تعديل يدوي على Migration files."**
 
 ### 15.2 القاعدة الصارمة
 
-> **"قبل أي `Add-Migration` — تأكد أن Snapshot = DB."**
-
-**⚠️ EF Core لا يفحص DB — بل يثق أن Snapshot يعكس DB.**
+**"قبل أي `Add-Migration` — تأكد أن Snapshot = DB."**
 
 ### 15.3 الممنوعات المطلقة
 
 | # | الممنوع | السبب |
-|:-:|:---|:---|
+|---|---|---|
 | 1 | تعديل Migration files يدوياً | تُلغى عند أول `Add-Migration` |
 | 2 | تعديل `ModelSnapshot.cs` كروتين | يفقد الاتساق |
 | 3 | SQL مباشر لتعديل DB — كبديل | يخلق فجوة |
@@ -1326,11 +1408,11 @@ var result = await SyncUseCase.ExecuteAsync(123);
 ### 15.4 الاستثناءات المسموحة
 
 | # | الاستثناء | الشرط |
-|:-:|:---|:---|
-| 1 | **SQL مباشر للبيانات** (Data Migration) | عند نقل بيانات |
-| 2 | **تعديل Snapshot يدوياً** | لمرة واحدة — مع تحقق فوري |
-| 3 | **`Remove-Migration`** | لحذف Migration غير مُطبَّق |
-| 4 | **Backup DB** | قبل أي Migration حساس |
+|---|---|---|
+| 1 | SQL مباشر للبيانات (Data Migration) | عند نقل بيانات |
+| 2 | تعديل Snapshot يدوياً | لمرة واحدة — مع تحقق فوري |
+| 3 | `Remove-Migration` | لحذف Migration غير مُطبَّق |
+| 4 | Backup DB | قبل أي Migration حساس |
 
 ### 15.5 Checklist قبل أي Migration
 
@@ -1346,35 +1428,33 @@ var result = await SyncUseCase.ExecuteAsync(123);
 
 ### 📚 وثائق أساسية
 
-- [00 — MASTER-INDEX](./00-MASTER-INDEX.md)
-- [00B — PROJECT-BACKLOG](./00B-PROJECT-BACKLOG.md)
-- [02 — IDENTITY](./02-IDENTITY.md)
-- [03 — MENUS](./03-MENUS.md)
-- [04 — TRANSLATION](./04-TRANSLATION.md)
-- [09 — API-GUIDE](./09-API-GUIDE.md)
-- [11 — PAGE-CREATION](./11-PAGE-CREATION.md)
-- [13 — MAUI](./13-MAUI.md)
-- [14 — PWA](./14-PWA.md)
-- [16 — TROUBLESHOOTING](./16-TROUBLESHOOTING.md)
-- [17 — STRATEGIC-ROADMAP](./17-STRATEGIC-ROADMAP.md)
-- [19 — PERMISSIONS](./19-PERMISSIONS.md)
+- [00B - Project Backlog](./00B-PROJECT-BACKLOG.md)
+- [04 - Translation](./04-TRANSLATION.md)
+- [05 - PSP System](./05-psp-system.md)
+- [06 - Points](./06-POINTS.md)
+- [07 - Reports](./07-REPORTS.md)
+- [08 - Strategic Roadmap](./08-Strategic-Roadmap.md)
+- [09 - API Guide](./09-API-GUIDE.md)
+- [10 - UI Style Guide](./10-UI-STYLE-GUIDE.md)
+- [13 - MAUI](./13-MAUI.md)
+- [23 - Technical Debt](./23-TECHNICAL_DEBT.md)
 
 ---
 
 ## 📝 الجزء السابع عشر: سجل التغييرات
 
 | الإصدار | التاريخ | التغييرات |
-|:---:|:---|:---|
-| **1.0** | **18 يوليو 2026** | الإصدار الأولي — `01-program-cs-foundation.md` |
-| **1.0** | **3 أكتوبر 2026** | الإصدار الأولي — `00-architecture-overview.md` |
-| **1.0** | **3 أكتوبر 2026** | الإصدار الأولي — `24-project-structure-inventory.md` |
-| **2.0** | **16 أكتوبر 2026** | **`01-ARCHITECTURE` v2.0** — دمج `00` + `01` + `24` — مع الحفاظ على كل التفاصيل + إضافة Reusable Services + EF Core ملاحظات |
-| **2.1** | **4 نوفمبر 2026** | **تحديث صياغة `Shared.UI` (Page Components). إضافة § 3.4 (قيود `BlazorWebView` في MAUI). إضافة § 7.3 (متى تستخدم `Shared.UI` في MAUI). إضافة تحذيرات 9-11.** |
+|---|---|---|
+| 1.0 | 18 يوليو 2026 | الإصدار الأولي — `01-program-cs-foundation.md` |
+| 1.0 | 3 أكتوبر 2026 | الإصدار الأولي — `00-architecture-overview.md` |
+| 1.0 | 3 أكتوبر 2026 | الإصدار الأولي — `24-project-structure-inventory.md` |
+| 2.0 | 16 أكتوبر 2026 | `01-ARCHITECTURE v2.0` — دمج 00 + 01 + 24 — مع الحفاظ على كل التفاصيل + إضافة Reusable Services + EF Core ملاحظات |
+| 2.1 | 4 نوفمبر 2026 | تحديث صياغة `Shared.UI` (Page Components). إضافة § 3.4 (قيود `BlazorWebView` في MAUI). إضافة § 7.3 (متى تستخدم `Shared.UI` في MAUI). إضافة تحذيرات 9-11. |
+| **2.2** | **24 نوفمبر 2026** | **توحيد `CaseID` (حذف `PatientProfileID` كاسم حقل، مع توضيح أن قيمته `PatientProfileID` في `PointsContext`)؛ إضافة R7 (`PSPParticipation` = منظمة)؛ إضافة إشارات متقاطعة إلى `05-PSP` في §2.1، §2.2؛ إضافة `ClinicProgramReferralController`, `PrescriptionController`, `DoctorNoteController` في §2.4؛ إضافة المكونات الجديدة في §2.8 مع حالتها (موجود/غير موجود/غير مؤكد)؛ إضافة IC-10 (`ReferralUsed`) وIC-11 (`PrescriptionCreated`) في §6ب؛ إضافة تحذيرات 12-14 في §12؛ تحديث §13.3 (فئة Clinic) بـ 12 مكوناً؛ تحديث §13.4 (الجسور الجديدة)؛ تصحيح §13.6.4 (38 endpoint، 6 Controllers)؛ إضافة §13.6.5 (5 منفذة + 2 مؤجلة).** |
+
 ---
 
-**© 2026 RubikCare — للاستخدام الداخلي**
+© 2026 RubikCare — للاستخدام الداخلي
 
-**نهاية الوثيقة ✅**
+**نهاية الوثيقة** ✅
 ```
-
----
