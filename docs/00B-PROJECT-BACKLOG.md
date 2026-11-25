@@ -1,453 +1,413 @@
-# 00B — PROJECT-BACKLOG (Live State Edition)
 
-**الاسم:** PROJECT-BACKLOG — سجل التطوير الحي  
-**الإصدار:** 7.2 (Live State Edition)  
-**آخر تحديث:** 23 نوفمبر 2026  
-**Sprint الحالي:** Sprint 6 — PSP Cycle Completion (25-30 نوفمبر)  
-**الحالة:** 🟢 حي — يُحدَّث كل جلسة  
-**الجمهور:** فريق التطوير + AI Assistants  
-**الوثيقة الشقيقة:** [00C-CHANGELOG.md](00C-CHANGELOG.md) (كل ما تم إنجازه)
+# 00B — PROJECT-BACKLOG (Realigned Edition)
+
+**الاسم:** PROJECT-BACKLOG — سجل التطوير الحي 
+**الإصدار:** 8.0 (Realigned Edition — Sprint Plan v8.0) 
+**آخر تحديث:** 25 نوفمبر 2026 
+**Sprint الحالي:** S09 — Notification Hub — Phase 2 (25 نوفمبر — 10 ديسمبر 2026) 
+**الحالة:** 🟢 حي — يُحدَّث كل جلسة 
+**الجمهور:** فريق التطوير + AI Assistants 
+**الوثائق الشقيقة:** `00C-CHANGELOG.md` (ما تم إنجازه) + `00D-ROADMAP.md` (الجدول الزمني الكلي)
 
 ---
 
 ## 📖 منهجية هذه الوثيقة (Methodology)
 
-هذه الوثيقة تتبع 3 قواعد صارمة:
-
 ### القاعدة 1: الحالة الحية (Live State Only)
-هذه الوثيقة تُجيب على سؤال واحد فقط: *"ما الذي نعمل عليه الآن، وما الذي سيأتي، وما الذي تأجَّل؟"* لا تحتوي على تفاصيل ما تم إنجازه — ذلك في `00C-CHANGELOG.md`.
+هذه الوثيقة تُجيب على سؤال واحد: **"ما الذي نعمل عليه الآن، وما الذي سيأتي، وما الذي تأجَّل؟"** لا تحتوي على تفاصيل ما تم إنجازه — ذلك في `00C-CHANGELOG.md`.
 
-### القاعدة 2: SP التاريخي (Historical SP Preserved)
-نُبقي على إجمالي SP لكل Sprint في جدول واحد مختصر في النهاية (§8) — لمرجعية Velocity فقط. التفاصيل الكاملة لكل مهمة مكتملة موجودة في `00C`.
+### القاعدة 2: الوثيقة تطابق الكود (Doc = Code)
+أي تعارض بين هذه الوثيقة والكود الفعلي يُحلّ **لصالح الكود**. الوثيقة تُحدَّث لتطابق الواقع، وليس العكس.
 
-### القاعدة 3: المصدر الوحيد (Single Source of Truth)
+### القاعدة 3: كل فجوة موثقة (All Gaps Documented)
+كل فجوة بين "ما هو مخطط" و"ما هو منفّذ" تُوثَّق في **§7 Gaps Register** برقم `GAP-NN` وحالة واضحة.
+
+### القاعدة 4: المصدر الوحيد (Single Source of Truth)
 - **هنا فقط:** كل ما هو "قيد التنفيذ" أو "متبقٍّ" أو "مؤجل" أو "مُخطط".
-- **في 00C فقط:** كل ما هو "مكتمل" (Done).
-- **في 00D فقط:** الجدول الزمني الكلي (Sprint-by-Sprint) والمعالم.
+- **في `00C` فقط:** كل ما هو "مكتمل" (Done).
+- **في `00D` فقط:** الجدول الزمني الكلي (Sprint-by-Sprint) والمعالم.
 
-> **قاعدة ذهبية للـ AI Assistant:**  
-> عند قراءة هذه الوثيقة، ابدأ من §3 (Sprint 6 الحالي). لا تقرأ §8 (SP التاريخي) إلا إذا احتجت حساب Velocity. لا تفترض أن مهمة "مكتملة" لأنها غير موجودة هنا — ابحث عنها في 00C.
+### القاعدة 5: Sprint = وحدة قابلة للقياس
+كل Sprint له: هدف واضح، مخرجات، SP، حالة، تاريخ. لا Sprint بدون هذه العناصر.
+
+**قاعدة ذهبية للـ AI Assistant:**
+> عند قراءة هذه الوثيقة، ابدأ من **§3 (Sprint Current)**. لا تقرأ §8 (Sprint History) إلا إذا احتجت حساب Velocity. لا تفترض أن مهمة "مكتملة" لأنها غير موجودة هنا — ابحث عنها في `00C`.
 
 ---
 
-## 🎯 الرؤية الحالية (Current Vision — 23 نوفمبر 2026)
+## 🎯 الرؤية الحالية (Current Vision — 25 نوفمبر 2026)
 
 RubikCare في مرحلة **Pre-Launch — MVP Completion**. الهدف:
 
-1. إغلاق فجوات PSP Cycle (Sprint 6 — نوفمبر).
-2. إنجاز نظام الإشعارات الكامل (Notification Hub).
-3. الاستعداد لـ Production Launch (Sprint 7+).
+1. **إكمال Notification Hub** (S09 — نشط الآن) — Hub متطور مستقل يخدم كل وحدات الأعمال.
+2. **إكمال واجهات Clinic Integration** (S10) — `Join.razor`, `PrescriptionComposer`, `DoctorNotes`, `RequiredDataEntry`.
+3. **تحسين Commerce B2B** (S11) — البونص UI، إدارة الحالة، Tiers، Logistics.
+4. **إغلاق فجوات PSP Cycle** (S12) — Reports Integration، زر "ابدأ رحلتك".
+5. **صيانة Messaging** (S13) — فصل الرسائل الشخصية عن رسائل المنظمات.
+6. **تفعيل Ledger** (S14) — ربطه بـ `SupplyOrderService` + UI.
+7. **الاستعداد لـ Production Launch** (S15).
 
 ---
 
-## 🟢 §1: Sprint 4 — B2B Commerce MVP Completion (11-17 نوفمبر 2026) — ✅ مُغلق
+## 🟢 §1: Sprint Plan Overview (v8.0)
 
-**الحالة:** مُغلق (اكتمل قبل Sprint 6 — التفاصيل في 00C).
+### 1.1 Sprint History (ما تم فعلاً)
 
-**المرجع:** [23-COMMERCE-ENGINE.md](23-COMMERCE-ENGINE.md) §0.6 (حالة التنفيذ) + §15 (Roadmap المتبقي).
+| Sprint | الاسم | التاريخ | SP Planned | SP Actual | الحالة | Epic |
+|---|---|---|---|---|---|---|
+| **S01** | Foundation | 16-22 أكتوبر 2026 | 22 | 11 | ✅ مُغلق | E00 |
+| **S02** | Points-PSP Integration | 22-23 أكتوبر 2026 | 36 | 46 | ✅ مُغلق | E01 |
+| **S03** | MAUI Stabilization | 24-25 أكتوبر 2026 | 27 | 27 | ✅ مُغلق | E01 |
+| **S04** | PSP Dispensation | 26-28 أكتوبر 2026 | 53 | 58 | ✅ مُغلق | E01 |
+| **S05** | Post-Deploy Fixes 1 | 28-31 أكتوبر 2026 | 24 | 24 | ✅ مُغلق | E01 |
+| **S06** | Post-Deploy Fixes 2 | 1-9 نوفمبر 2026 | 34 | 29 | 🟡 مُغلق جزئياً (5 SP → S08) | E01 |
+| **S07** | B2B Commerce MVP | 6-11 نوفمبر 2026 | ~50 | ~55 | 🟡 مُغلق جزئياً (تحسينات → S11) | E03 |
+| **S08** | PSP Cycle + NH Part 1 | 25-30 نوفمبر 2026 | 103 | 78 | 🟡 مفتوح (25 SP متبقٍ) | E01, E02 |
 
-### 🔴 P1 — حرجة (MVP Completion) — ✅ مكتمل
+### 1.2 Sprint Current (النشط الآن)
+
+| Sprint | الاسم | التاريخ | الحالة | Epic |
+|---|---|---|---|---|
+| **S09** | **Notification Hub — Phase 2** | **25 نوفمبر — 10 ديسمبر 2026** | 🟢 **نشط** | E02 |
+
+### 1.3 Sprint Future (المخطط القريب والمتوسط)
+
+| Sprint | الاسم | التاريخ | الحالة | Epic |
+|---|---|---|---|---|
+| **S10** | Clinic Integration — UI Completion | 11-20 ديسمبر 2026 | ⏳ مخطط | E04 |
+| **S11** | Commerce Enhancements | 21-31 ديسمبر 2026 | ⏳ مخطط | E03 |
+| **S12** | PSP Cycle — Final Polish | 1-10 يناير 2027 | ⏳ مخطط | E01 |
+| **S13** | Messaging Maintenance | 11-20 يناير 2027 | ⏳ مخطط | E05 |
+| **S14** | Ledger Activation | 21-31 يناير 2027 | ⏳ مخطط | E03 |
+| **S15** | Production Launch Prep | فبراير 2027 | ⏳ مخطط | E06 |
+
+### 1.4 Epic Map
+
+| Epic | الاسم | Sprint(s) | الحالة |
+|---|---|---|---|
+| **E00** | Foundation | S01 | ✅ |
+| **E01** | PSP Cycle | S02, S03, S04, S05, S06, S08, S12 | 🟡 (S08, S12 متبقيان) |
+| **E02** | Notification Hub | S08 (Part 1), S09 (Part 2) | 🟢 (S09 نشط) |
+| **E03** | Commerce B2B | S07, S11, S14 | 🟡 (S11, S14 متبقيان) |
+| **E04** | Clinic Integration | S10 | ⏳ مخطط |
+| **E05** | Messaging | S13 | ⏳ مخطط |
+| **E06** | Production Launch | S15 | ⏳ مخطط |
+
+---
+
+## 🟢 §2: Sprint History — التفاصيل الموجزة
+
+> **ملاحظة:** التفاصيل الكاملة لكل مهمة مكتملة موجودة في `00C-CHANGELOG.md`. هنا ملخص فقط.
+
+### S01 — Foundation (16-22 أكتوبر 2026) — ✅ مُغلق
+- **الهدف:** بناء الأساس (Identity, Menus, Translation, Caching).
+- **SP:** 22 مخطط / 11 فعلي.
+- **المتبقي:** 11 SP (مؤجلة إلى ما بعد MVP — غير حرجة).
+
+### S02 — Points-PSP Integration (22-23 أكتوبر 2026) — ✅ مُغلق
+- **الهدف:** ربط نظام النقاط بـ PSP.
+- **SP:** 36 مخطط / 46 فعلي.
+- **المتبقي:** 11 SP (P5.1-P5.3 → S12).
+
+### S03 — MAUI Stabilization (24-25 أكتوبر 2026) — ✅ مُغلق
+- **الهدف:** استقرار تطبيق MAUI.
+- **SP:** 27 مخطط / 27 فعلي.
+
+### S04 — PSP Dispensation (26-28 أكتوبر 2026) — ✅ مُغلق
+- **الهدف:** دورة الصرف الكاملة.
+- **SP:** 53 مخطط / 58 فعلي.
+
+### S05 — Post-Deploy Fixes 1 (28-31 أكتوبر 2026) — ✅ مُغلق
+- **الهدف:** إصلاحات ما بعد النشر.
+- **SP:** 24 مخطط / 24 فعلي.
+
+### S06 — Post-Deploy Fixes 2 (1-9 نوفمبر 2026) — 🟡 مُغلق جزئياً
+- **الهدف:** إصلاحات إضافية.
+- **SP:** 34 مخطط / 29 فعلي.
+- **المتبقي:** 5 SP (S3.6-H3/H4/H5 → S08).
+
+### S07 — B2B Commerce MVP (6-11 نوفمبر 2026) — 🟡 مُغلق جزئياً
+- **الهدف:** B2B Commerce MVP (Backend + UI).
+- **SP:** ~50 مخطط / ~55 فعلي.
+- **المتبقي:** تحسينات (البونص UI، إدارة الحالة) → S11.
+
+### S08 — PSP Cycle + NH Part 1 (25-30 نوفمبر 2026) — 🟡 مفتوح
+- **الهدف:** إغلاق فجوات PSP Cycle + Notification Hub (المرحلة الأولى).
+- **SP:** 103 مخطط / 78 فعلي.
+- **المتبقي:** 25 SP (S6-P1-3, P2, P3, BLOCK-1 → S12؛ NH-1→NH-20 → S09).
+
+---
+
+## 🟢 §3: Sprint Current — S09 (Notification Hub — Phase 2)
+
+### 3.1 الهدف
+
+بناء **Notification Hub متطور مستقل** يخدم كل وحدات الأعمال (نقاط، وصفات، تجارة، PSP) — كخدمة قابلة لإعادة الاستخدام (Reusable Service).
+
+### 3.2 المهام (S09)
 
 | # | المهمة | SP | الحالة | المرجع |
-|---|--------|-----|--------|--------|
-| S4-P1-1 | إنهاء منطق حساب الباقات (BundleService + UI) | 2 | ✅ | 23-COMMERCE §15 |
-| S4-P1-2 | إنشاء صفحة Bonus (UI + API) | 3 | ✅ | 23-COMMERCE §15 |
-| S4-P1-3 | إنشاء صفحة Tiers (UI + API) | 3 | ✅ | 23-COMMERCE §15 |
-| S4-P1-4 | إنشاء صفحة Logistics (UI + API) | 2 | ✅ | 23-COMMERCE §15 |
-| S4-P1-5 | اختبار إنشاء طلب جديد بعد تعديلات Price & Tax | 1 | ✅ | 23-COMMERCE §14 |
+|---|---|---|---|---|
+| **S09-P1-01** | Notification Hub — Core (Entities + Migrations) | 8 | ⏳ | `08-NOTIFICATIONS` |
+| **S09-P1-02** | Notification Hub — Services (Orchestrator + TargetResolver) | 8 | ⏳ | `08-NOTIFICATIONS` |
+| **S09-P1-03** | Notification Hub — API (Controllers + Endpoints) | 5 | ⏳ | `09-API-GUIDE §6` |
+| **S09-P1-04** | Notification Hub — UI (Hub Page + Filters) | 8 | ⏳ | `10-UI-STYLE-GUIDE` |
+| **S09-P1-05** | Notification Hub — ربط بالنقاط (PointsEarned/PointsRedeemed) | 3 | ⏳ | `01-ARCHITECTURE §6ب (IC-05, IC-06)` |
+| **S09-P2-01** | Notification Hub — ربط بالوصفات (PrescriptionCreated) | 3 | ⏳ | `05-PSP §v2` |
+| **S09-P2-02** | Notification Hub — ربط بالتجارة (SupplyOrderStatusChanged) | 3 | ⏳ | `23-COMMERCE-ENGINE §3.1` |
+| **S09-P2-03** | Notification Hub — ربط بـ PSP (DispensationCompleted) | 2 | ⏳ | `01-ARCHITECTURE §6ب (IC-01, IC-02)` |
+| **S09-P3-01** | Notification Hub — Push (FCM + Web Push) | 5 | ⏳ | `08-NOTIFICATIONS` |
+| **S09-P3-02** | Notification Hub — Preferences (User Settings) | 3 | ⏳ | `08-NOTIFICATIONS` |
+| **المجموع** | | **48** | | |
 
-**المجموع P1:** 11 SP — مكتمل
+### 3.3 المخرجات المتوقعة (Deliverables)
 
-### 🟠 P2 — متوسطة (مؤجل إلى Sprint 7+)
+- [ ] كيانات `NotificationHub`, `NotificationTemplate`, `NotificationPreference`, `NotificationTargetRule`.
+- [ ] Migrations مطبقة.
+- [ ] `INotificationOrchestrator` + `ITargetResolverService`.
+- [ ] `NotificationHubController` (Endpoints: Send, Get, MarkRead, Preferences).
+- [ ] `NotificationHub.razor` (UI مع Filters + Preferences).
+- [ ] ربط بـ 4 أحداث (PointsEarned, PointsRedeemed, PrescriptionCreated, SupplyOrderStatusChanged, DispensationCompleted).
+- [ ] FCM + Web Push integration.
+- [ ] اختبارات E2E.
 
-| # | المهمة | SP | الحالة | المرجع |
-|---|--------|-----|--------|--------|
-| S4-P2-1 | Payments API (ServicePayment) | 2 | ⏳ | 23-COMMERCE §15 |
-| S4-P2-2 | Shipments API (ServiceShipment) | 2 | ⏳ | 23-COMMERCE §15 |
-| S4-P2-3 | Invoices API (ServiceInvoice) | 2 | ⏳ | 23-COMMERCE §15 |
-| S4-P2-4 | Agreements API (PharmacyCompanyAgreement) | 2 | ⏳ | 23-COMMERCE §15 |
-| S4-P2-5 | Stock API (PharmaCompanyMedicationStock) | 2 | ⏳ | 23-COMMERCE §15 |
-| S4-P2-6 | Ledger UI (صفحة الأرصدة) | 2 | ⏳ | 23-COMMERCE §15 |
-| S4-P2-7 | Status History (PharmacySupplyOrderStatusHistory) | 1 | ⏳ | 23-COMMERCE §15 |
+### 3.4 الاعتمادات (Dependencies)
 
-**المجموع P2:** 13 SP — مؤجل
-
-### 🟡 P3 — منخفضة (مؤجل إلى Sprint 8+)
-
-| # | المهمة | SP | الحالة |
-|---|--------|-----|--------|
-| S4-P3-1 | Warehouse Layer (FulfillmentMode = WAREHOUSE) | 8 | ⏳ |
-| S4-P3-2 | B2B Points Integration (Seed + Orchestrator) | 5 | ⏳ |
-| S4-P3-3 | Pharmacy Stock Page | 2 | ⏳ |
-| S4-P3-4 | Online Payments (Paymob/Fawry) | 8 | ⏳ |
-
-**المجموع P3:** 23 SP — مؤجل
+- `08-NOTIFICATIONS` (المرحلة الأولى — NH-1→NH-20 مكتملة في S08).
+- `06-POINTS` (IC-05, IC-06).
+- `05-PSP` (IC-01, IC-02).
+- `23-COMMERCE-ENGINE` (IC-10, IC-11).
 
 ---
 
-## 🟠 §2: Sprint 5 — PHR Phase 1 (Hb Navigator) (18-24 نوفمبر 2026) — 🔴 مؤجل
+## 🟠 §4: Sprint Future — S10 (Clinic Integration — UI Completion)
 
-**الحالة:** مؤجل (بسبب تأجيل B2B Commerce — انظر 00D).
+### 4.1 الهدف
 
-**المرجع:** [21-PHR-SYSTEM.md](21-PHR-SYSTEM.md) §1 + §2 + [01-ARCHITECTURE.md](01-ARCHITECTURE.md) §3.
+إكمال الواجهات الناقصة لـ Clinic Integration (`Join.razor`, `PrescriptionComposer`, `DoctorNotes`, `RequiredDataEntry`).
 
-### 🔴 P1 — حرجة (Foundation) — 🔴 مؤجل
+### 4.2 المهام (S10)
 
-| # | المهمة | SP | الحالة | المرجع |
-|---|--------|-----|--------|--------|
-| S5-P1-1 | Domain: MedicalRecordType, LabTestType, AssessmentRule, AssessmentRuleType | 3 | ⏳ | 21-PHR §1.2 |
-| S5-P1-2 | Domain: HealthRecord, LabTestResult | 2 | ⏳ | 21-PHR §1.3 |
-| S5-P1-3 | Domain: SharingConsent | 1 | ⏳ | 21-PHR §1.4 |
-| S5-P1-4 | Seeds: MedicalRecordType, LabTestType, AssessmentRuleType, AssessmentRule | 2 | ⏳ | 21-PHR §1.2 |
-| S5-P1-5 | Migration + EF Configurations | 2 | ⏳ | 01-ARCH §15 |
+| # | المهمة | SP | الحالة | GAP |
+|---|---|---|---|---|
+| **S10-P1-01** | تعديل `Join.razor` لدعم كود الإحالة + استدعاء `enroll` | 5 | ❌ 0% | GAP-02 |
+| **S10-P1-02** | إنشاء `PrescriptionComposerView.razor` | 8 | ❌ 0% | GAP-12, GAP-14 |
+| **S10-P1-03** | ربط `PrescriptionComposerView` بـ `PrescriptionController` | 3 | ❌ 0% | GAP-12 |
+| **S10-P2-01** | إنشاء `DoctorNotesView.razor` + `DoctorNoteController` | 5 | ❌ 0% | GAP-03 |
+| **S10-P2-02** | إنشاء `PSPDataEntryResult` + `PatientRequiredDataEntryPage` | 8 | ❌ 0% | GAP-13, GAP-15 |
+| **S10-P3-01** | مفاتيح الترجمة (`CLINIC_REFERRAL.*`) | 2 | ❌ 0% | — |
+| **S10-P3-02** | اختبار E2E (Clinic Referral + Prescription) | 5 | ❌ 0% | — |
+| **المجموع** | | **36** | | |
 
-**المجموع P1:** 10 SP — مؤجل
+### 4.3 الاعتمادات
 
-### 🟠 P2 — متوسطة (منطق التقييم) — 🔴 مؤجل
-
-| # | المهمة | SP | الحالة | المرجع |
-|---|--------|-----|--------|--------|
-| S5-P2-1 | IHbClinicalRulesEngine + Implementation | 3 | ⏳ | 21-PHR §1.2.3 |
-| S5-P2-2 | SaveLabResultUseCase + GetLabResultsUseCase | 2 | ⏳ | 21-PHR §2.1 |
-| S5-P2-3 | SaveLabResultValidator (FluentValidation) | 1 | ⏳ | 21-PHR §1.2.2 |
-| S5-P2-4 | API: HealthRecordsController (POST + GET) | 2 | ⏳ | 21-PHR §2.1 |
-
-**المجموع P2:** 8 SP — مؤجل
-
-### 🟡 P3 — منخفضة (الواجهة) — 🔴 مؤجل
-
-| # | المهمة | SP | الحالة | المرجع |
-|---|--------|-----|--------|--------|
-| S5-P3-1 | HbNavigator.razor + .razor.cs | 4 | ⏳ | 21-PHR §2.1 |
-| S5-P3-2 | hb-navigator.css | 1 | ⏳ | 01-ARCH §2.8 |
-| S5-P3-3 | Chart Component (Blazor أو JSInterop) | 2 | ⏳ | 21-PHR §2.1 |
-| S5-P3-4 | Translation Keys AR/EN (SQL MERGE) | 1 | ⏳ | 04-TRANSLATION |
-| S5-P3-5 | RTL/LTR + Responsive Design | 2 | ⏳ | 01-ARCH §2.8 |
-| S5-P3-6 | Cross-Platform Testing | 2 | ⏳ | 01-ARCH §3.4 |
-
-**المجموع P3:** 12 SP — مؤجل
-
-**المجموع الكلي Sprint 5:** 30 SP — مؤجل
+- `ClinicReferralController` (4 Endpoints) — ✅ موجود.
+- `PrescriptionController` (8 Endpoints) — ✅ موجود.
+- `[#29]` (ملخص جلسة تطوير الوصفات).
 
 ---
 
-## 🟡 §3: Sprint 6 — PSP Cycle Completion (25-30 نوفمبر 2026)
+## 🟠 §5: Sprint Future — S11 (Commerce Enhancements)
 
-**الهدف:** إغلاق كل ما تبقى من Sprint 3.6 (Post-Deployment Fixes) + ربط B2B Points بـ PSP Cycle + PHR Phase 2 الجزئي + **Notification Hub كامل**.
+### 5.1 الهدف
 
-**المرجع:** [05-PSP.md](05-PSP.md) + [06-POINTS.md](06-POINTS.md) + 00B v6.4 (المهام المؤجلة).
+تحسين Commerce B2B (البونص UI، إدارة الحالة، Tiers، Logistics).
 
-**آخر تحديث:** 23 نوفمبر 2026 — بعد إغلاق Notification Hub (NH-1 → NH-20).
+### 5.2 المهام (S11)
 
-### 🔴 P1 — حرجة (Sprint 3.6 المتبقي)
-
-| # | المهمة | SP | الحالة | المرجع |
-|---|--------|-----|--------|--------|
-| S6-P1-1 | S3.6-H3: إصلاح Error بدل صفحة النقاط (points-dashboard) | 3 | ✅ مكتمل | 00C |
-| S6-P1-2 | S3.6-H4: توليد مواعيد الأدوية — أكتر من دواء في نفس المعاد | 5 | ✅ مكتمل | 00C |
-| S6-P1-3 | S3.6-H5: تعديل منطق زر "ابدأ رحلتك العلاجية" | 3 | ⏳ لم يبدأ | 00C |
-
-**المجموع P1:** 11 SP — المكتمل: 8 SP / المتبقي: 3 SP
-
-### 🟠 P2 — متوسطة (Sprint 1 المتبقي — Reports Integration)
-
-| # | المهمة | SP | الحالة | المرجع |
-|---|--------|-----|--------|--------|
-| S6-P2-1 | P5.1: GetAdherenceHandler — إضافة Points | 2 | ⏳ | 01-ARCH §6ب (IC-07) |
-| S6-P2-2 | P5.2: GetPharmacyFinancialHandler — فصل PointsDiscount | 3 | ⏳ | 01-ARCH §6ب (IC-08) |
-| S6-P2-3 | P5.3: GetProgramLifecycleHandler — إضافة Points | 2 | ⏳ | 01-ARCH §6ب (IC-09) |
-
-**المجموع P2:** 7 SP
-
-### 🟡 P3 — منخفضة (Sprint 3.6 Medium + Low)
-
-| # | المهمة | SP | الحالة |
-|---|--------|-----|--------|
-| S6-P3-1 | S3.6-M1: تظبيط تاريخ الأوردر في "طلباتي" | 2 | ⏳ |
-| S6-P3-2 | S3.6-M2: صفحة "دعواتي" من عند الدكتور | 3 | ⏳ |
-| S6-P3-3 | S3.6-M3: الإشعارات (مراجعة عامة) | 3 | ⏳ |
-| S6-P3-4 | S3.6-L1: تعديل صفحات المقدمة (Landing Pages) | 5 | ⏳ |
-
-**المجموع P3:** 13 SP
+| # | المهمة | SP | GAP |
+|---|---|---|---|
+| **S11-P1-01** | إصلاح نظام البونص في الواجهة | 5 | GAP-04 |
+| **S11-P1-02** | إصلاح إدارة حالة الطلب من الشركة | 5 | GAP-05 |
+| **S11-P2-01** | Campaigns Auto-Apply في `SupplyOrderService` | 3 | GAP-06 |
+| **S11-P2-02** | Tiers Page (UI + API) | 5 | GAP-07 |
+| **S11-P2-03** | Logistics Page (UI + API) | 5 | GAP-08 |
+| **S11-P3-01** | CompanyStockController (4 Endpoints) | 3 | GAP-09 |
+| **S11-P3-02** | CompanyAgreementsController (6 Endpoints) | 3 | GAP-10 |
+| **المجموع** | | **29** | |
 
 ---
 
-### ✅ §3.1: مهام إضافية مكتملة (Sprint 6 — أثناء S6-P1-1 و S6-P1-2)
+## 🟡 §6: Sprint Future — S12–S15
 
-*(جدول مختصر — التفاصيل في 00C)*
+### S12 — PSP Cycle — Final Polish (1-10 يناير 2027)
 
-| # | المهمة | SP | الحالة |
-|---|--------|-----|--------|
-| ADD-1 | my-psp-orders — إصلاح (كل participations) | 3 | ✅ |
-| ADD-2 | psp-order-by-token endpoint | 2 | ✅ |
-| ADD-3 | PspPatientOrderDto — إضافة GroupCategory + CanConfirmReceipt + IsOverdue | 2 | ✅ |
-| ADD-4 | PatientOrdersPage — 5 مجموعات + Badge "متأخر" | 3 | ✅ |
-| ADD-5 | PspController.GetPatientProgramDetails — ThenByDescending(CreatedDate) | 1 | ✅ |
-| ADD-6 | ترجمة SHARED.ORDER_TRACKER.* (10 مفاتيح SQL MERGE) | 1 | ✅ |
-| ADD-7 | GetProgramsNeedingScheduleAsync — إصلاح ProgramID من ParticipationID | 2 | ✅ |
-| ADD-8 | PspSchedulePage — توليد على مستوى الدواء | 3 | ✅ |
-| ADD-9 | MedicationSchedulePage — زر PSP + _showAllProgramsInModal | 2 | ✅ |
-| ADD-10 | PspSchedulePage.OnInitializedAsync — LoadTranslationsAsync + _isTranslationsLoaded | 1 | ✅ |
+| # | المهمة | SP |
+|---|---|---|
+| S12-P1-01 | S3.6-H5: تعديل زر "ابدأ رحلتك" | 3 |
+| S12-P1-02 | S6-P2-1: `GetAdherenceHandler` — إضافة Points | 2 |
+| S12-P1-03 | S6-P2-2: `GetPharmacyFinancialHandler` — فصل PointsDiscount | 3 |
+| S12-P1-04 | S6-P2-3: `GetProgramLifecycleHandler` — إضافة Points | 2 |
+| S12-P2-01 | S6-P3-1: تظبيط تاريخ الأوردر في "طلباتي" | 2 |
+| S12-P2-02 | S6-P3-2: صفحة "دعواتي" من عند الدكتور | 3 |
+| S12-P2-03 | BLOCK-1: حل 403 في `patient-details` | 2 |
+| **المجموع** | | **17** |
 
-**المجموع الإضافي:** 20 SP — مكتمل
+### S13 — Messaging Maintenance (11-20 يناير 2027)
 
----
+| # | المهمة | SP | GAP |
+|---|---|---|---|
+| S13-P1-01 | فصل الرسائل الشخصية عن رسائل المنظمات | 8 | GAP-11 |
+| S13-P1-02 | إصلاح واجهة MessagingHubPage | 5 | GAP-11 |
+| S13-P2-01 | اختبار E2E للرسائل | 3 | GAP-11 |
+| **المجموع** | | **16** | |
 
-### ✅ §3.3: مهام Notification Hub مكتملة (الجلسة الحالية — 22-23 نوفمبر 2026)
+### S14 — Ledger Activation (21-31 يناير 2027)
 
-| # | المهمة | SP | الحالة |
-|---|--------|-----|--------|
-| NH-1 | إصلاح أخطاء Build (PspProgramDto, OrganizationTypeId, _targetProgramId) | 2 | ✅ |
-| NH-2 | إنشاء Entity: TemplateCategoryRule + TemplateSubCategory | 3 | ✅ |
-| NH-3 | إنشاء Migration: AddTemplateClassificationSystem | 2 | ✅ |
-| NH-4 | إنشاء TemplateAuthorizationService (Backend Validation) | 3 | ✅ |
-| NH-5 | تحديث NotificationTemplatesController (صلاحيات + Endpoints جديدة) | 3 | ✅ |
-| NH-6 | تحديث DTOs (CreateTemplateDto, UpdateTemplateDto, TemplateDetailDto) | 2 | ✅ |
-| NH-7 | تحديث INotificationHubClientService + Implementation | 2 | ✅ |
-| NH-8 | تحديث NotificationHub.razor (Dynamic Categories + SubCategories) | 5 | ✅ |
-| NH-9 | إضافة Priority, ExpiryDays, RequiresAcknowledgment, MedicalDisclaimer | 2 | ✅ |
-| NH-10 | إصلاح Lag المودال (Open First, Load Later Pattern) | 3 | ✅ |
-| NH-11 | إضافة Caching للبرامج (تحميل مرة واحدة فقط) | 2 | ✅ |
-| NH-12 | إضافة Skeleton Loader + زر تحديث يدوي | 2 | ✅ |
-| NH-13 | تحديث Dashboard الإحصائيات (Runs Tab → KPI Cards + Bar Chart) | 4 | ✅ |
-| NH-14 | ربط القوالب ببرامج PSP (ProgramId + Migration) | 2 | ✅ |
-| NH-15 | تطبيق مصفوفة الصلاحيات (6 فئات × 4 أنواع منظمات) | 3 | ✅ |
-| NH-16 | تطبيق مصفوفة الاستهداف (Campaign Target Users) | 3 | ✅ |
-| NH-17 | تحديث TargetResolverService (عزل صارم حسب orgType) | 4 | ✅ |
-| NH-18 | إضافة مفاتيح ترجمة جديدة (SQL MERGE — 30+ مفتاح) | 1 | ✅ |
-| NH-19 | إصلاح خطأ Circuit Terminated (try-catch شامل) | 2 | ✅ |
-| NH-20 | إضافة CSS احترافي (Skeleton, Alerts, Badges, Dashboard) | 2 | ✅ |
+| # | المهمة | SP | GAP |
+|---|---|---|---|
+| S14-P1-01 | ربط `LedgerService` بـ `SupplyOrderService` (Confirm/Deliver/Cancel) | 5 | GAP-01 |
+| S14-P1-02 | Ledger UI (Pharmacy + Company) | 8 | GAP-01 |
+| S14-P2-01 | اختبار E2E للـ Ledger | 3 | GAP-01 |
+| **المجموع** | | **16** | |
 
-**المجموع:** 50 SP — ✅ مكتمل
+### S15 — Production Launch Prep (فبراير 2027)
+
+| # | المهمة | SP |
+|---|---|---|
+| S15-P1-01 | Security Audit | 8 |
+| S15-P1-02 | Performance Optimization | 8 |
+| S15-P1-03 | Load Testing (1000+ users) | 5 |
+| S15-P2-01 | Documentation + User Manuals | 5 |
+| S15-P2-02 | Training Material | 3 |
+| **المجموع** | | **29** |
 
 ---
 
-### 🔴 §3.2: مشاكل معلقة (Blocked Issues)
+## 🔴 §7: Gaps Register (الفجوات الموثقة)
 
-| # | المشكلة | الأولوية | السبب | الحل المقترح |
-|---|---------|----------|-------|--------------|
-| BLOCK-1 | `patient-details` endpoint بيرجع `403 Forbidden` لو `patientId=15` (PatientProfileID) بدل `CaseID` | 🟡 متوسطة | `PspController.GetPatientProgramDetails` بيدور بـ `PatientProfileID` بدل `CaseID` | تعديل الـ filter ليدور بـ `PatientProfileID == currentUserId && CaseID == patientId` |
-
-**المجموع:** 1 مشكلة معلقة — ~2 SP
-
----
-
-### 📊 ملخص Sprint 6 (محدث)
-
-| الفئة | SP | الحالة |
-|-------|-----|--------|
-| P1 المكتمل (S6-P1-1 + S6-P1-2) | 8 | ✅ مكتمل |
-| إضافي (ADD-1 → ADD-10) | 20 | ✅ مكتمل |
-| **Notification Hub (NH-1 → NH-20)** | **50** | **✅ مكتمل** |
-| P1 المتبقي (S6-P1-3) | 3 | ⏳ لم يبدأ |
-| P2 (Reports Integration) | 7 | ⏳ |
-| P3 (Medium + Low) | 13 | ⏳ |
-| Blocked (BLOCK-1) | 2 | ⏳ |
-| **المجموع الكلي** | **103 SP** | |
-| **المكتمل** | **78 SP** | ✅ |
-| **المتبقي** | **25 SP** | ⏳ |
-
-**المجموع الكلي Sprint 6 (الأصلي):** 31 SP → **المحدث:** 103 SP (بسبب المشاكل الإضافية + Notification Hub).
+| # | الفجوة | الحالة | Sprint | الأولوية | المرجع |
+|---|---|---|---|---|---|
+| **GAP-01** | `Ledger` غير مفعّل في الواجهة | 🟡 موجود، غير مفعّل | S14 | 🟠 | `23-COMMERCE-ENGINE §0.6` |
+| **GAP-02** | `Join.razor` لا يكمل الاشتراك | ❌ 0% | S10 | 🔴 | `[#29]` |
+| **GAP-03** | `DoctorNoteController` غير موجود | ❌ | S10 | 🟠 | `[#29]` |
+| **GAP-04** | نظام البونص — إصلاحات UI | 🟡 | S11 | 🟠 | `23-COMMERCE-ENGINE §13` |
+| **GAP-05** | إدارة حالة الطلب من الشركة — مراجعة | 🟡 | S11 | 🟠 | `23-COMMERCE-ENGINE §3.1` |
+| **GAP-06** | Campaigns Auto-Apply غير مطبق | 🟡 CRUD فقط | S11 | 🟡 | `23-COMMERCE-ENGINE §0.6` |
+| **GAP-07** | Tiers Page غير موجودة | ❌ | S11 | 🟡 | `23-COMMERCE-ENGINE §6.3` |
+| **GAP-08** | Logistics Page غير موجودة | ❌ | S11 | 🟡 | `23-COMMERCE-ENGINE §6.3` |
+| **GAP-09** | CompanyStockController غير موجود | ❌ | S11 | 🟡 | `23-COMMERCE-ENGINE §4.8` |
+| **GAP-10** | CompanyAgreementsController غير موجود | ❌ | S11 | 🟡 | `23-COMMERCE-ENGINE §4.9` |
+| **GAP-11** | Messaging — خلط الرسائل الشخصية/المنظمات | 🟡 | S13 | 🟠 | `09-API-GUIDE §5` |
+| **GAP-12** | `PrescriptionComposerView` غير موجود | ❌ 0% | S10 | 🔴 | `[#29]` |
+| **GAP-13** | `PSPDataEntryResult` غير موجود | ❌ | S10 | 🟠 | `[#29]` |
+| **GAP-14** | `WritePrescriptionPage` غير موجود | ❌ 0% | S10 | 🔴 | `05-PSP §v2` |
+| **GAP-15** | `PatientRequiredDataEntryPage` غير موجود | ❌ 0% | S10 | 🟠 | `05-PSP §v2` |
 
 ---
 
-### 📌 ملاحظات على Sprint 6
-
-1. **S6-P1-1 و S6-P1-2 اكتملوا** — والـ SP الحقيقي كان أكبر من المتوقع (بسبب المشاكل الإضافية).
-2. **Notification Hub (NH-1 → NH-20) اكتمل بالكامل** — 50 SP من العمل المكثف.
-3. **S6-P1-3** هو المهمة القادمة (زر "ابدأ رحلتك العلاجية").
-4. **BLOCK-1** (403 في `patient-details`) — مشكلة قديمة، لسه محتاجة حل.
-5. **التقدير الأولي لـ Sprint 6 (31 SP)** كان **أقل بكثير من الواقع** — الـ SP الفعلي 103 SP.
-6. **Velocity الفريق ارتفع** من ~30 SP/Sprint إلى ~45 SP/Sprint.
-
----
-
-## 📅 §4: Sprint 7 — Production Launch Preparation (ديسمبر 2026 — يناير 2027)
-
-**الحالة:** ⏳ مُخطط
-
-**الهدف:** الاستعداد لـ Production Launch.
-
-**المهام المقترحة:**
-- Security Audit + Penetration Testing.
-- Performance Optimization (Frontend + Backend).
-- Load Testing (1000+ concurrent users).
-- Documentation + User Manuals.
-- Training Material.
-
----
-
-## 📅 §5: Sprint 8+ — Post-Launch Features (2027)
-
-**الحالة:** ⏳ مُخطط
-
-**المهام المقترحة:**
-- Online Payments (Paymob/Fawry).
-- Warehouse Layer (FulfillmentMode = WAREHOUSE).
-- Advanced Analytics + Reports.
-- Mobile App Enhancements.
-- Integration Hub (External APIs).
-
----
-
-## 📊 §6: Velocity Chart (مختصر — آخر 4 Sprint فقط)
-
-| Sprint | Planned | Actual | Ratio | الحالة |
-|--------|---------|--------|-------|--------|
-| Sprint 3 | 53 SP | 58 SP | 109% ✅ | مكتمل (في 00C) |
-| Sprint 3.5 | 24 SP | 24 SP | 100% ✅ | مكتمل (في 00C) |
-| Sprint 3.6 | 34 SP | 29 SP | 85% 🟡 | مكتمل جزئياً (5 SP مؤجلة → Sprint 6) |
-| Sprint 4 (Commerce) | 11 SP (P1) | ~55 SP | — | 🟡 قيد التنفيذ |
-
-**المعدل الفعلي للفريق:** ~40-45 SP/Sprint (بعد استقرار Sprint 2-3 وإنجاز Notification Hub).
-
----
-
-## 🕰️ §7: SP التاريخي لكل Sprint (مرجعي فقط)
-
-هذا الجدول للمرجعية فقط. التفاصيل الكاملة لكل مهمة مكتملة موجودة في `00C-CHANGELOG.md`.
-
-| Sprint | الفترة | SP Planned | SP Actual | SP Done | SP متبقٍّ |
-|--------|--------|------------|-----------|---------|-----------|
-| Sprint 0 (Foundation) | 16-22 أكتوبر | 22 | 11 | 11 | 11 (مؤجلة إلى ما بعد MVP) |
-| Sprint 1 (Points-PSP Integration) | 22-23 أكتوبر | 36 | 46 | 46 | 11 (P5.1-P5.3 → Sprint 6) |
-| Sprint 2 (MAUI Stabilization) | 24-25 أكتوبر | 27 | 27 | 27 | 0 |
-| Sprint 3 (PSP Dispensation) | 26-28 أكتوبر | 53 | 58 | 58 | 0 |
-| Sprint 3.5 (Post-Deploy Fixes 1) | 28-31 أكتوبر | 24 | 24 | 24 | 0 |
-| Sprint 3.6 (Post-Deploy Fixes 2) | 1-9 نوفمبر | 34 | 29 | 29 | 5 (→ Sprint 6) |
-| Sprint 4 (B2B Commerce MVP) | 6-11 نوفمبر | ~50 | ~55 | ~50 | 11 (P1 المتبقي) |
-| **Sprint 6 (PSP Cycle + Notifications)** | **25-30 نوفمبر** | **31** | **103** | **78** | **25** |
-| **المجموع** | — | **277** | **349** | **323** | **63** |
-
-**ملاحظة:** Sprint 4 (Commerce) و Sprint 6 (Notifications) لا يظهران في 00B v6.4 الأصلي — أُضيفا بناءً على التحديثات الأخيرة.
-
----
-
-## 🏗️ §8: Technical Debt Register (المتبقي فقط)
+## 📊 §8: Technical Debt Register
 
 ### 🔴 Critical Debt
 
 | # | الدين | الموقع | المرجع |
-|---|-------|--------|--------|
-| TD-C1 | انتهاك معماري: `@page` في Shared.UI | PharmacyDetailPage.razor | 01-ARCH §2.8 |
-| TD-C2 | خلط Namespaces | PharmacySearchPage.razor | 01-ARCH §2.8 |
-| TD-C3 | 404 في `/admin/pending-licenses` | SystemManagment vs SystemManagement | — |
+|---|---|---|---|
+| **TD-C1** | انتهاك معماري: `@page` في `Shared.UI` | `PharmacyDetailPage.razor` | `01-ARCHITECTURE §2.8` |
+| **TD-C2** | خلط Namespaces | `PharmacySearchPage.razor` | `01-ARCHITECTURE §2.8` |
+| **TD-C3** | 404 في `/admin/pending-licenses` | `SystemManagment` vs `SystemManagement` | — |
+| **TD-C4** | `DispenseController` كله `[AllowAnonymous]` (14 Endpoint) | `Api.Web/Controllers/Pharmacy/` | `09-API-GUIDE §17` |
+| **TD-C5** | `Ledger` موجود كـ API لكن غير مفعّل | `23-COMMERCE-ENGINE §0.6` | GAP-01 |
 
 ### 🟠 Medium Debt
 
 | # | الدين | الموقع | المرجع |
-|---|-------|--------|--------|
-| TD-M1 | زر البحث في Dashboard غير مربوط | Pages/Dashboard.razor | — |
-| TD-M2 | ازدواجية FirebaseNotificationService | Api.Web + Infrastructure | — |
-| TD-M3 | ازدواجية IPSPPointSchemeService | Application + Web | — |
-| TD-M4 | ازدواجية MedicineGuideFlow (إذا وُجد) | Mobile/Features/PSP/Patient/Views/ | — |
-| TD-M5 | TD-001: الطلبات المكررة (Double API Calls) | Rubikcare.Web + Api.Web | 00C (تفاصيل) |
+|---|---|---|---|
+| **TD-M1** | زر البحث في `Dashboard` غير مربوط | `Pages/Dashboard.razor` | — |
+| **TD-M2** | ازدواجية `FirebaseNotificationService` | `Api.Web` + `Infrastructure` | — |
+| **TD-M3** | ازدواجية `IPSPPointSchemeService` | `Application` + `Web` | — |
+| **TD-M4** | ازدواجية `MedicineGuideFlow` | `Mobile/Features/PSP/Patient/Views/` | — |
+| **TD-M5** | `TD-001`: الطلبات المكررة (Double API Calls) | `Rubikcare.Web` + `Api.Web` | `00C` |
+| **TD-M6** | `Messaging` — خلط الرسائل الشخصية/المنظمات | `MessagingHubPage` | GAP-11 |
 
 ### 🟢 Low Debt
 
 | # | الدين | الموقع |
-|---|-------|--------|
-| TD-L1 | IMobileNavigationService (اسم مضلل) | Shared.UI/Services/ |
-| TD-L2 | HttpUtility في Blazor WASM | PharmacySearch.razor |
-| TD-L3 | alert() بدلاً من Toast | PspSearch.razor |
-| TD-L4 | SystemMenuMenuID Shadow Property | MenuAssignments |
-| TD-L5 | RoleId في MenuVisibilityRule | بعد Migration |
+|---|---|---|
+| **TD-L1** | `IMobileNavigationService` (اسم مضلل) | `Shared.UI/Services/` |
+| **TD-L2** | `HttpUtility` في Blazor WASM | `PharmacySearch.razor` |
+| **TD-L3** | `alert()` بدلاً من Toast | `PspSearch.razor` |
+| **TD-L4** | `SystemMenuMenuID` Shadow Property | `MenuAssignments` |
+| **TD-L5** | `RoleId` في `MenuVisibilityRule` | بعد Migration |
 
 ---
 
-## 📋 §9: Backlog المستقبلي (Product Backlog — Priorities)
+## 📅 §9: Sprint Velocity (آخر 4 Sprints)
 
-### 🔴 High Priority (بعد Sprint 9)
+| Sprint | Planned | Actual | Ratio | الحالة |
+|---|---|---|---|---|
+| S04 (PSP Dispensation) | 53 SP | 58 SP | 109% ✅ | مكتمل |
+| S05 (Post-Deploy Fixes 1) | 24 SP | 24 SP | 100% ✅ | مكتمل |
+| S06 (Post-Deploy Fixes 2) | 34 SP | 29 SP | 85% 🟡 | مكتمل جزئياً |
+| S07 (B2B Commerce) | ~50 SP | ~55 SP | 110% ✅ | مكتمل جزئياً |
+| S08 (PSP Cycle + NH Part 1) | 103 SP | 78 SP | 76% 🟡 | مفتوح |
 
-| # | User Story | Epic | SP | المرجع |
-|---|------------|------|-----|--------|
-| B-01 | كـ Admin، أريد إدارة Control Levels | Permissions | 5 | 19-PERMISSIONS |
-| B-02 | كـ Admin، أريد ربط Users بـ Control Levels | Permissions | 3 | 19-PERMISSIONS |
-| B-03 | كـ Super Admin، أريد إدارة Permissions | Permissions | 5 | 19-PERMISSIONS |
-| B-04 | كـ Admin، أريد إدارة اشتراك المنظمة | Subscriptions | 5 | 03-MENUS |
-| B-05 | كـ Admin، أريد ربط SubscriptionPlan بـ Menus | Menus | 5 | 03-MENUS |
-| B-06 | كـ Rep، أريد رؤية اسم الصيدلية/العيادة بعد قبول الدعوة | Rep | 5 | 13-Rep Epic |
-| B-07 | كـ Rep، أريد إشعار عند قبول الدعوة | Rep | 3 | 13-Rep Epic |
-
-### 🟠 Medium Priority
-
-| # | User Story | Epic | SP | المرجع |
-|---|------------|------|-----|--------|
-| B-10 | Menus ديناميكية في PWA | Menus | 5 | 03-MENUS |
-| B-11 | Menus ديناميكية في MAUI | Menus | 5 | 03-MENUS |
-| B-12 | ربط ServiceProduct بـ MenuItems | Menus | 3 | 03-MENUS |
-| B-13 | ApiClient موحّد (Integration Hub) | Integration Hub | 8 | 22-INTEGRATION-HUB |
-| B-14 | API-Contracts (OpenAPI) | Integration Hub | 5 | 22-INTEGRATION-HUB |
-
-### 🟡 Low Priority
-
-| # | User Story | Epic | SP | المرجع |
-|---|------------|------|-----|--------|
-| B-20 | إدارة OrganizationGroups | Organization | 5 | 01-ARCH |
-| B-21 | Rubika Currency Engine | Rubika | 8 | 06-POINTS |
-| B-22 | Deep Linking من QR | Mobile | 3 | 13-MAUI |
-| B-23 | Warehouse Layer (B2B Phase 2) | Commerce | 8 | 23-COMMERCE |
-| B-24 | B2B Points Integration | Commerce | 5 | 23-COMMERCE |
-| B-25 | Online Payments (Paymob/Fawry) | Commerce | 8 | 23-COMMERCE |
+**المعدل الفعلي للفريق:** ~45-50 SP/Sprint (بعد استقرار S02–S04 وإنجاز NH Part 1).
 
 ---
 
-## 🎯 §10: الأولويات الفورية (Next 3 Days — 24-26 نوفمبر 2026)
+## 🎯 §10: الأولويات الفورية (Next 3 Days — 25-27 نوفمبر 2026)
 
 | اليوم | المهمة | المرجع |
-|-------|--------|--------|
-| 24 نوفمبر | S6-P1-3: تعديل منطق زر "ابدأ رحلتك العلاجية" | 00C |
-| 25 نوفمبر | S6-P2-1: GetAdherenceHandler — إضافة Points | 01-ARCH §6ب |
-| 26 نوفمبر | S6-P2-2: GetPharmacyFinancialHandler — فصل PointsDiscount | 01-ARCH §6ب |
+|---|---|---|
+| **25 نوفمبر** | S09-P1-01: Notification Hub — Core (Entities) | `08-NOTIFICATIONS` |
+| **26 نوفمبر** | S09-P1-02: Notification Hub — Services | `08-NOTIFICATIONS` |
+| **27 نوفمبر** | S09-P1-03: Notification Hub — API | `09-API-GUIDE §6` |
 
-**قاعدة صارمة:** لا نبدأ Sprint 7 قبل إغلاق كل P1 من Sprint 6.
+**قاعدة صارمة:** لا نبدأ S10 قبل إغلاق S09 (Notification Hub — Phase 2).
 
 ---
 
 ## 🔗 §11: الروابط المرجعية
 
 ### الوثائق الشقيقة (يجب قراءتها)
-- [00C-CHANGELOG.md](00C-CHANGELOG.md) — كل ما تم إنجازه (Sprint 0 → Sprint 6).
-- [00D-ROADMAP.md](00D-ROADMAP.md) — الجدول الزمني الكلي + المعالم.
-- [00-MASTER-INDEX.md](00-MASTER-INDEX.md) — الفهرس الشامل + الحالة الفنية لكل Module.
+
+- `00C-CHANGELOG.md` — كل ما تم إنجازه (S01 → S08).
+- `00D-ROADMAP.md` — الجدول الزمني الكلي + المعالم.
+- `00-MASTER-INDEX.md` — الفهرس الشامل + الحالة الفنية لكل Module.
 
 ### الوثائق المرتبطة بالمهام الحالية
-- [23-COMMERCE-ENGINE.md](23-COMMERCE-ENGINE.md) — مرجع B2B Commerce (Sprint 4).
-- [21-PHR-SYSTEM.md](21-PHR-SYSTEM.md) — مرجع PHR (Sprint 5).
-- [05-PSP.md](05-PSP.md) — مرجع PSP Cycle (Sprint 6).
-- [06-POINTS.md](06-POINTS.md) — مرجع Points (Sprint 6).
-- [19-PERMISSIONS.md](19-PERMISSIONS.md) — مرجع Permissions (Backlog).
-- [22-INTEGRATION-HUB.md](22-INTEGRATION-HUB.md) — مرجع Integration Hub (Sprint 8+).
+
+- `08-NOTIFICATIONS.md` — مرجع Notification Hub (S09).
+- `05-PSP.md` — مرجع PSP Cycle (S10, S12).
+- `06-POINTS.md` — مرجع Points (S09, S12).
+- `23-COMMERCE-ENGINE.md` — مرجع Commerce (S11, S14).
+- `09-API-GUIDE.md` — مرجع API (كل Sprint).
+- `24-pharmacy-B2C-Orders.md` — مرجع B2C (S10).
 
 ### وثائق المعمارية
-- [01-ARCHITECTURE.md](01-ARCHITECTURE.md) — الهيكل المعماري (يُقرأ قبل أي كود).
-- [11-PAGE-CREATION.md](11-PAGE-CREATION.md) — إنشاء الصفحات.
-- [04-TRANSLATION.md](04-TRANSLATION.md) — الترجمة.
+
+- `01-ARCHITECTURE.md` — الهيكل المعماري (يُقرأ قبل أي كود).
+- `11-PAGE-CREATION.md` — إنشاء الصفحات.
+- `04-TRANSLATION.md` — الترجمة.
 
 ---
 
 ## 📝 §12: سجل تحديثات هذه الوثيقة
 
 | الإصدار | التاريخ | التغييرات |
-|---------|---------|-----------|
+|---|---|---|
 | 6.4 | 5 نوفمبر 2026 | نجاح DashboardFlowPage + OnboardingPage + MedicineGuidePage |
-| 7.0 | 11 نوفمبر 2026 | إعادة كتابة كاملة (Live State Edition) — فصل التاريخ إلى 00C + إعادة ترتيب Sprint 4-9 حسب الواقع (B2B Commerce قبل PHR) + توثيق B2B Commerce MVP بناءً على التحديث [#138] + إضافة منهجية الوثيقة في الرأس |
-| **7.2** | **23 نوفمبر 2026** | **إضافة §3.3 (Notification Hub — 20 مهمة، 50 SP) + تحديث ملخص Sprint 6 (103 SP إجمالي) + تحديث Velocity Chart + تحديث Technical Debt Register + إضافة ملاحظات Sprint 6** |
+| 7.0 | 11 نوفمبر 2026 | إعادة كتابة كاملة (Live State Edition) — فصل التاريخ إلى `00C` + إعادة ترتيب Sprint 4-9 حسب الواقع |
+| 7.2 | 23 نوفمبر 2026 | إضافة §3.3 (Notification Hub — 20 مهمة، 50 SP) + تحديث ملخص Sprint 6 |
+| **8.0** | **25 نوفمبر 2026** | **إعادة كتابة كاملة (Realigned Edition) وفق Sprint Plan v8.0 (S01–S15): إعادة ترقيم Sprints (S01–S08 History، S09 Current، S10–S15 Future)؛ إضافة Epic Map (E00–E06)؛ إضافة Gaps Register (GAP-01→GAP-15)؛ تحديث Technical Debt Register (TD-C4, TD-C5, TD-M6 جديدة)؛ تحديث Velocity Chart (S04–S08)؛ تحديث الأولويات الفورية (S09)؛ إضافة قاعدة "الوثيقة تطابق الكود" (القاعدة 2)؛ إضافة قاعدة "كل فجوة موثقة" (القاعدة 3).** |
 
 ---
 
-## 📋 قواعد المشروع الذهبية
+## 📋 قواعد المشروع الذهبية (Golden Rules)
 
 - ❌ لا تعدل Migration قديم — Migration جديد فقط.
-- ✅ استخدم `IGenericService<T>` بدل DbContext مباشرة.
+- ✅ استخدم `IGenericService<T>` بدل `DbContext` مباشرة.
 - ✅ `N''` prefix للعربية في SQL.
-- ✅ `MERGE` بدل `INSERT`/`UPDATE`.
+- ✅ `MERGE` بدل `INSERT/UPDATE`.
 - ✅ استخدم `T("KEY")` للترجمة.
 - ❌ لا `Set-Content` لملفات `.razor`/`.cshtml` (تتلف العربية).
 - ✅ كل رد يبدأ بـ `[#رقم]` (ترقيم تصاعدي).
 - ✅ خطوة واحدة لكل رد.
 - ✅ مناقشة قبل التنفيذ.
+- ✅ **الوثيقة تطابق الكود** (القاعدة الجديدة).
+- ✅ **كل فجوة موثقة** (القاعدة الجديدة).
 
 ---
 
-**نهاية 00B — PROJECT-BACKLOG (v7.2) — 23 نوفمبر 2026**
+**نهاية 00B — PROJECT-BACKLOG (v8.0) — 25 نوفمبر 2026** 
+```
