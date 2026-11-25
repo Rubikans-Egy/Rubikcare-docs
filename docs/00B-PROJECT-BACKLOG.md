@@ -2,12 +2,18 @@
 # 00B — PROJECT-BACKLOG (Realigned Edition)
 
 **الاسم:** PROJECT-BACKLOG — سجل التطوير الحي 
+
 **الإصدار:** 8.0 (Realigned Edition — Sprint Plan v8.0) 
+
 **آخر تحديث:** 25 نوفمبر 2026 
+
 **Sprint الحالي:** S09 — Notification Hub — Phase 2 (25 نوفمبر — 10 ديسمبر 2026) 
 **الحالة:** 🟢 حي — يُحدَّث كل جلسة 
+
 **الجمهور:** فريق التطوير + AI Assistants 
+
 **الوثائق الشقيقة:** `00C-CHANGELOG.md` (ما تم إنجازه) + `00D-ROADMAP.md` (الجدول الزمني الكلي)
+
 
 ---
 
