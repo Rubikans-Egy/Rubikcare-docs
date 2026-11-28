@@ -167,4 +167,51 @@ _totalCount = response.TotalCount;
 
 ---A3** (تعديل `ClinicPatientsView.razor`)؟
 
-**توصيتي: (1)** — لأن البناء سيكشف أي أخطاء في `GetClinicPatientsHandler` قبل تعديل الواجهة.
+تحديث ملخص الجلسة 
+---
+
+### 📊 1. ملخص ما تم إنجازه في هذه الجلسة (مكتمل 100%)
+
+**أ. البنية التحتية وقاعدة البيانات (Backend & DB):**
+*   إضافة الكيانين `ClinicVisit` و `PSPPatientDataEntry` إلى قاعدة البيانات عبر Migration ناجح.
+*   تعديل جدول `PSPRequiredDataEntries` (إضافة `ScopeType`، وجعل `ProgramID` يقبل Null).
+*   إصلاح قيد `CHECK CONSTRAINT` بنجاح (تم اختباره وتأكيد عمله).
+*   إنشاء الـ Endpoints الخاصة بالبيانات المطلوبة للمريض (`GET/POST api/psp/patient/.../required-data`).
+*   إنشاء الـ Endpoint الخاص بجلب قائمة مرضى العيادة (`GET api/clinic/{clinicId}/patients`) مع الإحصائيات.
+*   إنشاء الـ Endpoint الخاص بتأكيد الزيارة (`POST api/clinic/{clinicId}/visits/confirm`).
+
+**ب. واجهة المستخدم (MAUI & Shared UI):**
+*   تعديل `ClinicPatientsView.razor` ليعرض قائمة المرضى والإحصائيات بشكل صحيح (تم اختباره بنجاح وظهرت النتائج).
+*   إنشاء مكون `ClinicVisitQrView.razor` (لعرض وطباعة كود QR الخاص بزيارة العيادة).
+*   إنشاء صفحة `ClinicVisitQrFlow` في MAUI لعرض الكود وطباعته.
+*   إضافة زر "كود زيارة العيادة" في `PspGateway.razor` وربطه بنجاح.
+*   إضافة زر "مسح كود زيارة العيادة" في `PspEntry.razor`.
+*   تعديل `ScanTokenViewModel` ليدعم وضع `clinic_visit` وقراءة كود `VISIT|CID:{id}`.
+*   ربط الـ `OnScanVisitRequested` في `PspEntryPage.xaml.cs` وتشغيل الكاميرا بنجاح.
+
+---
+
+### 🚧 2. وصف المشكلة الحالية (الصفحة البيضاء)
+
+**الأعراض:**
+عند قيام المريض بمسح كود الزيارة (أو إدخاله يدوياً)، ينتقل التطبيق إلى صفحة جديدة، ولكنها تظهر **بيضاء فارغة تماماً (Blank White Screen)**، ولا يتم رسم أي مكونات Blazor عليها، ولا تظهر أي أخطاء في الواجهة.
+
+**التشخيص المبدئي:**
+هذه المشكلة شائعة في MAUI عند التعامل مع `BlazorWebView` وصفحات التنقل (`Shell`).
+1.  **السبب الأكثر ترجيحاً:** مشكلة في تهيئة `BlazorWebView` داخل الصفحة الجديدة (`ClinicVisitConfirmPage`). إما أن ملف `index.html` لا يحتوي على `<div id="app"></div>`، أو أن المسار `clinic-visit-confirm` لم يتم تسجيله في `App.razor` (داخل `AdditionalAssemblies`)، أو أن `Routing.RegisterRoute` في `AppShell` غير متطابق.
+2.  **السبب الثاني:** قد يكون الكود ينتقل إلى `clinic-visit-confirm`، ولكن المكون `ClinicVisitConfirmView` غير موجود في نفس الـ Assembly الذي يبحث فيه Blazor Router.
+
+---
+
+### 📋 3. ما تبقى من أهداف الجلسة
+
+**أ. إصلاح عاجل (لإكمال تدفق الزيارة):**
+1.  حل مشكلة الصفحة البيضاء في `ClinicVisitConfirmPage`.
+2.  اختبار دورة تسجيل الزيارة كاملة (مسح QR -> فتح صفحة تأكيد -> تسجيل الزيارة في الـ DB).
+3.  إضافة عداد الزيارات (Visits Count) إلى كارت المريض في `ClinicPatientsView`.
+
+**ب. المهام المؤجلة (لجلسات قادمة):**
+1.  **نظام النقاط:** ربط حدث الزيارة بنظام النقاط (إعطاء المريض نقاطاً عند تسجيل زيارة).
+2.  **توسعة العيادات:** بناء نظام الـ Case والفحص الطبي المتكامل (كما ذكرت في رؤيتك المستقبلية).
+3.  **نظام الحجز أونلاين:** ربط الـ Visit بنظام الحجز (Slot/Appointment).
+4.  **الإشعارات الأسبوعية:** بناء محرك الإشعارات (الذي يعتمد على `PSPPatientDataEntry` الذي أنشأناه) وإرسال محتوى تعليمي أسبوعي.
