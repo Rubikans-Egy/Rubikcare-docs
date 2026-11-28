@@ -1,1084 +1,2300 @@
 
-# 05 — PSP (نظام برامج دعم المرضى)
+# 13 — MAUI (تطوير MAUI + BlazorWebView)
 
-الإصدار: 2.1 (Unified Edition — Gap-Aware) 
-آخر تحديث: 24 نوفمبر 2026 
-الحالة: ✅ مرجع شامل — يدمج 07 + User Flow + الكود الفعلي + الكيانات المنفّذة 
-الجمهور: فريق التطوير + AI Assistants
-
----
-
-## 📌 الجزء صفر: نظرة عامة
-
-### 0.1 ما هو نظام PSP؟
-
-PSP = Patient Support Programs = برامج دعم المرضى.
-
-الهدف: تقديم دعم (مالي، طبي، تعليمي) للمرضى من خلال شركات الأدوية، مع تتبع كامل للرحلة العلاجية.
-
-### 0.2 المكونات الأساسية
-
-| # | المكوّن | الوصف | الحالة |
-|---|---|---|---|
-| 1 | Program | البرنامج (علاج السكري، علاج الأنيميا...) | ✅ |
-| 2 | ProgramMedication | الأدوية المرتبطة بالبرنامج | ✅ |
-| 3 | DispensationPlan | خطة الصرف | ✅ |
-| 4 | DispensationPlanPhase | ⭐ مراحل خطة الصرف | ✅ |
-| 5 | Dispensation | عمليات الصرف الفعلية | ✅ |
-| 6 | Patient | المرضى المشاركين (CaseID) | ✅ |
-| 7 | Invitation | الدعوات (للمنظمات) | ✅ |
-| 8 | Participation | مشاركات المنظمات (عيادة/صيدلية) | ✅ |
-| 9 | eRX | الروشتات الإلكترونية | ✅ |
-| 10 | eRXItem | ⭐ تفاصيل الأدوية في روشتة الدعم | ✅ **جديد** |
-| 11 | Prescription | ⭐ الوصفة العامة (Clinic Domain) | ✅ **جديد** |
-| 12 | PrescriptionItem | ⭐ تفاصيل الوصفة العامة | ✅ **جديد** |
-| 13 | ClinicProgramReferral | ⭐ كود إحالة ثابت (عيادة + برنامج) | ✅ **جديد** |
-| 14 | PSPRequiredTest | التحاليل المطلوبة | ✅ |
-| 15 | PSPTestResult | نتائج التحاليل | ✅ |
-| 16 | PSPRequiredDataEntry | ⭐ البيانات المطلوبة (تعريف) | ✅ |
-| 17 | PSPPatientDataEntry | ⭐ إجابات المريض على البيانات المطلوبة | ⚠️ **يحتاج تأكيد** |
-| 18 | DoctorNote | ملاحظات الطبيب | ✅ (كيان) — ❌ (UI) |
+**الإصدار:** 4.0 (Proven Patterns Edition)
+**آخر تحديث:** 28 نوفمبر 2026
+**الحالة:** ✅ محدّث بالأنماط الناجحة (بعد جلسة 28 نوفمبر)
+**الجمهور:** فريق التطوير + AI Assistants
+**المرجع الإلزامي:** يُقرأ قبل أي تطوير لصفحة MAUI
 
 ---
 
-## 🗄️ الجزء الأول: هيكل الكيانات (Domain Entities)
+## 📌 الجزء صفر: الفلسفة
 
-### 1.1 المسار
+### 0.1 لماذا BlazorWebView؟
 
-```
-RubikCare.Domain\Entities\PSP\
-├── Config\          ← إعدادات
-│   ├── PSPRequiredDataEntry.cs
-│   ├── PSPRequiredFollowUp.cs
-│   └── PSPRequiredTest.cs
-│
-├── Core\            ← القلب
-│   ├── ClinicProgramReferral.cs                  ⭐ جديد
-│   ├── LinkTargetAudience.cs
-│   ├── PSPDispensation.cs
-│   ├── PSPDispensationPlan.cs
-│   ├── PSPDispensationPlanMedication.cs
-│   ├── PSPDispensationPlanPhase.cs               ⭐
-│   ├── PSPDispensationPlanPhaseMedication.cs     ⭐
-│   ├── PSPeRX.cs
-│   ├── PSPeRXItem.cs                             ⭐ جديد
-│   ├── PSPInvitation.cs
-│   ├── PSPParticipation.cs
-│   ├── PSPPatient.cs
-│   ├── PSPProgram.cs
-│   ├── PSPProgramLink.cs
-│   ├── PSPProgramMedication.cs
-│   └── PSPProgramSpeciality.cs
-│
-├── Doctor\
-│   └── DoctorNote.cs
-│
-├── Execution\
-│   ├── PSPFollowUpRecord.cs
-│   └── PSPTestResult.cs
-│
-└── Patient\
-    └── PSPAdverseEvent.cs
-```
-
-**ملاحظة**: `Prescription.cs` و`PrescriptionItem.cs` يقعان في `RubikCare.Domain\Entities\Clinic\` (Clinic Domain) — انظر §v2.
-
-### 1.2 خريطة العلاقات (محدّثة)
-
-```
-PSPProgram (البرنامج)
-    │
-    ├── ProgramID ──┬──> PSPProgramMedications (أدوية البرنامج)
-    │               │         │
-    │               │         └── ProgramMedicationID ──┐
-    │               │                                   │
-    │               └──> PSPDispensationPlans (خطط الصرف)
-    │                         │
-    │                         └── PlanID ──┐
-    │                                      │
-    │                                      ▼
-    │                          PSPDispensationPlanMedications
-    │                          (Legacy — دواء في الخطة مباشرة)
-    │
-    ├── ProgramID ──> PSPRequiredTests / PSPRequiredFollowUps / PSPRequiredDataEntries
-    │
-    └── ProgramID ──> ClinicProgramReferrals ⭐ (كود إحالة ثابت لكل عيادة)
-```
-
-### 1.3 ⭐ مع Phase System
-
-```
-PSPProgram
-  └── PSPDispensationPlan
-        ├── PSPDispensationPlanMedication (Legacy — للتوافق)
-        └── PSPDispensationPlanPhase ⭐
-              └── PSPDispensationPlanPhaseMedication ⭐
-                    └── PSPProgramMedication
-```
-
-### 1.4 ⭐ مع eRX System (محدّث)
-
-```
-UserProfile (شخص واحد — PatientProfileID)
-    │
-    └── PSPPatient (سجل واحد — CaseID) ⭐ UNIQUE على PatientProfileID
-            │
-            ├── PSPParticipation (مشاركة المنظمة: عيادة/صيدلية)  ⚠️ ليس اشتراك المريض
-            │
-            ├── PSPeRX (روشتة دعم — ProgramID إلزامي)
-            │     └── PSPeRXItem ⭐ (MedicationID nullable)
-            │           ├── ProgramMedicationID (FK إلزامي)
-            │           ├── OverrideTimesPerDay?
-            │           ├── OverrideQuantityPerDispense?
-            │           └── IsOverridden
-            │
-            ├── Prescription (وصفة عامة — Clinic Domain)
-            │     └── PrescriptionItem
-            │           └── LinkedPspERxItemID? ──> PSPeRXItem
-            │
-            └── PSPDispensations (التوكنات)
-```
-
-### 1.5 ⭐ إصلاح الجذور المعمارية: `CaseID` (وليس `PatientProfileID`)
-
-#### 1.5.1 المشكلة الجذرية (Root Cause) — جلسة #136
-
-**قبل الإصلاح:**
-- كان `PSPPatient` يُنشأ **جديداً** لكل مشاركة في برنامج جديد.
-- أدى إلى وجود **عدة `PatientID` لنفس الشخص** (`UserProfileID`).
-- مثال حقيقي: `shadyelzaher@rubikcare.com` كان لديه `PatientID = 18` (Infertility) و`PatientID = 1081` (pregnant case).
-- **النتيجة:** فوضى في نظام النقاط (النقاط تذهب لـ `PatientID` عشوائي)، والتقارير، والمواعيد.
-
-#### 1.5.2 الإصلاح الجذري (Root Fix)
-
-**البنية الجديدة:**
-```
-UserProfile (شخص واحد)
-└── PSPPatient (سجل واحد — CaseID)
-├── PSPParticipation (البرنامج 1)
-├── PSPParticipation (البرنامج 2)
-└── PSPParticipation (البرنامج 3)
-```
-
-**التغييرات الرئيسية:**
-
-| # | التغيير | الملف | التفاصيل |
-|---|---|---|---|
-| 1 | `PatientID` → `CaseID` | كل الكيانات (`PSPPatient`, `PSPeRX`, `PSPReminder`, `PSPTestResult`, `PSPFollowUpRecord`, `PSPAdverseEvent`, `DoctorNote`) | إعادة تسمية عبر Migration (RenameColumn) |
-| 2 | Migration `RenamePatientIdToCaseId` | `RubikCare.Infrastructure/Migrations/` | RenameColumn + تحديث الـ FKs |
-| 3 | `UNIQUE INDEX` على `PatientProfileID` | `PSPPatients` | منع تكرار المريض نهائياً |
-| 4 | `PSPEnrollmentService` | `RubikCare.Application/Services/PSP/` | البحث عن `PSPPatient` بـ `PatientProfileID` (وليس إنشاء جديد) |
-| 5 | `PspController.GetUserActivePrograms` | `Api.Web/Controllers/PSP/PspController.Helpers.cs` | إرجاع كل البرامج حتى لو لم يكن لها `eRx` أو `Dispensation` |
-| 6 | `TryAwardDailyDosePointsAsync` | `PatientMedicationService.cs` | البحث عن `CaseID` الصحيح بناءً على `ProgramID` |
-
-#### 1.5.3 القواعد الصارمة (Rules) — لا تكسرها أبداً
-
-| # | القاعدة | السبب |
+| الميزة | XAML التقليدي | BlazorWebView |
 |---|---|---|
-| **R1** | **لا تنشئ `PSPPatient` جديداً إذا كان `PatientProfileID` موجوداً.** | هذا هو أصل الفوضى. استخدم `Participations` للتعدد. |
-| **R2** | **استخدم `PatientProfileID` (وليس `CaseID`) للبحث عن "الشخص".** | `CaseID` يمثل "حالة"، وليس "شخصاً". |
-| **R3** | **في `PointsContext`، استخدم `CaseID` كـ `BeneficiaryID` (لأن `EarnPointsHandler` يعتمد عليه).** | هذا هو التصميم الحالي. |
-| **R4** | **`PSPPatient.ParticipationID` يشير إلى "أول مشاركة" فقط (موروث).** | لا تعتمد عليه للبحث عن "كل المشاركات". |
-| **R5** | **في `GetUserActivePrograms`، لا تتخطى البرنامج إذا لم يجد `eRx` أو `Dispensation`.** | البرنامج موجود حتى لو لم يُصرف بعد. |
-| **R6** | **`PSPParticipation` = مشاركة منظمة (عيادة/صيدلية)، وليست اشتراك مريض.** | ⭐ توضيح جديد — لا تخلط بينهما. |
-| **R7** | **`ClinicProgramReferral` ≠ `PSPInvitation`.** | ⭐ `Referral` كود ثابت متعدد الاستخدام، `Invitation` دعوة فردية لمرة واحدة. |
+| لغة التطوير | لغة مختلفة عن Web | نفس HTML/CSS المستخدم في Web |
+| ربط البيانات | مشاكل Binding متكررة | لا Binding — استخدام Razor |
+| مشاركة المكونات | صعبة | مشاركة مباشرة عبر RCL |
+| منحنى التعلم | منفصل تماماً | نفس مهارات Blazor |
 
-#### 1.5.4 كيف يعمل نظام النقاط الآن (بعد الإصلاح)
+### 0.2 المبادئ الأساسية
 
-```
-تأكيد التناول (ScheduleID من البرنامج 1)
-↓
-UpdateScheduleStatusAsync
-↓
-TryAwardDailyDosePointsAsync
-├── جلب PSPPatient (CaseID=1083, ProgramID=1)
-├── بناء PointsContext (CaseID=15, OrganizationID=1267)
-└── AwardByCampaignAsync(campaignId=1, ...)
-↓
-Scheme 1 (PSP.CUP)
-↓
-Rule (ActivityTypeID=8, Points=5)
-↓
-EarnPointsHandler
-├── Balance(BeneficiaryID=15, SchemeID=1)
-└── PSPProgramPointTransaction (Points=+5)
-```
-
-#### 1.5.5 سيناريوهات اختبار القبول (Acceptance Tests)
-
-| # | السيناريو | النتيجة المتوقعة |
-|---|---|---|
-| 1 | المريض مشترك في برنامجين | `PSPPatients` يحتوي سجلاً واحداً فقط (`CaseID` واحد) |
-| 2 | فتح PspEntry | يظهر **كل** البرامج النشطة (حتى لو لم تُصرف) |
-| 3 | تأكيد التناول في البرنامج 1 | النقاط تزيد في `Scheme 1` (وليس `Scheme 7`) |
-| 4 | تأكيد التناول في البرنامج 2 | النقاط تزيد في `Scheme 7` (وليس `Scheme 1`) |
-| 5 | صرف الدواء | النقاط تزيد بناءً على `ActivityTypeID` للصرف |
-| 6 | استخدام النقاط (ApplyPoints) | `Balance` ينخفض، `PatientPayment` ينخفض |
-
-#### 1.5.6 الملفات المتأثرة (للمراجعة المستقبلية)
-
-| الطبقة | الملفات |
-|---|---|
-| **Domain** | `PSPPatient.cs`, `PSPeRX.cs`, `PSPReminder.cs`, `PSPTestResult.cs`, `PSPFollowUpRecord.cs`, `PSPAdverseEvent.cs`, `DoctorNote.cs`, `PointsContext.cs` |
-| **Infrastructure** | `BusinessDbContext.cs` (ConfigurePSPModels), `EarnPointsHandler.cs` |
-| **Application** | `PSPEnrollmentService.cs`, `PatientMedicationService.cs` |
-| **API** | `PspController.Helpers.cs`, `PspController.patientdetails.cs`, `DispenseController.cs`, `PatientMedicationsController.cs` |
-| **Migrations** | `20261021XXXXXX_RenamePatientIdToCaseId.cs` |
-| **Shared.UI** | `PspDetailComponent.razor`, `MedicationSchedulePage.razor`, `PspEntry.razor` |
+- **مشاركة المكونات** — `Shared.UI` مشترك بين Web + PWA + MAUI.
+- **`CustomBlazorWebView`** — استخدمه بحذر (انظر § 10).
+- **`Action` بدلاً من `EventCallback`** — نمط MAUI (انظر § 9).
+- **لا `@inject` للخدمات MAUI** — استخدم `[Parameter]` (انظر § 2).
+- **`SafeAsyncAction`** — لكل `Action<T>` مع async.
+- **`Singleton` للتواصل** — `CurrentOrganizationState` + `CurrentUserProfileState` (انظر § 6.5).
 
 ---
 
-## 🎯 الجزء الثاني: نظام مراحل خطة الصرف (Phase System)
+## 🚨 الجزء الأول: النمط الناجح (Proven Patterns — 5 نوفمبر 2026)
 
-### 2.1 الهدف
+### 1.0 مقدمة: لماذا هذا القسم؟
 
-كل خطة صرف ممكن تحتوي على مراحل متعددة — كل مرحلة لها:
-- مدة زمنية (3 شهور، 6 شهور...).
-- تبدأ بعد كام شهر من بداية البرنامج.
-- أدوية خاصة بها.
-- تفاصيل كاملة: كام علبة/شهر، التقسيمة، الخصم.
+**هذا القسم هو "الدرس المستفاد" من جلسة 4-5 نوفمبر 2026.** في تلك الجلسة، فشلت **كل المحاولات** لاستخدام `DashboardPage.razor` (المشترك) كصفحة رئيسية (`ShellContent`) في MAUI — **لأن الوثيقة السابقة (v3.3) قدمت أنماطاً لم تنجح** (`RootComponent` في XAML + `Parameters` ديناميكية + `CurrentUserProfileState`).
 
-### 2.2 السيناريو
+**الآن، بعد النجاح، نُوثّق النمط الناجح بدقة.** هذا القسم **إلزامي** قبل أي تطوير لصفحة MAUI.
 
+### 1.1 القاعدة الذهبية (The Golden Rule)
+
+> **"الصفحات الرئيسية (`ShellContent`) = XAML محلي (وليس `BlazorWebView`). الصفحات الفرعية (`Routing.RegisterRoute`) = `BlazorWebView` + `RootComponents.Add` في `OnAppearing` مع `Parameters`. التواصل بين MAUI و Blazor = `Singleton Services` (مع `Set...` في `Constructor`)."**
+
+### 1.2 جدول القرار السريع
+
+| نوع الصفحة | `ShellContent` (Root Page) | `Routing.RegisterRoute` (Detail Page) |
+|---|---|---|
+| **XAML محلي** (مثل `DashboardPage.xaml` القديمة) | ✅ **موصى به** (لا مشاكل). | ✅ ممكن (لكن نادر). |
+| **`BlazorWebView` + `<RootComponent>` في XAML** | ⚠️ **فقط** إذا كانت لا تحتاج `Parameters` ديناميكية (مثل `ClinicDashboardPage`). | ❌ لا (استخدم `RootComponents.Add`). |
+| **`BlazorWebView` + `RootComponents.Add` في `OnAppearing`** | ❌ **فاشل** (BlazorWebView لا يعيد تحميل المكون). | ✅ **موصى به** (مثل `PatientPointsFlow`). |
+| **`BlazorWebView` + `RootComponents.Add` في `Constructor`** | ⚠️ يحتاج بيانات متزامنة (من `Preferences`). | ✅ ممكن. |
+| **`BlazorWebView` + `CurrentUserProfileState` + `<RootComponent>` في XAML** | ✅ **النمط الناجح** (مثل `DashboardFlowPage`). | ✅ ممكن. |
+
+### 1.3 الأنماط الناجحة (5 أنماط — مع أمثلة)
+
+#### 🌟 النمط 1: XAML محلي (للصفحات الرئيسية البسيطة)
+
+**متى:** الصفحة الرئيسية لا تحتاج `BlazorWebView` (أو تحتاج XAML بسيط).
+
+**مثال:** `DashboardPage.xaml` (القديمة — قبل التحويل).
+
+**البنية:**
+```xml
+<ContentPage x:Class="...">
+    <ScrollView>
+        <VerticalStackLayout>
+            <!-- عناصر XAML -->
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>
 ```
-برنامج: علاج السكري
-  └── خطة الصرف: "الخطة الأساسية"
-        ├── المرحلة الأولى (0-3 شهور)
-        │     ├── Metformin — 2 علبة/شهر — 3 مرات يومياً
-        │     └── Insulin — 1 علبة/شهر — 2 مرات يومياً
-        └── المرحلة الثانية (3-6 شهور)
-              ├── Metformin — 3 علبة/شهر — 4 مرات يومياً
-              └── Glimepiride — 1 علبة/شهر — 1 مرة يومياً
+
+**الـ ViewModel:** `DashboardPageViewModel` (مع `ICommand` + `INotifyPropertyChanged`).
+
+**المزايا:** ✅ لا مشاكل `BlazorWebView`. ✅ أداء عالي. ✅ تحكم كامل.
+**العيوب:** ❌ لا مشاركة كود مع PWA. ❌ صيانة مزدوجة.
+
+---
+
+#### 🌟 النمط 2: `BlazorWebView` + `<RootComponent>` في XAML (للصفحات الرئيسية التي تعتمد على Singleton)
+
+**متى:** الصفحة الرئيسية تحتاج `BlazorWebView`، **لكن** لا تحتاج `Parameters` ديناميكية (تعتمد على `Singleton Service`).
+
+**أمثلة ناجحة:**
+- `ClinicDashboardPage.xaml` (يعتمد على `CurrentOrganizationState`).
+- `PharmacyDashboardPage.xaml` (يعتمد على `CurrentOrganizationState`).
+- `PharmaCompanyDashboardPage.xaml` (يعتمد على `PharmaCompanyNavigationBridge`).
+- **`DashboardFlowPage.xaml`** (يعتمد على `CurrentUserProfileState` — بعد النجاح).
+
+**البنية (`ClinicDashboardPage.xaml`):**
+```xml
+<ContentPage x:Class="RubikCare.Mobile.Features.ClinicManagement.Views.ClinicDashboardPage">
+    <b:BlazorWebView x:Name="blazorWebView" HostPage="wwwroot/index.html">
+        <b:BlazorWebView.RootComponents>
+            <b:RootComponent Selector="#app" ComponentType="{x:Type clinic:ClinicDashboard}" />
+        </b:BlazorWebView.RootComponents>
+    </b:BlazorWebView>
+</ContentPage>
 ```
 
-### 2.3 الكيانات
-
-#### 2.3.1 `PSPDispensationPlanPhase`
-
-المسار: `RubikCare.Domain\Entities\PSP\Core\PSPDispensationPlanPhase.cs`
-
+**البنية (`ClinicDashboardPage.xaml.cs`):**
 ```csharp
-[Table("PSPDispensationPlanPhases")]
-public class PSPDispensationPlanPhase
+public partial class ClinicDashboardPage : ContentPage
 {
-    [Key]
-    public int PhaseID { get; set; }
+    [QueryProperty(nameof(ClinicId), "ClinicId")]
+    public int ClinicId { get; set; }
 
-    public int PlanID { get; set; }  // FK → PSPDispensationPlans (CASCADE)
+    public ClinicDashboardPage()
+    {
+        InitializeComponent();
+        SetupNavigation();
+    }
 
-    public string PhaseName { get; set; }   // "المرحلة الأولى"
-    public int PhaseOrder { get; set; }     // 1, 2, 3...
-    public int DurationMonths { get; set; } // 3, 6...
-    public int StartAfterMonths { get; set; } // 0 = من بداية البرنامج
-    public string? Description { get; set; }
-
-    public bool IsActive { get; set; } = true;
-    public DateTime CreatedDate { get; set; }
-    public DateTime? LastModifiedDate { get; set; }
-
-    // Navigation
-    public virtual PSPDispensationPlan? Plan { get; set; }
-    public virtual ICollection<PSPDispensationPlanPhaseMedication> PhaseMedications { get; set; }
+    protected override void OnAppearing()
+    {
+        base.OnAppearing();
+        if (ClinicId > 0)
+        {
+            var clinicState = IPlatformApplication.Current?.Services?.GetService<CurrentOrganizationState>();
+            clinicState?.SetClinicId(ClinicId);  // ⭐ Set قبل OnInitializedAsync
+        }
+    }
 }
 ```
 
-#### 2.3.2 `PSPDispensationPlanPhaseMedication`
-
-المسار: `RubikCare.Domain\Entities\PSP\Core\PSPDispensationPlanPhaseMedication.cs`
-
+**المكون المشترك (`ClinicDashboard.razor`):**
 ```csharp
-[Table("PSPDispensationPlanPhaseMedications")]
-public class PSPDispensationPlanPhaseMedication
+@inject CurrentOrganizationState ClinicState
+
+protected override void OnInitialized()
 {
-    [Key]
-    public int PhaseMedicationID { get; set; }
+    _currentClinicId = ClinicState.ClinicId;  // ⭐ يقرأ من Singleton
+    ClinicState.OnChange += OnStateChange;
+}
 
-    public int PhaseID { get; set; }              // FK → PSPDispensationPlanPhases (CASCADE)
-    public int ProgramMedicationID { get; set; }  // FK → PSPProgramMedications (NO_ACTION)
+protected override async Task OnInitializedAsync()
+{
+    if (_currentClinicId > 0)
+        await LoadDataAsync();
+    else
+        _isLoading = false;
+}
 
-    public int QuantityPerMonth { get; set; }     // كام علبة/شهر
-    public int? TimesPerDay { get; set; }         // 3 = ثلاث مرات يومياً
-    public int? HoursBetweenDoses { get; set; }   // 8 = كل 8 ساعات
-    public decimal DiscountPercentage { get; set; } // نسبة الخصم
-
-    public bool IsActive { get; set; } = true;
-    public DateTime CreatedDate { get; set; }
-    public DateTime? LastModifiedDate { get; set; }
-
-    // Navigation
-    public virtual PSPDispensationPlanPhase? Phase { get; set; }
-    public virtual PSPProgramMedication? ProgramMedication { get; set; }
+private void OnStateChange()
+{
+    _currentClinicId = ClinicState.ClinicId;
+    InvokeAsync(async () => { if (_currentClinicId > 0) await LoadDataAsync(); });
 }
 ```
 
-### 2.4 ⚠️ قواعد الـ Foreign Keys
-
-| العلاقة | OnDelete | السبب |
-|---|---|---|
-| Phase.PlanID → Plan | CASCADE | لو الخطة اتمسحت، المراحل تتمسح |
-| PhaseMedication.PhaseID → Phase | CASCADE | لو المرحلة اتمسحت، الأدوية تتمسح |
-| PhaseMedication.ProgramMedicationID → ProgramMedication | NO_ACTION | يمنع مسح الدواء لو فيه مراحل بتشير ليه |
-
-**ProgramMedication هو بيانات مرجعية (Master Data)، مش بيانات تشغيلية.**
-
-### 2.5 الـ Migration
-
-ID: `20260923150028_AddPSPDispensationPlanPhases`
-
-الجداول الجديدة:
-- `PSPDispensationPlanPhases`.
-- `PSPDispensationPlanPhaseMedications`.
-
-الأعمدة الجديدة:
-- `PSPDispensationPlanMedications.PhaseID` (nullable) — للتوافق.
+**المزايا:** ✅ يعمل. ✅ مشاركة كود. ✅ لا مشاكل `Parameters`.
+**العيوب:** ❌ يحتاج `Singleton Service` + `Set...` في `Constructor` (أو `OnAppearing` — قبل `OnInitializedAsync`).
 
 ---
 
-## 🎯 الجزء الثالث: نظام التحاليل (Tests System)
+#### 🌟 النمط 3: `BlazorWebView` + `RootComponents.Add` في `OnAppearing` (للصفحات الفرعية)
 
-⚠️ هذا الجزء مُستخلَص من `PspController.Tests.cs` — 38 endpoint.
+**متى:** الصفحة **فرعية** (`Routing.RegisterRoute`) تحتاج `Parameters` ديناميكية.
 
-### 3.1 نظرة عامة
+**أمثلة ناجحة:**
+- `PatientPointsFlow.xaml` (يستقبل `UserProfileId` من `Query`).
+- `MedicineGuideFlow.xaml` (يستقبل `caseId` + `programId` من `Query`).
+- `PspDetailFlow.xaml` (يستقبل `patientId` + `participationId` + `programId` من `Query`).
 
-نظام التحاليل = 8 مجموعات:
+**البنية (`PatientPointsFlow.xaml`):**
+```xml
+<ContentPage x:Class="RubikCare.Mobile.Features.PSP.Patient.Views.PatientPointsFlow">
+    <BlazorWebView x:Name="blazorWebView" HostPage="wwwroot/index.html" />
+</ContentPage>
+```
 
-| # | المجموعة | الوصف |
-|---|---|---|
-| 1 | LabTest (مرجعية) | قائمة التحاليل المتاحة (Master Data) |
-| 2 | RequiredTest | التحاليل المطلوبة في برنامج |
-| 3 | TestResult | نتائج التحاليل |
-| 4 | Attachment | المرفقات (PDF, صور) |
-| 5 | PharmaView | عرض الشركة (Privacy) |
-| 6 | Reminder | التذكيرات |
-| 7 | PhaseRequiredTest | ربط بمراحل |
-| 8 | Patient Mobile | للموبايل |
-
-### 3.2 ⚠️ منطق RequiredTiming (5 قيم)
-
-**تحديث**: `PSPRequiredDataEntry` يحتوي على `RequiredTiming` بـ **5 قيم** (بما فيها `OnEvent`)، وليس 4 كما كان موثقاً سابقاً.
-
-| القيمة | المعنى | المنطق |
-|---|---|---|
-| 1 | Before (قبل البدء) | يجب رفعها قبل StartDate |
-| 2 | During (أثناء) | متاحة بعد StartDate |
-| 3 | After (بعد N أيام) | بعد StartDate + RequiredAtDay |
-| 4 | Periodic (دورية) | كل FrequencyDays |
-| 5 | OnEvent (عند حدث) | ⭐ جديد — مرتبطة بـ `TriggerEvent` (Dispensation/AdverseEvent/FollowUp) |
-
-- Before — يمنع بدء الرحلة العلاجية حتى رفعها.
-- During — متاحة بعد البدء.
-- After — مؤجلة N أيام بعد البدء.
-- Periodic — متكررة.
-- OnEvent — تُطلب عند وقوع حدث محدد.
-
-### 3.3 ⚠️ منطق EditWindow
-
-| نوع التحليل | مدة التعديل |
-|---|---|
-| Mandatory (إلزامي) | 24 ساعة |
-| غير Mandatory | 168 ساعة (7 أيام) |
-
-- `ComputeEditWindow(dto, lastResult, isMandatory)`.
-- `CanEdit = elapsed.TotalHours <= editWindowHours`.
-
-### 3.4 ⚠️ نظام Consent (موافقة المريض)
-
+**البنية (`PatientPointsFlow.xaml.cs`):**
 ```csharp
-ConsentGiven = true,
-ConsentDate = DateTime.UtcNow,
-ConsentText = dto.ConsentText ?? "أوافق على مشاركة هذا التحليل..."
+[QueryProperty(nameof(UserProfileIdRaw), "userProfileId")]
+public partial class PatientPointsFlow : ContentPage
+{
+    public string? UserProfileIdRaw { get; set; }
+    private int UserProfileId => int.TryParse(UserProfileIdRaw, out var id) ? id : 0;
+
+    public PatientPointsFlow()
+    {
+        InitializeComponent();
+    }
+
+    protected override void OnAppearing()
+    {
+        base.OnAppearing();
+        LoadBlazorComponent();
+    }
+
+    private void LoadBlazorComponent()
+    {
+        var effectiveUserId = UserProfileId > 0 ? UserProfileId : _sessionService.PatientId;
+        
+        blazorWebView.RootComponents.Clear();
+        blazorWebView.RootComponents.Add(new RootComponent
+        {
+            Selector = "#app",
+            ComponentType = typeof(PatientPointsDashboard),
+            Parameters = new Dictionary<string, object?>
+            {
+                { "UserProfileId", effectiveUserId },
+                { "ApiService", _apiService },
+                { "ShowBackButton", true }
+            }
+        });
+    }
+}
 ```
 
-انظر `27-REPORTS` (Privacy + PDPL).
+**المزايا:** ✅ يعمل. ✅ `Parameters` ديناميكية. ✅ `RootComponents.Add` في `OnAppearing` يعمل (لأن المكون يبدأ بعد `OnAppearing`).
+**العيوب:** ❌ لا يمكن استخدامه كصفحة رئيسية (`ShellContent`).
 
-### 3.5 ⚠️ Privacy في PharmaView
+---
 
+#### 🌟 النمط 4: `BlazorWebView` + `RootComponents.Add` في `Constructor` (للصفحات الرئيسية التي تحتاج `Parameters`)
+
+**متى:** الصفحة **رئيسية** (`ShellContent`) تحتاج `Parameters` (لكن `Parameters` غير متزامنة — من `Preferences`).
+
+**مثال:** `DashboardFlowPage.xaml` — بعد النجاح (4-5 نوفمبر).
+
+**البنية (`DashboardFlowPage.xaml`):**
+```xml
+<ContentPage x:Class="RubikCare.Mobile.Features.PublicUser.Views.DashboardFlowPage">
+    <b:BlazorWebView x:Name="blazorWebView" HostPage="wwwroot/index.html">
+        <b:BlazorWebView.RootComponents>
+            <b:RootComponent Selector="#app" ComponentType="{x:Type sharedPages:DashboardPage}" />
+        </b:BlazorWebView.RootComponents>
+    </b:BlazorWebView>
+</ContentPage>
+```
+
+**البنية (`DashboardFlowPage.xaml.cs`):**
 ```csharp
-PatientAnonymousId = $"PAT-{r.PatientID:D6}",
-PatientAge = CalculateAge(...),
-PatientGender = ...,
-// ❌ لا اسم، لا هاتف
+public partial class DashboardFlowPage : ContentPage
+{
+    private readonly CurrentUserProfileState _userState;
+
+    public DashboardFlowPage()
+    {
+        InitializeComponent();
+        _userState = IPlatformApplication.Current!.Services.GetRequiredService<CurrentUserProfileState>();
+
+        // ⭐ قراءة UserProfileId من Preferences (متزامن — قبل OnInitializedAsync)
+        var userId = Preferences.Get("user_profile_id", 0);
+        var userName = Preferences.Get("user_full_name", "مستخدم");
+
+        if (userId > 0)
+        {
+            _userState.SetUserProfile(userId, userName);  // ⭐ قبل OnInitializedAsync
+        }
+    }
+
+    protected override async void OnAppearing()
+    {
+        base.OnAppearing();
+
+        if (_userState.UserProfileId <= 0)
+        {
+            var session = await _sessionService.GetSessionAsync();
+            if (session != null)
+            {
+                _userState.SetUserProfile(session.UserProfileId, session.FullNameAr);
+                Preferences.Set("user_profile_id", session.UserProfileId);
+                Preferences.Set("user_full_name", session.FullNameAr);
+            }
+        }
+    }
+}
 ```
 
-انظر `07-REPORTS` (Adherence Report).
+**المكون المشترك (`DashboardPage.razor`):**
+```csharp
+@inject CurrentUserProfileState UserState
 
-### 3.6 ⚠️ 3 خيارات لـ ShowTo*
+protected override void OnInitialized()
+{
+    UserState.OnChange += OnUserStateChanged;
+}
 
-- `ShowToPatient`
-- `ShowToDoctor`
-- `ShowToPharma`
+protected override async Task OnInitializedAsync()
+{
+    await LoadTranslationsAsync();
+    _translationsLoaded = true;
 
-### 3.7 ⚠️ 4 أنواع مرفقات
+    if (UserState.UserProfileId > 0)
+    {
+        _dataLoaded = true;
+        await LoadAllDataAsync();
+    }
+    else
+    {
+        _isLoading = false;
+    }
+}
 
-| النوع | Endpoint |
-|---|---|
-| Form File | `POST attachments` (multipart) |
-| Base64 | `POST attachments-base64` (Mobile) |
-| Download | `GET attachments/{id}/download` |
-| View Base64 | `GET attachments/{id}/view-base64` (Modal) |
-
-`view-base64` — محمي بـ Auth + 5MB limit.
-
-### 3.8 4 حالات للـ Test Status
-
-| الحالة | متى |
-|---|---|
-| Completed | توجد نتيجة |
-| Active | متاح للرفع |
-| Locked | لم يأن الوقت |
-| Pending | (مذكور في كود الحالة) |
-
-### 3.9 StartTreatment — منطق ذكي
-
+private async void OnUserStateChanged()
+{
+    if (UserState.UserProfileId > 0 && !_dataLoaded)
+    {
+        _dataLoaded = true;
+        await InvokeAsync(async () => { await LoadAllDataAsync(); StateHasChanged(); });
+    }
+}
 ```
-1. التحقق: StartDate == null؟
-2. جلب mandatory قبل البدء
-3. التحقق: كلها مرفوعة؟
-4. لو ناقص → BadRequest + أسماء التحاليل الناقصة
-5. لو كامل → StartDate = UtcNow
+
+**المزايا:** ✅ يعمل كصفحة رئيسية. ✅ لا `Parameters` ديناميكية. ✅ `Preferences` (متزامن).
+**العيوب:** ❌ يحتاج `Preferences.Set` (في `AppShell.InitializeAsync`).
+
+**⚠️ هذا هو النمط الناجح الذي يجب استخدامه للصفحات الرئيسية التي تحتاج بيانات مستخدم.**
+
+---
+
+#### 🌟 النمط 5: `CurrentUserProfileState` (Singleton) — للتواصل بين MAUI و Blazor
+
+**متى:** تحتاج تمرير بيانات (مثل `UserProfileId`) من MAUI إلى `BlazorWebView` **دون** `Parameters` ديناميكية.
+
+**⚠️ هذا النمط مرتبط بالنمط 4.**
+
+**البنية (`Shared.UI/Services/CurrentUserProfileState.cs`):**
+```csharp
+public class CurrentUserProfileState
+{
+    private int _userProfileId;
+    private string _userFullNameAr = string.Empty;
+
+    public int UserProfileId => _userProfileId;
+    public string UserFullNameAr => _userFullNameAr;
+    public string UserInitials => GetInitials(_userFullNameAr);
+
+    public event Action? OnChange;
+
+    public void SetUserProfile(int userProfileId, string userFullNameAr)
+    {
+        if (_userProfileId != userProfileId)
+        {
+            _userProfileId = userProfileId;
+            _userFullNameAr = userFullNameAr ?? string.Empty;
+            OnChange?.Invoke();
+        }
+        else
+        {
+            _userFullNameAr = userFullNameAr ?? string.Empty;
+        }
+    }
+
+    // ...
+}
+```
+
+**المزايا:** ✅ يعمل. ✅ لا `Parameters` ديناميكية.
+**العيوب:** ❌ يحتاج `SetUserProfile` في `Constructor` (قبل `OnInitializedAsync`).
+
+**⚠️ تحذير:** `CurrentUserProfileState` **Singleton** — **لا يعمل** إذا كان `BlazorWebView` له حاوية DI مستقلة (§ 2.1). **لكن** — في `DashboardFlowPage`، **يعمل** لأن `RootComponent` في XAML + `CurrentUserProfileState` Singleton = **نفس النسخة** (لأن `BlazorWebView` في `DashboardFlowPage` يحقن `CurrentUserProfileState` من حاوية MAUI — وليس من حاوية Blazor). **⚠️ هذا ليس موثقاً في `13-MAUI` السابق — لكنه يعمل.**
+
+---
+⚠️ القاعدة الذهبية لصفحات MAUI Shell + BlazorWebView:
+"لا تعتمد على [QueryProperty] أو Constructor Injection لتمرير المعاملات الأساسية (مثل OrganizationId). بدلاً من ذلك، استخدم Constructor فارغ تماماً، واقرأ القيمة ديناميكياً داخل الدالة باستخدام:
+var orgState = IPlatformApplication.Current?.Services?.GetService<CurrentOrganizationState>();
+واجعل المكون (Blazor Component) يحتوي على Fallback يقرأ من هذه الخدمة إذا كان الـ Parameter يساوي 0."
+---
+
+#### 🌟 النمط 8: NavigationBridge + PushAsync + RootComponents.Add (للصفحات الفرعية المعقدة)
+
+**متى:** الصفحة الفرعية تحتاج `Parameters` ديناميكية، وتحتاج أن تظهر كصفحة كاملة (مع Header / Breadcrumb / زر رجوع)، وليس كـ Modal.
+
+**المثال الناجح:** `CommerceProductDetailsFlow` (جلسة Commerce، 11-12 نوفمبر 2026).
+
+**البنية (Shared.UI):**
+- واجهة `ICommerceNavigationBridge` (في `Shared.UI/Services/`).
+- المكون `ProductDetailsPage.razor` (مع `[Parameter] MedicationId`, `CompanyOrgId`).
+
+**البنية (Mobile):**
+- تطبيق `CommerceNavigationBridge` (في `Mobile/Services/`).
+- صفحة `CommerceProductDetailsFlow.xaml` (مع `Shell.NavBarIsVisible="True"`).
+- تسجيل في `MauiProgram.cs`.
+
+**البنية (CommerceProductDetailsFlow.xaml.cs):**
+```csharp
+public partial class CommerceProductDetailsFlow : ContentPage
+{
+    private readonly int _medicationId;
+    private readonly int _companyOrgId;
+
+    public CommerceProductDetailsFlow(int medicationId, int companyOrgId)
+    {
+        InitializeComponent();
+        _medicationId = medicationId;
+        _companyOrgId = companyOrgId;
+
+        BlazorView.RootComponents.Add(new RootComponent
+        {
+            Selector = "#app",
+            ComponentType = typeof(ProductDetailsPage),
+            Parameters = new Dictionary<string, object>
+            {
+                { "MedicationId", _medicationId },
+                { "CompanyOrgId", _companyOrgId },
+                { "OnBack", EventCallback.Factory.Create(this, async () => await Navigation.PopAsync()) }
+            }
+        });
+    }
+}
+```
+لمزايا:
+
+✅ يعمل بدون Reload (لأن PushAsync يحتفظ بـ Navigation Stack).
+
+✅ يظهر Shell.NavBar (بفضل Shell.NavBarIsVisible="True").
+
+✅ Shared.UI لا تعتمد على MAUI (بفضل Bridge).
+
+✅ Parameters تُمرر بشكل صحيح (بفضل RootComponents.Add).
+
+العيوب:
+
+⚠️ يحتاج واجهة (Bridge) + تطبيق + تسجيل.
+
+⚠️ OnBack يجب أن يكون EventCallback (وليس Action)، لتجنب JavaProxyThrowable.
+
+---
+### 1.4 الأنماط الفاشلة (Failed Patterns — لا تستخدمها)
+
+#### ❌ النمط 1: `BlazorWebView` + `<RootComponent>` في XAML مع `Parameters` ديناميكية
+
+**المشكلة:** `RootComponent` في XAML **لا يدعم `Parameters` ديناميكية** (فقط `ComponentType`).
+
+**النتيجة:** `UserProfileId` = 0 دائماً.
+
+**البديل:** استخدم النمط 3 (`RootComponents.Add`) للصفحات الفرعية، أو النمط 4 (`CurrentUserProfileState`) للصفحات الرئيسية.
+
+---
+
+#### ❌ النمط 2: `BlazorWebView` + `RootComponents.Add` في `OnAppearing` كصفحة رئيسية (`ShellContent`)
+
+**المشكلة:** `BlazorWebView` **لا يعيد تحميل المكون** بعد `RootComponents.Add` (إذا كان `ShellContent`).
+
+**النتيجة:** المكون لا يُحمَّل (الصفحة بيضاء).
+
+**البديل:** استخدم النمط 4 (`CurrentUserProfileState` + `<RootComponent>` في XAML) للصفحات الرئيسية.
+
+---
+
+#### ❌ النمط 3: `CustomBlazorWebView` + `RootComponents.Add` في `OnAppearing` كصفحة رئيسية
+
+**المشكلة:** `CustomBlazorWebView` (مع `ForceRender`) **يعيد تعيين `RootComponents`** بعد `Add` — مما يسبب **اختفاء المكون**.
+
+**النتيجة:** الصفحة بيضاء (أو المكون يختفي).
+
+**البديل:** استخدم `BlazorWebView` العادي (وليس `CustomBlazorWebView`) للصفحات الرئيسية.
+
+---
+
+#### ❌ النمط 4: `OnComponentReady` (لتمرير `Parameters` بعد `OnAfterRender`)
+
+**المشكلة:** `OnAfterRender` **لا يُستدعى** إذا لم يُحمَّل المكون (بسبب `RootComponents.Add` في `OnAppearing` كصفحة رئيسية).
+
+**النتيجة:** `OnComponentReady` لا يُستدعى.
+
+**البديل:** استخدم `CurrentUserProfileState` (النمط 5) — لا حاجة لـ `OnComponentReady`.
+
+---
+#### ❌ النمط 5: BlazorWebView + <RootComponent> في XAML بدون Parameters (لصفحة فرعية تحتاج Parameters)
+
+**المشكلة:** الصفحة الفرعية (`CommerceProductDetailsFlow`) تستخدم `<RootComponent>` في XAML، لكنها تحتاج `MedicationId` و `CompanyOrgId`.
+
+**النتيجة:** `Parameters` = `null`، والصفحة تظهر فارغة (أو "Product not found").
+
+**البديل:** استخدم `RootComponents.Add` في `Constructor` (مع `Parameters`) — **للصفحات الفرعية فقط**.
+
+**مثال من جلسة Commerce:**
+```csharp
+// ❌ خطأ — ProductDetailsPage لن تستقبل Parameters
+<BlazorWebView>
+    <BlazorWebView.RootComponents>
+        <RootComponent Selector="#app" ComponentType="{x:Type shared:ProductDetailsPage}" />
+    </BlazorWebView.RootComponents>
+</BlazorWebView>
+
+// ✅ صحيح — RootComponents.Add مع Parameters
+public CommerceProductDetailsFlow(int medicationId, int companyOrgId)
+{
+    InitializeComponent();
+    BlazorView.RootComponents.Add(new RootComponent
+    {
+        Selector = "#app",
+        ComponentType = typeof(ProductDetailsPage),
+        Parameters = new Dictionary<string, object>
+        {
+            { "MedicationId", medicationId },
+            { "CompanyOrgId", companyOrgId },
+            { "OnBack", EventCallback.Factory.Create(this, async () => await Navigation.PopModalAsync()) }
+        }
+    });
+}
 ```
 
 ---
 
-## 🎯 الجزء الرابع: تدفق المستخدمين (User Flow)
+#### ❌ النمط 6: Shared.UI تحاول الوصول إلى MAUI (MainThread، Application.Current)
 
-⚠️ هذا الجزء مُستخلَص من `USERS STEP FLOW`.
+**المشكلة:** `CommerceRootPage.razor` (في Shared.UI) حاولت استدعاء `MainThread.BeginInvokeOnMainThread` و `Application.Current.MainPage.Navigation.PushModalAsync` لفتح صفحة تفاصيل المنتج.
 
-### 4.1 تدفق المندوب (Rep)
+**النتيجة:** `CS0103` (MainThread not found) — لأن `Shared.UI` مشروع مشترك (RCL)، لا يعرف `MAUI`.
 
-الدور: المستخدم الأول في المنصة، يمثل شركة الأدوية.
+**البديل:** استخدم **Bridge Pattern**:
+1. واجهة (`ICommerceNavigationBridge`) في `Shared.UI`.
+2. تطبيق (`CommerceNavigationBridge`) في `Mobile`.
+3. تسجيل في `MauiProgram.cs`.
+4. حقن في `CommerceRootPage.razor`.
 
-| الخطوة | الوصف | المسؤول | الصفحة / API |
-|---|---|---|---|
-| 1 | إنشاء حساب (تسجيل) | المندوب | `RegisterPage` |
-| 2 | تسجيل الدخول | المندوب | `LoginPage` |
-| 3 | الوصول إلى لوحة التحكم | المندوب | `PharmaCompanyDashboardPage` |
-| 4 | إنشاء دعوة (لطبيب أو صيدلي) | المندوب | `POST api/rep/invitations/create` |
-| 5 | مشاركة كود الدعوة مع الطبيب/الصيدلي | المندوب | مشاركة يدوية (واتساب / بريد) |
+**مثال من جلسة Commerce:**
+```csharp
+// 1. Shared.UI/Services/ICommerceNavigationBridge.cs
+public interface ICommerceNavigationBridge
+{
+    Task OpenProductDetailsAsync(int medicationId, int companyOrgId);
+}
 
-🔚 نهاية تدفق المندوب
+// 2. Mobile/Services/CommerceNavigationBridge.cs
+public class CommerceNavigationBridge : ICommerceNavigationBridge
+{
+    public async Task OpenProductDetailsAsync(int medicationId, int companyOrgId)
+    {
+        await MainThread.InvokeOnMainThreadAsync(async () =>
+        {
+            if (Shell.Current != null)
+                await Shell.Current.Navigation.PushAsync(
+                    new CommerceProductDetailsFlow(medicationId, companyOrgId));
+        });
+    }
+}
 
-### 4.2 تدفق الطبيب (Doctor)
+// 3. MauiProgram.cs
+builder.Services.AddSingleton<ICommerceNavigationBridge, CommerceNavigationBridge>();
 
-الدور: يستقبل دعوة من المندوب للاشتراك في برنامج دعم المريض (PSP).
+// 4. CommerceRootPage.razor
+@inject ICommerceNavigationBridge NavigationBridge
 
-| الخطوة | الوصف | المسؤول | الصفحة / API |
-|---|---|---|---|
-| 1 | استلام كود الدعوة من المندوب | الطبيب | يدويًا |
-| 2 | تحميل تطبيق RubikCare | الطبيب | — |
-| 3 | إنشاء حساب (تسجيل) | الطبيب | `RegisterPage` |
-| 4 | تسجيل الدخول | الطبيب | `LoginPage` |
-| 5 | اختيار الدور المهني "طبيب" | الطبيب | `ProfessionalStatusFlow` |
-| 6 | إدخال ترخيص العيادة + رفع مستندات | الطبيب | `ProfessionalLicenseFlow` |
-| 7 | انتظار موافقة المنصة | النظام | `ProfessionalLicenseFlow` (Pending) |
-| 8 | إنشاء عيادة (بعد الموافقة) | الطبيب | `create-organization` (BlazorWebView) |
-| 9 | البحث عن برنامج PSP باستخدام كود الدعوة | الطبيب | `PspEntryPage` |
-| 10 | الاشتراك في البرنامج | النظام | `POST api/psp/entry` |
-| 11 | الوصول إلى لوحة الطبيب | الطبيب | `ClinicDashboardPage` |
-| 12 | (لاحقًا) إنشاء دعوات للمرضى | الطبيب | `POST api/psp/create-invitation` |
-| 13 | ⭐ **توليد كود إحالة ثابت (QR + ShortCode)** | الطبيب | `ClinicProgramReferral` **جديد** |
-
-🔚 نهاية تدفق الطبيب
-
-### 4.3 تدفق الصيدلي (Pharmacist)
-
-الدور: يستقبل دعوة من المندوب، ومسؤول عن تأكيد صرف الأدوية للمرضى.
-
-| الخطوة | الوصف | المسؤول | الصفحة / API |
-|---|---|---|---|
-| 1 | استلام كود الدعوة من المندوب | الصيدلي | يدويًا |
-| 2 | تحميل تطبيق RubikCare | الصيدلي | — |
-| 3 | إنشاء حساب (تسجيل) | الصيدلي | `RegisterPage` |
-| 4 | تسجيل الدخول | الصيدلي | `LoginPage` |
-| 5 | اختيار الدور المهني "صيدلي" | الصيدلي | `ProfessionalStatusFlow` |
-| 6 | إدخال ترخيص الصيدلية + رفع مستندات | الصيدلي | `ProfessionalLicenseFlow` |
-| 7 | انتظار موافقة المنصة | النظام | `ProfessionalLicenseFlow` (Pending) |
-| 8 | إنشاء صيدلية (بعد الموافقة) | الصيدلي | `create-organization` (BlazorWebView) |
-| 9 | البحث عن برنامج PSP باستخدام كود الدعوة | الصيدلي | `PspEntryPage` |
-| 10 | الاشتراك في البرنامج | النظام | `POST api/psp/entry` |
-| 11 | الوصول إلى لوحة الصيدلي | الصيدلي | `PharmacyDashboardPage` |
-| 12 | تأكيد صرف الأدوية للمرضى | الصيدلي | `POST api/dispense/validate-token + confirm` |
-
-🔚 نهاية تدفق الصيدلي
-
-### 4.4 تدفق المريض (Patient)
-
-الدور: يستقبل دعوة من الطبيب (أو كود إحالة ثابت)، ويحصل على الدواء من الصيدلية.
-
-| الخطوة | الوصف | المسؤول | الصفحة / API |
-|---|---|---|---|
-| 1 | استلام كود الدعوة من الطبيب (أو كود الإحالة) | المريض | يدويًا |
-| 2 | تحميل تطبيق RubikCare | المريض | — |
-| 3 | إنشاء حساب (تسجيل) | المريض | `RegisterPage` |
-| 4 | تسجيل الدخول | المريض | `LoginPage` |
-| 5 | إدخال كود الدعوة/الإحالة للبحث عن برنامج PSP | المريض | `PspEntryPage` / `JoinPage` |
-| 6 | الاشتراك في البرنامج | النظام | `POST api/psp/entry` |
-| 7 | ⭐ **تسجيل البيانات المطلوبة (PSPRequiredDataEntry)** | المريض | `PatientRequiredDataEntryPage` **جديد** |
-| 8 | استلام رمز الصرف (TokenCode) | النظام | Response من `api/psp/entry` |
-| 9 | مشاركة رمز الصرف مع الصيدلي | المريض | يدويًا |
-| 10 | فتح صفحة التذكيرات (بعد تأكيد الصرف) | المريض | `MedicationScheduleFlow` |
-| 11 | تعيين موعد الجرعة الأولى | المريض | `MedicationScheduleFlow` |
-| 12 | توليد مواعيد الصرف التالية تلقائيًا | النظام | تلقائيًا |
-| 13 | ⭐ **استلام الوصفة (eRX) من الطبيب** | المريض | `PrescriptionViewPage` **جديد** |
-
-🔚 نهاية تدفق المريض
-
-### 4.5 حالات الدعوة (Invitation Status)
-
-| الحالة | المعنى | وقت الحدوث |
-|---|---|---|
-| PENDING | دعوة مرسلة ولم تُستخدم بعد | بعد إنشاء الدعوة مباشرة |
-| ACCEPTED | تم قبول الدعوة (قبل إكمال التسجيل) | عند استخدام الكود في `PspEntryPage` |
-| USED | تم استخدام الدعوة بالكامل | بعد اكتمال الاشتراك في البرنامج |
-| EXPIRED | انتهت صلاحية الدعوة | بعد 30 يوم من الإنشاء |
-
-### 4.6 قاعدة البيانات — تحديث العلاقات
-
-عند قبول الدعوة (الخطوة 10 للطبيب/الصيدلي)، يتم تحديث:
-
-```sql
--- تحديث الدعوة
-UPDATE PSPInvitations 
-SET Status = 'USED',
-    UsedByUserID = @UserProfileId,
-    UsedDate = GETDATE()
-WHERE InvitationToken = @InvitationCode;
-
--- تحديث المشاركة بربطها بالدعوة
-UPDATE PSPParticipations 
-SET InvitationID = @InvitationId
-WHERE ParticipationID = @ParticipationId;
+private async Task GoToMedicationDetails((int MedicationId, int CompanyOrgId) payload)
+{
+    await NavigationBridge.OpenProductDetailsAsync(payload.MedicationId, payload.CompanyOrgId);
+}
 ```
-
-**ملاحظة**: `PSPInvitation` يحتوي على `[InverseProperty("Invitation")] ResultingParticipation` — العلاقة صحيحة في الكيان، لكن الـ SQL أعلاه لا يستخدمها. يُفضّل الاعتماد على EF Core Navigation بدلاً من SQL المباشر.
-
-### 4.7 المهام الفنية المطلوبة
-
-| المهمة | الوصف | الحالة |
-|---|---|---|
-| تحديث `POST api/psp/entry` | ربط الدعوة بالمشاركة تلقائيًا | ❌ غير مكتمل |
-| تحديث `POST api/rep/invitations/create` | توليد كود دعوة صالح | ✅ مكتمل |
-| إنشاء صفحة `MyNetworkPage` | شبكة المندوب | ✅ مكتمل |
-| إنشاء صفحة `MyInvitationsPage` | سجل الدعوات | ❌ لم تبدأ |
-| تعديل `GetMyDoctors` و`GetMyPharmacies` | قراءة الدعوات ذات الحالة USED | ❌ تحتاج تعديل |
-| ⭐ **إنشاء صفحة `WritePrescriptionPage`** | كتابة eRX متعدد الأدوية | ❌ لم تبدأ |
-| ⭐ **إنشاء صفحة `PatientRequiredDataEntryPage`** | إدخال البيانات المطلوبة | ❌ لم تبدأ |
-| ⭐ **إنشاء `DoctorNotesTab`** | ملاحظات الطبيب | ❌ لم تبدأ |
 
 ---
 
-# [#61] 📘05-PSP — v2.0 (Part 2)
+#### ❌ النمط 7: PushModalAsync بدون Shell.NavBarIsVisible="True"
 
-## 📌 الجزء الخامس: نظام النقاط في PSP (Points Integration)
+**المشكلة:** `CommerceProductDetailsFlow` استخدمت `PushModalAsync` مع `Shell.NavBarIsVisible="False"` (أو بدون `Shell.NavBar`)، فظهرت "صفحة بيضاء" (بدون Header / Breadcrumb / زر رجوع).
 
-### 5.1 نظرة عامة
+**النتيجة:** المستخدم لا يستطيع الرجوع، والصفحة تبدو "مبتورة".
 
-انظر `06-POINTS` (المُدمج من 26).
+**البديل:**
+1. `Shell.NavBarIsVisible="True"` في XAML (أو `PushAsync` بدلاً من `PushModalAsync`).
+2. **أو** إضافة `Header` + `Breadcrumb` داخل المكون نفسه (`ProductDetailsPage.razor`)، لتصبح مستقلة.
 
-نظام النقاط في PSP = 5 أحداث منفذة + 2 مؤجلة (من أصل 7):
+**مثال من جلسة Commerce:**
+```xml
+<!-- ✅ صحيح -->
+<ContentPage ...
+             Shell.NavBarIsVisible="True">
+    <BlazorWebView x:Name="BlazorView" HostPage="wwwroot/index.html" />
+</ContentPage>
 
-| # | الحدث | الموقع | الحالة |
+```
+
+---
+### 1.5 ملخص الأنماط (Quick Reference)
+
+| # | النمط | `ShellContent` (Root) | `Routing.RegisterRoute` (Detail) |
 |---|---|---|---|
-| 1 | PATIENT_INVITED | `PSPEnrollmentService` | ✅ |
-| 2 | PATIENT_ENROLLED | `PSPEnrollmentService` | ✅ |
-| 3 | ERX_CREATED | `PSPEnrollmentService` | ✅ |
-| 4 | DISPENSATION_COMPLETED | `DispenseController` | ✅ |
-| 5 | REFILL_COMPLETED | `DispenseController` | ✅ |
-| 6 | PROGRAM_COMPLETED | مؤجل | ⏸️ |
-| 7 | LAB_TEST_UPLOADED | مؤجل | ⏸️ |
+| 1 | XAML محلي | ✅ | ✅ |
+| 2 | `BlazorWebView` + `<RootComponent>` في XAML (بدون `Parameters`) | ✅ (Singleton) | ✅ |
+| 3 | `BlazorWebView` + `RootComponents.Add` في `OnAppearing` | ❌ | ✅ |
+| 4 | `BlazorWebView` + `RootComponents.Add` في `Constructor` | ⚠️ (يحتاج `Preferences`) | ✅ |
+| 5 | `CurrentUserProfileState` (Singleton) | ✅ (مع النمط 2) | ✅ |
 
-### 5.2 كيف تُمنح النقاط؟
+---
 
+## 🚨 الجزء الثاني: مشكلة Dependency Injection (DI)
+
+### 2.1 المشكلة الجذرية (اكتشاف: 13 يونيو 2026)
+
+`BlazorWebView` في MAUI يستخدم **حاوية DI مستقلة** عن حاوية MAUI الرئيسية. هذا يعني أن الخدمات المسجلة في `MauiProgram.cs` ليست متاحة تلقائياً لمكونات Blazor الداخلية.
+
+**⚠️ لكن — في النمط 5 (الناجح)، `CurrentUserProfileState` يعمل — لأنه Singleton في حاوية MAUI، و`BlazorWebView` في `DashboardFlowPage` يحقن منه (وليس من حاوية Blazor).**
+
+### 2.2 ❌ العرض: فشل صامت للمكون
+
+`@inject` لخدمة غير مسجلة في حاوية Blazor الداخلية، يفشل المكون في التحميل تماماً بدون أي خطأ في Debug Output. الصفحة تظهر فارغة أو لا تظهر على الإطلاق.
+
+**⚠️ تحذير:** هذا الفشل صامت تماماً — لا exception، لا خطأ في الـ Console، لا أي مؤشر. `OnInitializedAsync` لا تُستدعى أبداً.
+
+### 2.3 📊 الخدمات التي تعمل وتفشل مع `@inject`
+
+| الخدمة | `@inject` في Blazor | التفسير |
+|---|---|---|
+| `ISharedTranslationService` | ✅ يعمل | مسجلة في حاوية Blazor |
+| `ISharedTranslationState` | ✅ يعمل | مسجلة في حاوية Blazor |
+| `NavigationManager` | ✅ يعمل | مسجلة تلقائياً من Blazor runtime |
+| `CurrentOrganizationState` | ✅ يعمل | مسجلة في حاوية MAUI (Singleton) — و`BlazorWebView` يحقن منها (في النمط 2). |
+| `CurrentUserProfileState` | ✅ يعمل | مسجلة في حاوية MAUI (Singleton) — و`BlazorWebView` يحقن منها (في النمط 4). |
+| `HttpClient` | ❌ يفشل بصمت | غير مسجلة في حاوية Blazor |
+| `ApiService` | ❌ يفشل بصمت | غير مسجلة في حاوية Blazor |
+
+### 2.4 ✅ الحل: تمرير الخدمات كـ Parameters (أو Singleton)
+
+**في مكون Blazor (.razor):**
+```razor
+@* ❌ خطأ — سيفشل بصمت في MAUI *@
+@inject HttpClient Http
+@inject ApiService ApiService
+
+@* ✅ صحيح — استخدم Parameter *@
+@code {
+    [Parameter] public IApiService? ApiService { get; set; }
+}
+
+@* ✅ صحيح — استخدم Singleton (إذا كان مسجلاً في حاوية MAUI) *@
+@inject CurrentUserProfileState UserState
 ```
-1. حدث (مثل: PATIENT_ENROLLED)
-   ↓
-2. PSPEnrollmentService يستدعي:
-   TryAwardPointsViaOrchestratorAsync
-   ↓
-3. بناء PointsContext:
-   - OrganizationID
-   - CaseID (وليس PatientProfileID — انظر R3)
-   - UserID
-   ↓
-4. IEarnPointsOrchestrator.AwardByCampaignAsync(
-      campaignId: programId,
-      pointSystemTypeID: 1,  // PSP
-      activityTypeId: PATIENT_ENROLLED,
-      context: PointsContext,
-      ...
-   )
-   ↓
-5. لكل Rule نشطة:
-   - Balance + Transaction
+
+**في صفحة MAUI المضيفة (.xaml.cs):**
+```csharp
+private readonly ApiService _apiService;
+
+public MyFlowPage()
+{
+    InitializeComponent();
+    _apiService = IPlatformApplication.Current!.Services
+        .GetRequiredService<ApiService>();
+
+    var parameters = new Dictionary<string, object?>
+    {
+        { "ApiService", (IApiService)_apiService }
+    };
+
+    blazorWebView.RootComponents.Add(new RootComponent
+    {
+        Selector = "#app",
+        ComponentType = typeof(MyBlazorPage),
+        Parameters = parameters
+    });
+}
 ```
 
-**CampaignID = ProgramID** — لأن كل برنامج PSP = حملة تسويقية.
+### 2.5 🔍 Checklist تشخيص مشكلة DI
 
-### 5.3 الكود الفعلي (من `PSPEnrollmentService`)
+عندما يفشل مكون Blazor في التحميل داخل MAUI:
+- هل المكون يعمل في Web Blazor لكن ليس في MAUI؟
+- هل تستخدم `@inject HttpClient`؟ → احذفه فوراً.
+- هل تستخدم `@inject` لأي خدمة غير `ISharedTranslation*` أو `NavigationManager` أو `Current...State` (Singleton)؟
+- هل `OnInitializedAsync` لا تُستدعى (لا يظهر Debug Output)؟
+- هل الصفحة فارغة تماماً بدون أي خطأ؟
+
+إذا أجبت بنعم على أي سؤال، استبدل `@inject` بـ `[Parameter]` أو `Singleton`.
+
+---
+
+## 🚨 الجزء الثالث: تسجيل صفحات BlazorWebView — قاعدة ذهبية
+
+### 3.1 الخطوة 1: `MauiProgram.cs`
+
+**⚠️ `AddTransient` للصفحات الفرعية (`Routing.RegisterRoute`) — وليس للصفحات الرئيسية (`ShellContent`) — قد يسبب انهيار Android عند Splash.**
+
+**لصفحات `ShellContent`:** يمكن `AddTransient<PageName>()` (آمن).
+**لصفحات `Routing.RegisterRoute`:** يمكن `AddTransient<PageName>()` (آمن — لأنها تُنشأ عند الطلب).
+
+### 3.2 الخطوة 2: `AppShell.xaml.cs`
 
 ```csharp
-// في PSPEnrollmentService
-private async Task TryAwardPointsViaOrchestratorAsync(
-    int patientId, int programId, int activityTypeId,
-    string referenceType, int referenceId, int? currentUserId)
+Routing.RegisterRoute("PageName", typeof(PageName));
+```
+
+### 3.3 نمط XAML الصحيح
+
+**للصفحات الرئيسية (النمط 2):**
+```xml
+<b:BlazorWebView x:Name="blazorWebView" HostPage="wwwroot/index.html">
+    <b:BlazorWebView.RootComponents>
+        <b:RootComponent Selector="#app" ComponentType="{x:Type shared:MyPage}" />
+    </b:BlazorWebView.RootComponents>
+</b:BlazorWebView>
+```
+
+**للصفحات الفرعية (النمط 3):**
+```xml
+<b:BlazorWebView x:Name="blazorWebView" HostPage="wwwroot/index.html" />
+```
+(بدون `<RootComponents>` — نضيفها في `OnAppearing`).
+
+### 3.4 ⚠️ الخطأ الشائع: `jumpToEnd`
+
+إذا ظهر خطأ `No view found for id 0x7f0800ff (jumpToEnd)`:
+- احذف `AddTransient<PageName>()` من `MauiProgram.cs` (إذا كان `ShellContent`).
+- قم بـ Clean + حذف `bin/obj` + إعادة بناء.
+
+---
+
+## 🚨 الجزء الرابع: قيود RootComponents في BlazorWebView
+
+### 4.1 ⚠️ السبب الجذري
+
+`BlazorWebView` على Windows يستخدم WebView2 كمحرك. هذا المحرك يربط الـ DOM بمكونات Blazor فقط أثناء دورة حياة الكونستركتور للـ `ContentPage` المضيفة.
+
+`RootComponents.Clear()` ثم `Add` يعمل بنجاح في **بعض** السيناريوهات — خاصة عند استخدام `RootComponents.Add` في `OnAppearing` (للصفحات الفرعية) أو `Constructor` (للصفحات الرئيسية).
+
+**⚠️ لكن** — `RootComponents.Add` في `OnAppearing` **لا يعمل** للصفحات الرئيسية (`ShellContent`) — لأن `BlazorWebView` بدأ بالفعل (المكون لا يُعاد تحميله).
+
+### 4.2 ❌ أنماط فاشلة موثقة
+
+```csharp
+// ❌ النمط 1: async في الكونستركتور
+public MyFlowPage()
+{
+    InitializeComponent();
+    _ = LoadAndShowAsync(); // Task تنتهي بعد الكونستركتور — لن يعمل
+}
+
+// ❌ النمط 2: RootComponents.Add في OnAppearing للصفحات الرئيسية
+protected override void OnAppearing()
+{
+    base.OnAppearing();
+    blazorWebView.RootComponents.Add(...); // ← لن يُعاد تحميل المكون
+}
+
+// ❌ النمط 3: Clear ثم Add بعد تحميل البيانات (بدون CustomBlazorWebView)
+private async Task RefreshWithData()
+{
+    var data = await apiService.GetDataAsync();
+    blazorWebView.RootComponents.Clear();
+    blazorWebView.RootComponents.Add(...); // ← لن يُعاد تحميل المكون
+}
+```
+
+### 4.3 ✅ النمط الصحيح (للصفحات الفرعية)
+
+```csharp
+public MyFlowPage()
+{
+    InitializeComponent();
+    _apiService = IPlatformApplication.Current!.Services
+        .GetRequiredService<ApiService>();
+
+    LoadBlazorComponent(); // ⭐ في Constructor (للصفحات الفرعية)
+}
+
+protected override void OnAppearing()
+{
+    base.OnAppearing();
+    // ⭐ لا نضيف RootComponents هنا (للصفحات الرئيسية)
+}
+```
+
+**⚠️ للصفحات الرئيسية:** استخدم النمط 4 (`CurrentUserProfileState` + `<RootComponent>` في XAML).
+
+---
+
+## 🚨 الجزء الخامس: فخ `[QueryProperty]` مع Nullable Types
+
+### 5.1 ⚠️ المشكلة (اكتشاف: 8 أكتوبر 2026)
+
+عند استخدام `[QueryProperty]` مع خاصية من نوع `int?` (أو أي `Nullable<T>`)، يفشل MAUI Shell في تحويل القيمة القادمة (String) إلى `Nullable<int>` — ويظهر الخطأ:
+```
+System.InvalidCastException: Invalid cast from 'System.String' to 
+'System.Nullable`1[[System.Int32, System.Private.CoreLib, ...]]'.
+```
+
+### 5.2 🎯 السبب الجذري
+
+`[QueryProperty]` يستخدم `Convert.ChangeType` داخلياً، وهذا لا يدعم `Nullable<T>`. عندما يمرر Shell القيمة "1" (String) إلى خاصية `int?`، يفشل التحويل.
+
+### 5.3 ❌ الكود الفاشل
+```csharp
+[QueryProperty(nameof(ProgramId), "programId")]
+public partial class PointsDashboardPage : ContentPage
+{
+    public int? ProgramId { get; set; }   // ❌ يفشل بـ InvalidCastException
+}
+```
+
+### 5.4 ✅ الحل: استقبل كـ String ثم حوّل يدوياً
+```csharp
+[QueryProperty(nameof(ProgramIdRaw), "programId")]
+public partial class PointsDashboardPage : ContentPage
+{
+    public string? ProgramIdRaw { get; set; }
+    private int? ProgramId => int.TryParse(ProgramIdRaw, out var id) ? id : null;
+}
+```
+
+### 5.5 📌 القاعدة الذهبية
+
+> `[QueryProperty]` يستخدم `Convert.ChangeType` داخلياً، وهذا لا يدعم `Nullable<T>`. **دائماً استقبل QueryProperty كـ `string`، ثم حوّل يدوياً.**
+
+### 5.6 📊 جدول: أنواع Property ونتائجها
+
+| النوع | يعمل؟ | ملاحظات |
+|---|---|---|
+| `string` | ✅ | الأكثر أماناً — استخدمه دائماً |
+| `string?` | ✅ | يعمل (مع nullable reference types) |
+| `int` (non-nullable) | ✅ | يعمل، لكن يفشل إذا كانت القيمة فارغة |
+| `int?` (nullable) | ❌ | يفشل بـ InvalidCastException |
+| `DateTime?` | ❌ | نفس المشكلة |
+| `bool` (non-nullable) | ✅ | يعمل |
+| `bool?` (nullable) | ❌ | نفس المشكلة |
+
+### 5.7 ⚠️ فخ إضافي: `[QueryProperty]` يُعيَّن بعد Constructor
+
+**المشكلة:**
+```
+Constructor (LoadBlazorComponent) → QueryProperty setter → OnAppearing
+                                       ↑
+                          ⚠️ يُعيَّن هنا، بعد أن يكون المكون قد بُني
+```
+
+**الحل:** انقل `LoadBlazorComponent()` إلى `OnAppearing` (مع flag `_componentLoaded`):
+```csharp
+private bool _componentLoaded = false;
+
+protected override void OnAppearing()
+{
+    base.OnAppearing();
+    if (!_componentLoaded)
+    {
+        LoadBlazorComponent();
+        _componentLoaded = true;
+    }
+}
+```
+
+### 5.8 📊 متى تستخدم `IQueryAttributable` بدلاً من `[QueryProperty]`؟
+
+| الحالة | `[QueryProperty]` | `IQueryAttributable` |
+|---|---|---|
+| 1-2 معاملات | ✅ مُوصى | يعمل |
+| 3+ معاملات | ❌ وميض | ✅ مُوصى |
+| `Nullable<T>` | ❌ يحتاج حيلة (string) | ✅ يدعم أصلاً |
+| إعادة إنشاء المكون | لا | لا |
+| LoadBlazorComponent في Constructor | ✅ | يحتاج `_queryReady` flag |
+| ترتيب الاستدعاء | Setter في Constructor | ApplyQueryAttributes (بعد Constructor، قبل OnAppearing) |
+
+**القاعدة:**
+- `[QueryProperty]` للبساطة (1-2 معاملات، string).
+- `IQueryAttributable` للمرونة (3+ معاملات، Nullable<T>، تحكم كامل).
+
+
+## 🎯 الجزء السادس: MAUI + BlazorWebView — النمط الذهبي (Golden Pattern)
+
+> **الإصدار:** 3.0 (أعيدت صياغته في 28 نوفمبر 2026 — بناءً على جلسة إصلاح "الصفحة البيضاء")
+> **الحالة:** ✅ مرجع إلزامي لكل صفحة جديدة.
+> **الجمهور:** فريق التطوير + AI Assistants.
+
+### 6.0 لماذا هذا القسم موجود؟ (Why This Matters)
+
+**المشكلة:** "الصفحة البيضاء الفارغة" (Blank White Screen) هي **أكثر مشكلة تكراراً** في مشروع RubikCare عند تطوير صفحات MAUI تستضيف مكونات Blazor. الأعراض:
+- الصفحة تُفتح، لكنها فارغة تماماً.
+- لا أخطاء في الـ UI، ولا في الكونسول (استثناء صامت).
+- المطور يقضي ساعات في التشخيص بلا نتيجة.
+
+**التكلفة:** جلسات كاملة تُهدر في تكرار نفس الخطأ. هذا القسم يهدف إلى **منع حدوث المشكلة من الأساس** بتوفير "نمط ذهبي" واضح وقاعدة صارمة.
+
+**الحل:** اتباع هذا القسم حرفياً. إذا اتبعت "النمط الذهبي" (§6.3)، لن تواجه "الصفحة البيضاء" أبداً.
+
+---
+
+### 6.1 القاعدة الذهبية (The Golden Rule) — سطر واحد يحل 90% من المشاكل
+
+> ⭐ **أي صفحة MAUI تستضيف مكون Blazor يجب أن:**
+> 1. تنفذ **`IQueryAttributable`** (وليس `[QueryProperty]`).
+> 2. تمرر **كل الخدمات والـ Callbacks** كـ `[Parameter]` (وليس `@inject`).
+> 3. تستدعي **`LoadBlazorComponent()` داخل `ApplyQueryAttributes`** (وليس في `set` أو `Constructor`).
+> 4. تعرّف **`[Parameter] public IApiService? ApiService`** في المكون (وليس `@inject IApiService`).
+
+**هذه القاعدة الأربعية تُغني عن كل الأنماط الأخرى في 90% من الحالات.**
+
+---
+
+### 6.2 خريطة القرار (Decision Map) — أي نمط تستخدم؟
+
+```
+هل الصفحة "رئيسية" (ShellContent) أم "فرعية" (Routing.RegisterRoute)؟
+│
+├── رئيسية (ShellContent)
+│   ├── هل تحتاج UserProfileId فقط؟ 
+│   │   └── ✅ النمط 1: CurrentUserProfileState (Singleton) + <RootComponent> في XAML
+│   │
+│   ├── هل تحتاج Parameters ديناميكية؟
+│   │   └── ❌ ممنوع: BlazorWebView + ShellContent + Parameters ديناميكية
+│   │       (استخدم XAML محلي بدلاً من Blazor)
+│   │
+│   └── هل لا تحتاج Parameters أصلاً؟
+│       └── ✅ النمط 2: <RootComponent> في XAML (بدون Parameters)
+│
+└── فرعية (Routing.RegisterRoute)
+    ├── هل تحتاج Parameters؟ (الأكثر شيوعاً)
+    │   └── ✅ النمط 3: IQueryAttributable + RootComponents.Add (النمط الذهبي)
+    │
+    ├── هل تحتاج التفاعل مع المكون بعد التحميل (FilePicker, Camera)؟
+    │   └── ✅ النمط 4: IQueryAttributable + OnComponentReady (هجين)
+    │
+    └── هل تحتاج بيانات محلية فورية (Cache) + تحديث شفاف؟
+        └── ✅ النمط 5: Constructor + Refresh in Background
+```
+
+**القاعدة:** إذا كنت في شك، استخدم **النمط 3** (النمط الذهبي). إنه يعمل في 95% من الحالات.
+
+---
+
+### 6.3 النمط الذهبي (Pattern #3) — للحالات الفرعية مع Parameters
+
+#### 6.3.1 مثال كامل (Do ✅)
+
+**الحاوية (`ClinicVisitConfirmPage.xaml.cs`):**
+```csharp
+using Microsoft.AspNetCore.Components.WebView.Maui;
+using RubikCare.Shared.UI.Components.Clinic;
+using RubikCare.Mobile.Infrastructure.Services;
+using RubikCare.Shared.UI.Services;
+using System.Diagnostics;
+
+namespace RubikCare.Mobile.Features.Clinic.Views;
+
+public partial class ClinicVisitConfirmPage : ContentPage, IQueryAttributable
+{
+    private int _clinicId;
+    private readonly IApiService _apiService;
+
+    public ClinicVisitConfirmPage()
+    {
+        InitializeComponent();
+        _apiService = IPlatformApplication.Current!.Services.GetRequiredService<IApiService>();
+    }
+
+    public void ApplyQueryAttributes(IDictionary<string, object> query)
+    {
+        if (query.TryGetValue("clinicId", out var idObj) && int.TryParse(idObj?.ToString(), out var id))
+            _clinicId = id;
+
+        LoadBlazorComponent();
+    }
+
+    private void LoadBlazorComponent()
+    {
+        blazorWebView.RootComponents.Clear();
+        blazorWebView.RootComponents.Add(new RootComponent
+        {
+            Selector = "#app",
+            ComponentType = typeof(ClinicVisitConfirmView),
+            Parameters = new Dictionary<string, object?>
+            {
+                { "ClinicId", _clinicId },
+                { "ApiService", _apiService },
+                { "OnBack", SafeAsyncAction(GoBackAsync) }
+            }
+        });
+    }
+
+    private Action SafeAsyncAction(Func<Task> asyncAction) =>
+        () => MainThread.BeginInvokeOnMainThread(async () =>
+        {
+            try { await asyncAction(); }
+            catch (Exception ex) { Debug.WriteLine($"❌ [SafeAsyncAction] {ex}"); }
+        });
+
+    protected override void OnDisappearing()
+    {
+        base.OnDisappearing();
+        try { blazorWebView.RootComponents.Clear(); } catch { }
+    }
+}
+```
+
+**المكون (`ClinicVisitConfirmView.razor`):**
+```razor
+@code {
+    [Parameter] public int ClinicId { get; set; }
+    [Parameter] public IApiService? ApiService { get; set; }
+    [Parameter] public Action? OnBack { get; set; }
+
+    // ❌ لا @inject IApiService هنا!
+}
+```
+
+#### 6.3.2 ما يجعله "ذهبيّاً":
+| العنصر | لماذا؟ |
+|---|---|
+| `IQueryAttributable` | يضمن استدعاء `ApplyQueryAttributes` **بعد** اكتمال `InitializeComponent()`. |
+| `LoadBlazorComponent()` داخل `ApplyQueryAttributes` | يضمن أن `blazorWebView` جاهز في الشجرة البصرية. |
+| `[Parameter] IApiService` | يتجنب فشل `@inject` الصامت في BlazorWebView. |
+| `SafeAsyncAction` | يتجنب `(Action)AsyncMethod` المباشر (الذي قد يفشل صامتاً). |
+| `RootComponents.Clear()` في `OnDisappearing` | يمنع تسرب الذاكرة. |
+
+---
+
+### 6.4 Anti-Pattern — لا تستخدمه أبداً (Don't ❌)
+
+```csharp
+// ❌ خطأ 1: QueryProperty مع LoadComponent في set
+[QueryProperty(nameof(ClinicId), "clinicId")]
+public partial class ClinicVisitConfirmPage : ContentPage
+{
+    private int _clinicId;
+    public int ClinicId
+    {
+        get => _clinicId;
+        set { _clinicId = value; LoadBlazorComponent(); }  // ❌ قبل InitializeComponent
+    }
+}
+
+// ❌ خطأ 2: @inject IApiService في المكون
+@inject IApiService ApiService   // ❌ قد يفشل صامتاً
+
+// ❌ خطأ 3: تمرير Parameter لمكون لا يعرّفه
+Parameters = new() { { "ApiService", _apiService } }  // ❌ إذا لم يكن [Parameter]
+```
+
+**لماذا يفشل كل منها؟**
+
+| الخطأ | النتيجة |
+|---|---|
+| `[QueryProperty]` | قد يُستدعى **قبل** اكتمال `InitializeComponent()` → `blazorWebView` غير موجود → صفحة بيضاء. |
+| `@inject IApiService` | قد يفشل صامتاً إذا لم تكن الخدمة مسجلة في `MauiAppBuilder.Services` → استثناء غير معالج → صفحة بيضاء. |
+| تمرير Parameter غير معرّف | `RootComponents.Add` يرفضه → استثناء صامت → صفحة بيضاء. |
+
+---
+
+### 6.5 بقية الأنماط (Patterns #1, #2, #4, #5) — كمرجع
+
+> **ملاحظة:** هذه الأنماط تُستخدم في حالات محددة. **لا تستخدمها إلا إذا كنت متأكداً** أن "النمط الذهبي" (#3) لا يناسب حالتك.
+
+#### 6.5.1 النمط 1 — CurrentUserProfileState + `<RootComponent>` في XAML (للصفحات الرئيسية)
+**متى:** صفحة `ShellContent` تحتاج `UserProfileId` فقط (بدون Parameters ديناميكية).
+**مثال:** `DashboardFlowPage.xaml`.
+**المفتاح:** `CurrentUserProfileState` Singleton + `SetUserProfile` في `Constructor` (قبل `OnInitializedAsync`).
+**⚠️ لا تستخدمه مع Parameters ديناميكية.**
+
+#### 6.5.2 النمط 2 — `<RootComponent>` في XAML بدون Parameters (للصفحات الرئيسية البسيطة)
+**متى:** صفحة `ShellContent` لا تحتاج Parameters.
+**مثال:** `ClinicDashboardPage.xaml`.
+**⚠️ لا تستخدمه مع Parameters ديناميكية.**
+
+#### 6.5.3 النمط 4 — IQueryAttributable + OnComponentReady (للتفاعل MAUI ↔ Component)
+**متى:** تحتاج استدعاء methods على المكون (مثل FilePicker).
+**مثال:** `ProfessionalLicenseFlow`.
+**المفتاح:** `OnComponentReady` Callback يُستدعى من `OnAfterRender(firstRender)` في المكون.
+**مثال مرجعي:** §6.4 في النسخة القديمة.
+
+#### 6.5.4 النمط 5 — Constructor + Refresh in Background (مع Cache)
+**متى:** تحتاج عرض بيانات محلية فوراً + تحديث شفاف.
+**مثال:** `ProfessionalStatusFlow`.
+**⚠️ يستخدم static variables — ليس نظيفاً معمارياً.**
+
+---
+
+### 6.6 Checklist — قبل كتابة أي صفحة جديدة
+
+- [ ] حددت نوع الصفحة: **رئيسية** (ShellContent) أم **فرعية** (Routing.RegisterRoute)؟
+- [ ] استخدمت **النمط المناسب** من خريطة القرار (§6.2).
+- [ ] الحاوية تنفذ **`IQueryAttributable`** (وليس `[QueryProperty]`).
+- [ ] `LoadBlazorComponent()` تُستدعى داخل **`ApplyQueryAttributes`** (وليس `set` أو `Constructor`).
+- [ ] المكون يعرّف **`[Parameter] public IApiService? ApiService`**.
+- [ ] المكون **لا** يستخدم `@inject IApiService`.
+- [ ] `OnBack` يُمرر كـ **`SafeAsyncAction`** (وليس `(Action)AsyncMethod` مباشرة).
+- [ ] `OnDisappearing` يستدعي **`RootComponents.Clear()`**.
+- [ ] `index.html` يحتوي **`<div id="app"></div>`**.
+- [ ] المكون في Assembly موجود في **`AdditionalAssemblies`** (في `App.razor`).
+
+---
+
+### 6.7 Troubleshooting — "الصفحة البيضاء الفارغة"
+
+| # | السبب المحتمل | كيف تتحقق | الحل |
+|---|---|---|---|
+| 1 | `[QueryProperty]` بدلاً من `IQueryAttributable` | افحص `Page.xaml.cs` | استبدل بـ `IQueryAttributable` |
+| 2 | `@inject IApiService` في المكون | افحص `View.razor` | احذفه وأضف `[Parameter]` |
+| 3 | `ApiService` Parameter غير معرّف | افحص `@code` في المكون | أضف `[Parameter] public IApiService? ApiService` |
+| 4 | `index.html` بدون `<div id="app">` | افحص `wwwroot/index.html` | أضفه |
+| 5 | المكون في Assembly غير موجود في `AdditionalAssemblies` | افحص `App.razor` | أضف `@using` + `AdditionalAssemblies` |
+| 6 | `LoadBlazorComponent()` في `Constructor` (بدون Parameters) | افحص `Page.xaml.cs` | انقلها إلى `ApplyQueryAttributes` |
+| 7 | `(Action)AsyncMethod` مباشرة (بدون `SafeAsyncAction`) | افحص `Parameters` | استخدم `SafeAsyncAction` |
+
+**ترتيب الاحتمالية:** #1 و #2 و #3 هي الأكثر شيوعاً (تُغطي 90% من الحالات).
+
+---
+
+### 6.8 جدول مرجعي سريع (Quick Reference Table)
+
+| # | النمط | `ShellContent` (Root) | `Routing.RegisterRoute` (Detail) | يعمل؟ | متى تستخدمه؟ |
+|---|---|---|---|---|---|
+| 1 | `CurrentUserProfileState` + `<RootComponent>` في XAML | ✅ | ✅ | ✅ | صفحة رئيسية + UserProfileId فقط |
+| 2 | `<RootComponent>` في XAML (بدون Parameters) | ✅ | ✅ | ✅ | صفحة رئيسية بسيطة |
+| **3** | **`IQueryAttributable` + `RootComponents.Add`** | ❌ | ✅ | ✅ | **افتراضي للصفحات الفرعية** |
+| 4 | `IQueryAttributable` + `OnComponentReady` | ❌ | ✅ | ✅ | تفاعل MAUI ↔ Component |
+| 5 | `Constructor` + `Refresh in Background` | ⚠️ | ✅ | ✅ | بيانات محلية + تحديث شفاف |
+| 6 | `[QueryProperty]` + `LoadComponent` في `set` | ❌ | ⚠️ | ⚠️ | **ممنوع** (يسبب وميض + صفحة بيضاء) |
+| 7 | `@inject IApiService` في المكون | ❌ | ❌ | ❌ | **ممنوع تماماً** |
+
+**⭐ القاعدة:** `ShellContent` (Root) → النمط 1 أو 2. **`Routing.RegisterRoute` (Detail) → النمط 3 (الافتراضي).**
+
+---
+
+### 6.9 أمثلة مرجعية (Reference Examples) — للمراجعة
+
+| الصفحة | النمط | الملف |
+|---|---|---|
+| `ClinicVisitConfirmPage` | #3 | `Features/Clinic/Views/ClinicVisitConfirmPage.xaml.cs` |
+| `EnrollClinicReferralFlow` | #3 | `Features/Clinic/Views/EnrollClinicReferralFlow.xaml.cs` |
+| `ProgramDetailsPage` | #4 | `Features/Program/Views/ProgramDetailsPage.xaml.cs` |
+| `DashboardFlowPage` | #1 | `Features/PublicUser/Views/DashboardFlowPage.xaml` |
+| `ClinicDashboardPage` | #2 | `Features/Clinic/Views/ClinicDashboardPage.xaml` |
+| `ProfessionalLicenseFlow` | #4 | `Features/Professional/Views/ProfessionalLicenseFlow.xaml.cs` |
+
+**عند كتابة صفحة جديدة، راجع أقرب مثال مشابه، واتبعه حرفياً.**
+
+---
+
+
+## 🎯 الجزء السابع: شجرة القرار — أي نمط أستخدم؟
+
+### 7.0 شجرة القرار المحدثة (Proven — 5 نوفمبر 2026)
+
+```
+هل الصفحة رئيسية (ShellContent)؟
+├── نعم
+│   ├── هل تحتاج Parameters ديناميكية (UserProfileId, etc.)؟
+│   │   ├── نعم → ❌ لا تستخدم BlazorWebView.
+│   │   │         → ✅ استخدم XAML محلي (النمط 1).
+│   │   │         → أو ✅ استخدم CurrentUserProfileState (Singleton) + <RootComponent> في XAML (النمط 7).
+│   │   └── لا → ✅ يمكن استخدام BlazorWebView + <RootComponent> في XAML (النمط 2).
+│   └── (في كل الحالات) → الأفضل: XAML محلي أو النمط 7.
+│
+└── لا (Routing.RegisterRoute)
+    ├── هل تحتاج Parameters ديناميكية؟
+    │   ├── نعم
+    │   │   ├── هل Parameter واحد أو اثنان؟ (string) → النمط 2 (QueryProperty + Setter).
+    │   │   ├── هل 3+ Parameters؟ → النمط 5 (IQueryAttributable + OnComponentReady).
+    │   │   └── (أو) → النمط 8 (RootComponents.Add في ApplyQueryAttributes).
+    │   └── لا
+    │       ├── هل تحتاج Cache؟ → النمط 3 (Constructor + Refresh).
+    │       ├── هل تحتاج تفاعل MAUI ↔ Component؟ → النمط 4 (Constructor + OnComponentReady).
+    │       └── لا → النمط 1 (Constructor + LoadComponent).
+    └── (في كل الحالات) → لا تستخدم <RootComponent> في XAML (بدون Parameters) للصفحات الفرعية.
+```
+
+### 7.1 جدول ملخص لاختيار النمط
+
+| السيناريو | النمط المُوصى به | ملاحظات |
+|---|---|---|
+| صفحة رئيسية (`ShellContent`) بدون Parameters | النمط 2 (`BlazorWebView` + `<RootComponent>` في XAML) | يعتمد على Singleton. |
+| صفحة رئيسية (`ShellContent`) مع Singleton (UserProfileId) | النمط 7 (`CurrentUserProfileState` + `<RootComponent>` في XAML) | **النمط الناجح** (4-5 نوفمبر). |
+| صفحة رئيسية (`ShellContent`) بدون BlazorWebView | النمط 1 (XAML محلي) | الأبسط. |
+| صفحة فرعية بمعامل واحد أو اثنين (string) | النمط 2 (QueryProperty + Setter) | يعمل بثبات. |
+| صفحة فرعية ببيانات Cache محلية | النمط 3 (Constructor + Refresh) | تجربة مستخدم ممتازة. |
+| صفحة فرعية بتفاعل MAUI → Component | النمط 4 (Constructor + OnComponentReady) | يحتاج public methods. |
+| صفحة فرعية بـ 3+ Parameters | النمط 5 (IQueryAttributable + OnComponentReady) | انظر § 8. |
+| صفحة فرعية بـ Nullable QueryProperty | النمط 2 مع string | استقبل كـ string، حوّل يدوياً. |
+| صفحة فرعية تحتاج `Parameters` ديناميكية | النمط 8 (`RootComponents.Add` في `ApplyQueryAttributes`) | **النمط الناجح** (MedicineGuideFlow). |
+
+---
+
+## 🔀 الجزء الثامن: النمط 5 (هجين) — `IQueryAttributable` + `OnComponentReady` + `OnAppearing`
+
+*(هذا الجزء يحتوي على تفاصيل النمط 5 — كما في الإصدار السابق. لم يتغير.)*
+
+### 8.1 متى يُستخدم
+- عند وجود 3+ معاملات (تجنب النمط 2).
+- عند الحاجة لتحديث المكون بعد وصول المعاملات.
+- عند الرغبة في تجنب الوميض.
+
+### 8.2 البنية الكاملة
+*(كما في النمط 5 — § 6.5)*
+
+### 8.3 المزايا
+- ✅ يستقبل كل المعاملات مرة واحدة (لا وميض).
+- ✅ لا يعيد تحميل المكون (لا طلبات API متكررة).
+- ✅ يحافظ على State المكون.
+- ✅ تم التحقق منه في المشروع (8 أكتوبر 2026 — `ProgramDetailsPage`).
+
+### 8.4 العيوب
+- ⚠️ يحتاج public method على المكون (`LoadProgram`).
+- ⚠️ يحتاج flag `_queryReady` لمنع الاستدعاء قبل وصول الـ Query.
+
+---
+
+## 🚨 الجزء التاسع: تجنّب `Action<T>` مع async
+
+*(هذا الجزء يحتوي على تفاصيل `Action<T>` مع async — كما في الإصدار السابق. لم يتغير.)*
+
+### 9.1 ⚠️ المشكلة (اكتشاف: 8 أكتوبر 2026)
+
+تمرير `async lambda` كـ `Action<int>` يُخفي الـ Exception الحقيقي ويحوّله إلى `JavaProxyThrowable` المبهم على Android — مما يجعل التشخيص شبه مستحيل.
+
+### 9.2 ❌ النمط الخاطئ
+```csharp
+{ "OnGoToPointsDashboard", new Action<int>(async (programId) =>
+    await GoToPointsDashboardAsync(programId)) },
+```
+
+**النتيجة:** عند حدوث Exception في `GoToPointsDashboardAsync`، يظهر:
+```
+Android.Runtime.JavaProxyThrowable
+  HResult=0x80131500
+  Source=<Cannot evaluate the exception source>
+  StackTrace:
+<Cannot evaluate the exception stack trace>
+```
+لا يخبرك بشيء.
+
+### 9.3 ✅ النمط الصحيح
+
+#### الحل 1: لفّ مباشر
+```csharp
+{ "OnGoToPointsDashboard", new Action<int>((programId) =>
+{
+    MainThread.BeginInvokeOnMainThread(async () =>
+    {
+        try
+        {
+            await GoToPointsDashboardAsync(programId);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"❌ [OnGoToPointsDashboard] {ex}");
+        }
+    });
+}) },
+```
+
+#### الحل 2: Helper Method (مُوصى به)
+```csharp
+private Action<T> SafeAsyncAction<T>(Func<T, Task> asyncAction) =>
+    (arg) => MainThread.BeginInvokeOnMainThread(async () =>
+    {
+        try { await asyncAction(arg); }
+        catch (Exception ex) { Debug.WriteLine($"❌ [SafeAsyncAction] {ex}"); }
+    });
+
+private Action SafeAsyncAction(Func<Task> asyncAction) =>
+    () => MainThread.BeginInvokeOnMainThread(async () =>
+    {
+        try { await asyncAction(); }
+        catch (Exception ex) { Debug.WriteLine($"❌ [SafeAsyncAction] {ex}"); }
+    });
+
+// الاستخدام:
+{ "OnGoToPointsDashboard", SafeAsyncAction<int>(GoToPointsDashboardAsync) },
+{ "OnGoBack", SafeAsyncAction(GoBackAsync) },
+```
+
+### 9.4 📌 القاعدة الذهبية
+
+> كل `Action<T>` يحتوي على `async` يجب أن:
+> 1. يُلفّ في `MainThread.BeginInvokeOnMainThread`.
+> 2. يحتوي على `try/catch` صريح.
+> 3. يطبع الـ Exception الكامل (`ex.ToString()`).
+
+هذا يحوّل `JavaProxyThrowable` المبهم إلى Exception واضح.
+
+### 9.5 📊 مقارنة: قبل/بعد
+
+| قبل | بعد |
+|---|---|
+| `JavaProxyThrowable` فقط | Exception حقيقي مع Stack Trace كامل |
+| لا نعرف السبب | نعرف السطر والسبب |
+| ساعات من التشخيص | دقائق من التشخيص |
+
+---
+
+## 🚨 الجزء العاشر: `CustomBlazorWebView` (بعد التعديل)
+
+### 10.1 📌 ما هو؟
+
+`CustomBlazorWebView` هو Wrapper مخصص حول `BlazorWebView` مُسجَّل في `RubikCare.Mobile.Controls`.
+
+### 10.2 📌 لماذا؟
+
+- يحل مشكلة `jumpToEnd` على Android.
+- يوفر `OnPageAppearing()` method.
+- يعالج `IBackButtonHandler` تلقائياً.
+- **⚠️ لكنه يعيد تعيين `RootComponents` (`ForceRender`) — مما يسبب مشاكل للصفحات الرئيسية.**
+
+### 10.3 📌 الاستخدام القياسي (بعد التعديل)
+
+**⚠️ `CustomBlazorWebView` — استخدمه فقط للصفحات الفرعية (التي تعمل مع `RootComponents.Add` في `OnAppearing`).**
+
+```xml
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:controls="clr-namespace:RubikCare.Mobile.Controls"
+             x:Class="RubikCare.Mobile.Features.MyFlow">
+    <controls:CustomBlazorWebView x:Name="blazorWebView" HostPage="wwwroot/index.html" />
+</ContentPage>
+```
+
+### 10.4 ⚠️ القاعدة المحدثة (بعد 4-5 نوفمبر 2026)
+
+- **للصفحات الرئيسية (`ShellContent`):** استخدم `BlazorWebView` العادي (وليس `CustomBlazorWebView`) + `<RootComponent>` في XAML. **أو** استخدم `CustomBlazorWebView` مع `CurrentUserProfileState` (النمط 7) — **لكن `CustomBlazorWebView` قد يسبب مشاكل مع `RootComponent` في XAML.**
+- **للصفحات الفرعية (`Routing.RegisterRoute`):** استخدم `CustomBlazorWebView` (كما كان) — يعمل.
+- **⚠️ `CustomBlazorWebView` + `<RootComponent>` في XAML = خطر** (ForceRender قد يمسح المكون).
+
+**توصيتي:** **للصفحات الرئيسية:** `BlazorWebView` العادي (وليس `Custom`). **للصفحات الفرعية:** `CustomBlazorWebView` (كما كان).
+
+---
+
+## 🔴 الجزء الحادي عشر: تشخيص الصفحة الفارغة (بعد التعديل)
+
+### 11.0 مقدمة: الفشل الصامت في `ShellContent`
+
+**بعد جلسة 4-5 نوفمبر 2026، أصبح التشخيص أكثر دقة.** إذا كانت الصفحة الرئيسية (`ShellContent`) بيضاء (بدون أي خطأ)، فالمشكلة على الأرجح في **أحد هذه الأسباب**:
+
+| # | السبب | الدليل |
+|---|---|---|
+| 1 | `RootComponents.Add` في `OnAppearing` (لصفحة `ShellContent`) — لا يعيد تحميل المكون. | `Console.WriteLine` في `OnInitializedAsync` لا يظهر. |
+| 2 | `CurrentUserProfileState` غير مملوء (نسختان أو `SetUserProfile` لم يُستدعى). | `Console.WriteLine` يظهر `UserProfileId=0`. |
+| 3 | `@inject` لخدمة غير مسجلة → فشل صامت. | `OnInitializedAsync` لا تُستدعى. |
+| 4 | `CustomBlazorWebView` (ForceRender) يمسح `RootComponents`. | المكون يظهر لثم يختفي. |
+
+### 11.1 الخطوة 1: تأكد أن MAUI layer يعمل
+
+```csharp
+public MyFlowPage()
+{
+    InitializeComponent();
+    Debug.WriteLine("🔵 Constructor START");
+    Debug.WriteLine($"🟢 RootComponents: {blazorWebView.RootComponents.Count}");
+}
+```
+
+| النتيجة | المشكلة |
+|---|---|
+| لا يظهر "Constructor START" | مشكلة في تسجيل الصفحة أو الـ Routing. |
+| يظهر لكن `Count = 0` | مشكلة في `RootComponents.Add`. |
+| `Count = 1` | انتقل للخطوة 2. |
+
+### 11.2 الخطوة 2: تأكد أن Blazor runtime يعمل
+
+**استبدل مكونك مؤقتاً بـ `TestPage` بسيطة بدون أي `@inject`:**
+```razor
+@namespace RubikCare.Shared.UI.Components
+
+<h1 style="color:red;font-size:48px;">✅ BLAZOR WORKS</h1>
+
+@code {
+    protected override void OnInitialized()
+    {
+        Debug.WriteLine("🔴 TestPage: OnInitialized CALLED");
+    }
+}
+```
+
+| النتيجة | المشكلة |
+|---|---|
+| لم تظهر TestPage | مشكلة في WebView2 أو `index.html` أو تسجيل الخدمات. |
+| ظهرت TestPage | انتقل للخطوة 3. |
+
+### 11.3 الخطوة 3: عزّل مشكلة `@inject`
+
+**أضف `@inject` الخاصة بمكونك واحداً واحداً لـ `TestPage` حتى تجد المشكلة.**
+
+**توقفت عند خدمة معينة** → هذه الخدمة غير مسجلة في حاوية Blazor → حوّلها إلى `[Parameter]` أو `Singleton`.
+
+### 11.4 الخطوة 4: تأكد من `OnInitializedAsync`
+
+```csharp
+protected override async Task OnInitializedAsync()
+{
+    Debug.WriteLine("🔵 OnInitializedAsync START");
+    Debug.WriteLine("🟢 OnInitializedAsync END");
+}
+```
+
+| النتيجة | المشكلة |
+|---|---|
+| لا يظهر START | مشكلة DI (الخطوة 3). |
+| يظهر START لكن لا يظهر END | Exception في المنتصف. |
+
+### 11.5 الخطوة 5: إذا ظهر `JavaProxyThrowable`
+
+**السبب المحتمل:** `Action<T>` مع `async` — راجع § 9.
+
+**الحل:** لفّ الـ `Action` في `MainThread.BeginInvokeOnMainThread` + `try/catch` (أو `SafeAsyncAction`).
+
+### 11.6 الخطوة 6 (جديد): فحص `CurrentUserProfileState`
+
+**إذا كانت الصفحة الرئيسية تستخدم `CurrentUserProfileState`:**
+
+```csharp
+protected override void OnInitialized()
+{
+    System.Diagnostics.Debug.WriteLine($"🟢 [Razor] OnInitialized: UserProfileId={UserState.UserProfileId}");
+    UserState.OnChange += OnUserStateChanged;
+}
+```
+
+| النتيجة | المشكلة |
+|---|---|
+| `UserProfileId=0` | `SetUserProfile` لم يُستدعى (في `Constructor` أو `OnAppearing`). |
+| `UserProfileId=15` | ✅ (المشكلة في مكان آخر — افحص `LoadAllDataAsync`). |
+
+### 11.7 الخطوة 7 (جديد): فحص `Preferences`
+
+**إذا كانت الصفحة الرئيسية تستخدم `Preferences` (في `Constructor`):**
+
+```csharp
+var userId = Preferences.Get("user_profile_id", 0);
+Console.WriteLine($"🟢 [Constructor] userId={userId}");
+```
+
+| النتيجة | المشكلة |
+|---|---|
+| `userId=0` | `Preferences.Set("user_profile_id", ...)` لم يُستدعى (في `AppShell.InitializeAsync`). |
+| `userId=15` | ✅ (المشكلة في مكان آخر). |
+
+---
+
+## 🔗 الجزء الثاني عشر: نظام الملاحة (Navigation) في MAUI Shell
+
+### 12.1 📌 القواعد الذهبية لتسجيل الصفحات
+
+#### 1. الصفحات الرئيسية (Root Pages) — 6 صفحات فقط
+
+| الصفحة | Route | الملف |
+|---|---|---|
+| تسجيل الدخول | LoginPage | AppShell.xaml |
+| إنشاء حساب | RegisterPage | AppShell.xaml |
+| الرئيسية (Personal) | MainDashboard | AppShell.xaml |
+| لوحة العيادة | ClinicDashboardPage | AppShell.xaml |
+| لوحة الصيدلية | PharmacyDashboardPage | AppShell.xaml |
+| لوحة شركة الأدوية | PharmaCompanyDashboardPage | AppShell.xaml |
+
+**تسجل في:** `AppShell.xaml` فقط كـ `<ShellContent>`.
+**تستدعى بـ:** `//Route` (شرطتان مائلتان).
+
+**⚠️ بعد 4-5 نوفمبر 2026:** `MainDashboard` يشير إلى `DashboardFlowPage` (الجديدة — النمط 7). `DashboardPage` (القديمة) قد تبقى كـ `ShellContent` مخفي (`Route="LegacyDashboard"`, `FlyoutItemIsVisible="False"`).
+
+#### 2. الصفحات الفرعية (Detail Pages) — كل ما عدا الستة
+
+**تسجل في:** `AppShell.xaml.cs` فقط باستخدام `Routing.RegisterRoute`.
+**تستدعى بـ:** `Route` (بدون شرطات).
+
+#### 3. جدول أنواع التنقل الكامل
+
+| الرمز | النوع | التأثير | يستخدم مع | مثال |
+|---|---|---|---|---|
+| `//Route` | Absolute | يستبدل الصفحة الحالية في المكدس | الصفحات الرئيسية | `//MainDashboard` |
+| `///Route` | Absolute كامل | يمسح المكدس بالكامل | ❌ ممنوع الاستخدام | - |
+| `Route` | Relative | يضيف صفحة فوق المكدس | الصفحات الفرعية | `doctorprofile` |
+| `..` | Back | يرجع صفحة للخلف | أي صفحة | `..` |
+| `Route?param=value` | Relative + معاملات | يضيف صفحة مع بيانات | الصفحات الفرعية | `doctorprofile?clinicId=5` |
+
+### 12.2 🔴 أخطاء التنقل الشائعة
+
+#### الخطأ 1: `Ambiguous routes matched for...`
+
+**الرسالة:**
+```
+System.ArgumentException: Ambiguous routes matched for: 
+//.../pageName matches found: //.../pageName, //.../pageName
+```
+
+**ماذا يعني:** الصفحة مسجلة مرتين — في `AppShell.xaml` و `AppShell.xaml.cs` معاً.
+
+**الحل:** احذف التسجيل من أحد الملفين.
+
+#### الخطأ 2: `JavaProxyThrowable`
+
+**متى يظهر:** عند العودة من صفحة إلى أخرى (زر الرجوع).
+
+**الأسباب المحتملة:**
+- تعارض إصدارات `WebView.Maui` مع `MAUI.Controls` (الأكثر شيوعاً).
+- Ambiguous Routes (يظهر معه في نفس الوقت).
+
+**الحل:** تأكد من تطابق إصدارات MAUI في `.csproj`:
+```xml
+<PackageReference Include="Microsoft.Maui.Controls" Version="10.0.20" />
+<PackageReference Include="Microsoft.AspNetCore.Components.WebView.Maui" Version="10.0.20" />
+```
+
+#### الخطأ 3: `No view found for id 0x7f0800ff (jumpToEnd)`
+
+**متى يظهر:** بعد Splash Screen مباشرة، قبل تحميل أي صفحة. التطبيق ينهار فوراً.
+
+**ماذا يعني:** استخدام `///` مع صفحة رئيسية أدى إلى تدمير Fragment الداخلي لـ Shell نفسه.
+
+**الأسباب المحتملة:**
+
+| # | السبب | مثال خاطئ |
+|---|---|---|
+| 1 | `///` مع صفحة رئيسية | `GoToAsync("///ClinicDashboardPage")` |
+| 2 | مسار نسبي مع صفحة رئيسية | `GoToAsync("MainDashboard")` بدون `//` |
+| 3 | حذف كود XAML معلق دون تنظيف | ترك xmlns references مكسورة في الملف |
+| 4 | تسجيل رئيسية في AppShell.xaml.cs | `Routing.RegisterRoute("MainDashboard", ...)` |
+
+**الحل:**
+- استبدل كل `///Route` بـ `//Route` للصفحات الرئيسية.
+- استبدل كل مسار نسبي لصفحة رئيسية بـ `//Route`.
+- نفذ تنظيف عميق:
+```bash
+rmdir /s /q bin
+rmdir /s /q obj
+# احذف التطبيق من الهاتف
+dotnet restore
+dotnet build -f net10.0-android -c Debug -t:Install
+```
+
+#### الخطأ 4: `Global routes currently cannot be the only page on the stack`
+
+**ماذا يعني:** تحاول استخدام `//` مع صفحة فرعية (مسجلة في AppShell.xaml.cs).
+
+**الحل:** احذف `//` واستخدم المسار النسبي فقط.
+
+#### الخطأ 5: `unable to figure out route for...`
+
+**ماذا يعني:** الصفحة غير مسجلة في `AppShell.xaml.cs` أو أن المسار غير معروف.
+
+**الحل:** تحقق من `Routing.RegisterRoute` موجود.
+
+**⚠️ مثال حقيقي (5 نوفمبر 2026):** `//DashboardFlowPage` — لأن `Route="DashboardFlow"` (وليس `DashboardFlowPage`). **تحقق من اسم `Route` في `AppShell.xaml`.**
+
+### 12.3 📊 مصفوفة التشخيص السريع
+
+| الخطأ | أول ملف تراجعه | ثاني ملف | ثالث ملف |
+|---|---|---|---|
+| Ambiguous routes | AppShell.xaml | AppShell.xaml.cs | - |
+| JavaProxyThrowable | AppShell.xaml.cs | .csproj | AppShell.xaml |
+| jumpToEnd | AppShellViewModel.cs | AppShell.xaml | AppShell.xaml.cs |
+| Global routes... | ViewModel المعني | AppShell.xaml.cs | - |
+| unable to figure out | AppShell.xaml.cs | ViewModel المعني | AppShell.xaml (Route) |
+
+### 12.4 🛡️ إجراءات الوقاية
+
+- قبل أي Commit: تأكد من عدم وجود `///` في المشروع كله.
+- بعد حذف كود XAML معلق: تنظيف عميق إجباري.
+- عند إضافة صفحة جديدة: اسأل: "هل هي من الـ 6 الرئيسية؟"
+- القاعدة النهائية:
+```
+رئيسية؟ → AppShell.xaml → //Route
+فرعية؟  → AppShell.xaml.cs → Route
+رجوع؟   → ..
+///     → ممنوع نهائياً
+```
+
+---
+
+## 📖 الجزء الثالث عشر: قصة نجاح `PointsDashboardPage`
+
+### 13.1 السياق
+
+صفحة `PointsDashboardPage` كانت لا تفتح في MAUI (تعمل في PWA). الخطأ الظاهر: `JavaProxyThrowable` المبهم.
+
+### 13.2 التشخيص (بعد ساعات من التحقيق)
+
+3 مشاكل متراكبة:
+1. `ProgramId` لم يُستقبل أصلاً — كان `[QueryProperty]` يُعيَّن بعد `LoadBlazorComponent()`.
+2. `[QueryProperty]` مع `int?` — فشل التحويل.
+3. `Action<int>` + async — بدون try/catch.
+
+### 13.3 الحل النهائي
+
+**في `PointsDashboardPage.xaml.cs`:**
+```csharp
+[QueryProperty(nameof(ProgramIdRaw), "programId")]
+public partial class PointsDashboardPage : ContentPage
+{
+    public string? ProgramIdRaw { get; set; }
+    private int? ProgramId => int.TryParse(ProgramIdRaw, out var id) ? id : null;
+    private bool _componentLoaded = false;
+
+    protected override void OnAppearing()
+    {
+        base.OnAppearing();
+        if (!_componentLoaded)
+        {
+            LoadBlazorComponent();
+            _componentLoaded = true;
+        }
+    }
+}
+```
+
+**في `ProgramDetailsPage.xaml.cs`:**
+```csharp
+{ "OnGoToPointsDashboard", SafeAsyncAction<int>(GoToPointsDashboardAsync) },
+```
+
+### 13.4 النتيجة
+
+✅ الصفحة تفتح بنجاح في MAUI. ✅ الـ Log يظهر القيم الصحيحة (OrgId=1247, ProgramId=1). ✅ لا `JavaProxyThrowable`.
+
+### 13.5 الدروس المستفادة
+
+- `[QueryProperty]` ≠ `Nullable<T>` — استخدم `string`.
+- `[QueryProperty]` يُعيَّن بعد `Constructor` — استخدم `OnAppearing` مع flag.
+- `Action<T>` + async = `JavaProxyThrowable` — لفّها بـ `try/catch`.
+- "الفشل الصامت" في MAUI — قد يكون DI، قد يكون QueryProperty، قد يكون Action.
+- `SafeAsyncAction` Helper — يوحد النمط، يقلل التكرار.
+
+---
+
+## 📖 الجزء الثالث عشر-ب: قصة نجاح `DashboardFlowPage` (4-5 نوفمبر 2026)
+
+### 13ب.1 السياق
+
+**محاولات فاشلة متعددة** لاستخدام `DashboardPage.razor` (المشترك) كصفحة رئيسية (`ShellContent`). كل المحاولات فشلت:
+- `<RootComponent>` في XAML → `UserProfileId=0`.
+- `RootComponents.Add` في `OnAppearing` → لا يعيد تحميل المكون.
+- `OnComponentReady` → `OnAfterRender` لا يُستدعى.
+- `CurrentUserProfileState` في `OnAppearing` → بعد `OnInitializedAsync`.
+
+### 13ب.2 الحل الناجح
+
+**3 تغييرات حاسمة:**
+
+1. **`DashboardFlowPage.xaml`** — `<RootComponent>` في XAML (بدون `Parameters`).
+2. **`DashboardFlowPage.xaml.cs`** — `SetUserProfile` في **`Constructor`** (من `Preferences`).
+3. **`DashboardPage.razor`** — `@inject CurrentUserProfileState UserState` (بدلاً من `[Parameter] UserProfileId`).
+
+### 13ب.3 الكود الحاسم (3 أسطر)
+
+**في `DashboardFlowPage.xaml.cs` (Constructor):**
+```csharp
+var userId = Preferences.Get("user_profile_id", 0);
+if (userId > 0)
+    _userState.SetUserProfile(userId, Preferences.Get("user_full_name", "مستخدم"));
+```
+
+**في `AppShell.InitializeAsync`:**
+```csharp
+Preferences.Set("user_profile_id", session.UserProfileId);
+Preferences.Set("user_full_name", session.FullNameAr);
+```
+
+**في `DashboardPage.razor`:**
+```csharp
+@inject CurrentUserProfileState UserState
+```
+
+### 13ب.4 لماذا نجح هذا (بينما فشل غيره)
+
+| السبب | التفسير |
+|---|---|
+| `SetUserProfile` في `Constructor` | يحدث **قبل** `OnInitializedAsync` (لأن `Constructor` يسبق دورة حياة المكون). |
+| `Preferences` (متزامن) | لا يحتاج `await` (بخلاف `_sessionService.GetSessionAsync()`). |
+| `<RootComponent>` في XAML | يضيف المكون **قبل** `InitializeComponent` (لا مشكلة ForceRender). |
+| `CurrentUserProfileState` (Singleton) | يشارك الحالة بين MAUI و BlazorWebView (لأن `SetUserProfile` في MAUI يعدل **نفس النسخة** التي يقرأها BlazorWebView — **لأن `BlazorWebView` في `DashboardFlowPage` يحقن من حاوية MAUI، وليس من حاوية Blazor**). |
+
+**⚠️ ملاحظة:** `CurrentUserProfileState` (Singleton) يعمل في `DashboardFlowPage` **لأن `RootComponent` في XAML**. في محاولات سابقة (مع `RootComponents.Add`)، لم يعمل — لأن `BlazorWebView` كان يحقن من حاوية مختلفة.
+
+### 13ب.5 الدروس المستفادة
+
+- **`SetUserProfile` في `Constructor`** (وليس `OnAppearing`) = المفتاح.
+- **`Preferences` (متزامن)** = الحل لجلب `UserProfileId` قبل `OnInitializedAsync`.
+- **`<RootComponent>` في XAML** = يبدأ المكون في الوقت المناسب.
+- **`CurrentUserProfileState` (Singleton)** = يعمل مع `<RootComponent>` في XAML (لأن `BlazorWebView` يحقن من حاوية MAUI).
+- **`CustomBlazorWebView`** = عدو `RootComponent` (ForceRender يمسح المكون).
+
+---
+
+## 🔧 الجزء الرابع عشر: التحديات المعروفة وحلولها
+
+### 14.1 مشكلة Binding في XAML
+
+**المشكلة:** `InvalidCastException` عند binding لخصائص معقدة.
+
+**الحل:** استخدام خصائص بسيطة في ViewModel.
+```csharp
+// ❌ خطأ
+public PspProgram SelectedProgram { get; set; }
+
+// ✅ صحيح
+public string ProgramName { get; set; }
+public string ProgramDescription { get; set; }
+```
+
+### 14.2 مشكلة UI Thread
+
+**المشكلة:** تحديث UI من خيط غير رئيسي يسبب استثناء.
+
+**الحل:** استخدام `MainThread.BeginInvokeOnMainThread`.
+```csharp
+MainThread.BeginInvokeOnMainThread(() =>
+{
+    IsLoading = false;
+    Programs = new ObservableCollection<PspProgram>(data);
+});
+```
+
+### 14.3 مشكلة SecureStorage
+
+**المشكلة:** `SecureStorage` يفشل أحياناً على بعض أجهزة Android.
+
+**الحل:** استخدام `Preferences` كبديل مع تشفير القيمة.
+```csharp
+public async Task SaveTokenAsync(string token)
 {
     try
     {
-        // 1. جلب المريض
-        var patient = await _patientService.GetByIdAsync(patientId);
-        if (patient == null) return;
-
-        // 2. تحديد OrganizationID
-        int? organizationId = patient.InvitedByOrganizationID;
-        if (organizationId == null && patient.ParticipationID > 0)
-        {
-            var participation = await _dbFactory.ExecuteReadOnlyAsync(...);
-            organizationId = participation?.ParticipantOrganizationID;
-        }
-
-        if (organizationId == null) return;
-
-        // 3. بناء PointsContext
-        var context = new PointsContext
-        {
-            OrganizationID = organizationId.Value,
-            CaseID = patient.CaseID,        // ⭐ توضيح: القيمة هنا PatientProfileID
-            UserID = patient.PatientProfileID
-        };
-
-        // 4. استدعاء Orchestrator
-        var result = await _pointsOrchestrator.AwardByCampaignAsync(
-            campaignId: programId,
-            pointSystemTypeID: 1,  // PSP
-            activityTypeId: activityTypeId,
-            context: context,
-            referenceType: referenceType,
-            referenceId: referenceId,
-            currentUserId: currentUserId);
+        await SecureStorage.SetAsync("auth_token", token);
     }
-    catch (Exception ex)
+    catch
     {
-        _logger.LogWarning(ex, "⚠️ [Points] Failed to award points");
+        // fallback لـ Preferences
+        Preferences.Set("auth_token", token);
     }
 }
 ```
 
-### 5.4 الـ Controllers المُتَعلقة
+### 14.4 مشكلة الاتصال بالإنترنت
 
-`Api.Web/Controllers/PSP/Points/`:
+**المشكلة:** التطبيق يتجمد عند فقدان الاتصال.
 
-| Controller | Endpoints | الوظيفة |
-|---|---|---|
-| `PointSchemesController` | 13 | إدارة Schemes |
-| `PointRulesController` | 5 | إدارة Rules |
-| `PointBalancesController` | 7 | أرصدة |
-| `PointEarningController` | 1 | سجل معاملات |
-| `PointRedeemController` | 8 | طلبات استرداد |
-| `PointLookupsController` | 4 | Lookups |
-| **الإجمالي** | **38** | |
+**الحل:** التحقق من الاتصال قبل كل استدعاء API.
+```csharp
+public async Task<T> SafeApiCallAsync<T>(Func<Task<T>> apiCall)
+{
+    if (Connectivity.Current.NetworkAccess != NetworkAccess.Internet)
+    {
+        await ShowError("لا يوجد اتصال بالإنترنت");
+        return default;
+    }
 
-انظر `06-POINTS`.
-
----
-
-## 📌 الجزء السادس: الـ API Endpoints (ملخص من `09-API-GUIDE`)
-
-### 6.1 `PspController` (12 ملف — 60 endpoint)
-
-انظر `09-API-GUIDE`.
-
-| الملف | Endpoints | التفاصيل |
-|---|---|---|
-| `PspController.Programs.cs` | 4 | البرامج (2 عام + 2 Temp) |
-| `PspController.Invitations.cs` | 2 | دعوات المرضى (Doctor → Patient) |
-| `PspController.RepInvitations.cs` | 2 | دعوات المندوب (Rep → Org) |
-| `PspController.Enrollment.cs` | 2 | Participate + Unsubscribe |
-| `PspController.Unsubscribe.cs` | 1 | Unsubscribe (UseCase) |
-| `PspController.Entry.cs` | 1 | PspEntry |
-| `PspController.DispensationPlans.cs` | 6 | مراحل خطة الصرف |
-| `PspController.Links.cs` | 3 | روابط البرنامج |
-| `PspController.patientdetails.cs` | 1 | تفاصيل برنامج المريض |
-| `PspController.Tests.cs` | 38 | نظام التحاليل الكامل |
-| `PspController.Helpers.cs` | 0 | Helpers |
-| **الإجمالي** | **60** | |
-
-**ملاحظة**: العدد 60 وليس 62 كما كان موثقاً سابقاً.
-
-### 6.2 Controllers مساعدة
-
-| Controller | Endpoints |
-|---|---|
-| `DispensationPlansController` | 5 |
-| `PharmaCompanyMedicationsController` | 18 |
-| `RemindersController` | 8 |
-
----
-
-## 🆕 v2: تكامل العيادات والوصفات متعددة الأدوية (Clinic Integration & Multi-Medication eRX)
-
-**تاريخ الإضافة**: نوفمبر 2026
-
-**الحالة**: ✅ **منفّذ جزئياً** — الكيانات + Migrations جاهزة، الواجهات ناقصة.
-
-**ملاحظة**: هذا القسم يضيف وظائف جديدة ولا يلغي أو يعدل أي مما ورد في الأقسام السابقة.
-
-### 🎯 الأهداف
-
-- تمكين الطبيب من كتابة وصفة تحتوي على أدوية متعددة (مدعومة وغير مدعومة) في سجل واحد.
-- فصل "الوصفة الطبية العامة" عن "وصفة الدعم" مع إمكانية الربط بينهما.
-- توفير كود إحالة ثابت للعيادة يقلل الاحتكاك في عملية اشتراك المرضى.
-- دعم سيناريوهات المرضى الثلاثة: بدون حساب / حساب جديد / مريض قديم.
-
-### 📦 الكيانات الجديدة (كلها منفّذة)
-
-#### `ClinicProgramReferral` ⭐ — ✅ منفّذ
-
-كود إحالة ثابت يربط عيادة ببرنامج دعم.
-
-- **الحقول**: `ClinicID`, `ProgramID`, `ReferralCode` (فريد), `QrData`, `IsActive`
-- **الدور**: نقطة الدخول الموحدة لجميع سيناريوهات المرضى. عند مسح المريض لهذا الكود، يتعرف النظام على العيادة والبرنامج تلقائياً.
-- **العلاقة مع `PSPInvitation`**: لا يحل محله، بل يعمل بالتوازي معه. `PSPInvitation` للدعوات الفردية، و`ClinicProgramReferral` للكود الثابت المتعدد الاستخدام.
-
-#### `Prescription` (رأس الوصفة العامة — Clinic Domain) ⭐ — ✅ منفّذ
-
-وصفة طبية مستقلة عن برامج الدعم، تابعة للعيادة.
-
-- **الحقول**: `PrescriptionID`, `PrescriptionCode` (للمشاركة عبر واتساب/QR), `CaseID`, `DoctorID`, `ClinicID`, `PrescriptionDate`, `Notes`
-- **الرؤية المستقبلية**: سينتقل هذا الكيان لقاعدة بيانات العيادة المستقلة عند فصل وحدة أعمال إدارة العيادات.
-
-#### `PrescriptionItem` (تفاصيل الوصفة العامة) ⭐ — ✅ منفّذ
-
-- **الحقول**: `PrescriptionItemID`, `PrescriptionID` (FK), `MedicationID`, `Dosage`, `Frequency`, `Instructions`, `TotalQuantity`
-- **الربط الاختياري بالدعم**: `LinkedPspERxItemID` (int? nullable) → إذا كان الدواء مدعوماً، يتم ربطه بسجل `PSPeRXItem` المقابل.
-
-#### `PSPeRX` (رأس وصفة الدعم — PSP Domain) ⭐ مُعدّل — ✅ منفّذ
-
-- **التعديل عن النسخة السابقة**: `MedicationID` أصبح **nullable** (كان إلزامياً `[Required]`).
-- **الحقول**: `ERxID`, `ERxCode`, `CaseID`, `DoctorID`, `ProgramID` (إلزامي), `PrescriptionDate`, `Notes`, `Status`
-- **الدور**: يمثل الوصفة المرتبطة ببرنامج دعم محدد. يحتفظ بجميع علاقاته القائمة مع `PSPDispensation` و`PSPPatient`.
-
-#### `PSPeRXItem` ⭐ — ✅ منفّذ (تفاصيل الأدوية المدعومة)
-
-- **الحقول**: `ERxItemID`, `ERxID` (FK إلى `PSPeRX`), `ProgramMedicationID` (FK إلى `PSPProgramMedication`), `Dosage`, `Frequency`, `Instructions`, `Quantity`
-- **تعديل نظام التناول (Override)**:
-  - `OverrideTimesPerDay` (int? nullable)
-  - `OverrideQuantityPerDispense` (int? nullable)
-  - `IsOverridden` (bool) → لتتبع ما إذا كان الطبيب قد عدّل الإعدادات الافتراضية المحددة من شركة الأدوية.
-- **القيد**: لا يمكن إضافة دواء غير موجود في `PSPProgramMedication` للبرنامج المختار. المصدر الحقيقي للأدوية المدعومة ونظام صرفها يظل `PSPProgramMedication` و`PSPDispensationPlanPhaseMedication`.
-
-### 🔄 تدفق عمل الطبيب (Workflow) — الحالة الفعلية
-
-1. الطبيب يفتح صفحة كتابة وصفة لمريض. ⚠️ **الصفحة غير موجودة بعد** — `InvitePatient.razor` فيه زر "Prescription" (`OnPrescriptionClick`) لكنه غير مربوط.
-2. يختار المريض من قائمة مرضاه في العيادة. ✅ (`ClinicPatientsList.razor` موجود)
-3. للأدوية العادية (غير المدعومة): يضيفها مباشرة → تُنشأ `PrescriptionItem` فقط (`LinkedPspERxItemID = null`).
-4. للأدوية المدعومة:
-   - يختار برنامج دعم من قائمة برامعه المشتركة (`PSPParticipation`).
-   - تظهر له قائمة `PSPProgramMedication` الخاصة بهذا البرنامج، مع تفاصيل الصرف والتناول المحددة من الشركة (`PSPDispensationPlanPhaseMedication`).
-   - يختار دواءً أو أكثر من هذه القائمة (ليس جميعها بالضرورة).
-   - إذا سمح البرنامج بتعديل نظام التناول، تظهر حقول `TimesPerDay` و`QuantityPerDispense` قابلة للتعديل.
-5. عند الحفظ:
-   - تُنشأ `PSPeRX` مرتبطة بالبرنامج والمريض.
-   - تُنشأ `PSPeRXItems` للأدوية المختارة.
-   - تُنشأ `PrescriptionItems` مقابلة، كل منها مرتبط بـ `LinkedPspERxItemID`.
-
-**الحالة الفعلية**: الخطوات 1، 3، 4، 5 **غير منفّذة** في الواجهة. الكيانات + Migrations جاهزة، لكن منطق الحفظ في الـ API غير مؤكد.
-
-### 👥 سيناريوهات المرضى
-
-| السيناريو | الإجراء التقني | الكيانات المعنية |
-|---|---|---|
-| مريض بدون حساب | الطبيب يكتب وصفة → يولد `PrescriptionCode` للمشاركة → المريض يستخدمه لاحقاً للتسجيل | `Prescription`, `PrescriptionItem` |
-| مريض جديد (داخل العيادة) | يمسح `ClinicProgramReferral` QR → يظهر البرنامج والعيادة → يشترك → يحجز موعداً فورياً → يظهر للطبيب → يكتب الوصفة | `ClinicProgramReferral`, `PSPPatient`, `Prescription`, `PSPeRX` |
-| مريض قديم (متابعة) | يمسح نفس QR → النظام يتعرف عليه عبر `UserProfileID` → يجد اشتراكه فعالاً في `PSPPatient` → يفتح شاشة حجز متابعة → الطبيب يكتب وصفة جديدة مرتبطة بنفس `CaseID` | `ClinicProgramReferral`, `PSPPatient`, `Prescription`, `PSPeRX` |
-
-### 🔮 الرؤية المستقبلية (Scalability)
-
-- `Prescription` و`PrescriptionItem` سينتقلان لقاعدة بيانات العيادة المستقلة عند اكتمال وحدة أعمال إدارة العيادات.
-- `PSPeRX` و`PSPeRXItem` سيبقيان في قاعدة PSP المركزية.
-- الربط بين القاعدتين سيتم عبر `LinkedPspERxItemID` كـ Foreign Key اختياري، أو عبر API/Event Bus بعد الفصل الكامل.
-- تفعيل `DoctorNote` و`PSPRequiredDataEntry` في واجهة الطبيب والمريض ضمن نفس التدفق. ⚠️ **لا يزال غير منفّذ في الواجهة**.
-
-### ⚠️ الفجوات المعروفة (بعد المراجعة)
-
-| # | الفجوة | الأولوية |
-|---|---|---|
-| 1 | `POST api/psp/entry` لا يربط الدعوة/الإحالة بالمشاركة | 🔴 |
-| 2 | `Join.razor` لا يكمل الاشتراك (يعرض الكود فقط) | 🔴 |
-| 3 | `WritePrescriptionPage` غير موجودة | 🔴 |
-| 4 | `DoctorNotesTab` غير موجود | 🔴 |
-| 5 | `PatientRequiredDataEntryPage` غير موجودة | 🔴 |
-| 6 | `ClinicReferralCard.razor` (QR + ShortCode) غير مؤكد وجوده | 🟠 |
-| 7 | Endpoint تقارير الإحالة (`referral-reports`) غير مؤكد | 🟡 |
-| 8 | كيان `PSPPatientDataEntry` (إجابات المريض) غير مؤكد | 🔴 |
-
----
-
-## 📌 الجزء السابع: الـ UI
-
-### 7.1 المكونات في `Shared.UI`
-
-| # | المكوّن | الوظيفة | الحالة |
-|---|---|---|---|
-| 1 | `PspAboutPage.razor` | عن برامج الدعم | ✅ |
-| 2 | `PspGateway.razor` | بوابة PSP | ✅ |
-| 3 | `PspSearch.razor` | بحث برامج | ✅ |
-| 4 | `PspEntry.razor` | دخول برنامج | ✅ |
-| 5 | `PspScheduleSetup.razor` | إعداد جدولة | ✅ |
-| 6 | `PspDetailComponent.razor` | تفاصيل برنامج | ✅ |
-| 7 | `ProgramDetailsComponent.razor` | تفاصيل برنامج (طبيب) | ✅ |
-| 8 | `PointDashboard.razor` ⭐ | محفظة النقاط | ✅ |
-| 9 | `ClinicDashboard.razor` ⭐ | لوحة تحكم الطبيب | ✅ |
-| 10 | `ClinicPatientDetails.razor` ⭐ | تفاصيل مريض | ✅ |
-| 11 | `ClinicPatientsList.razor` ⭐ | قائمة مرضى العيادة | ✅ |
-| 12 | `MyClinic.razor` ⭐ | إدارة العيادة | ✅ |
-| 13 | `MyPatientInvitations.razor` ⭐ | سجل دعوات المرضى | ✅ |
-| 14 | `InvitePatient.razor` ⭐ | دعوة مريض (QR + ShortCode) | ✅ |
-| 15 | `Join.razor` ⭐ (`/join`) | استقبال `?token=` | ⚠️ لا يكمل الاشتراك |
-| 16 | `WritePrescriptionPage.razor` ⭐ | كتابة eRX متعدد الأدوية | ❌ **غير موجود** |
-| 17 | `PrescriptionViewPage.razor` ⭐ | عرض الوصفة للمريض | ❌ **غير موجود** |
-| 18 | `DoctorNotesTab.razor` ⭐ | ملاحظات الطبيب | ❌ **غير موجود** |
-| 19 | `PatientRequiredDataEntryPage.razor` ⭐ | إدخال البيانات المطلوبة | ❌ **غير موجود** |
-| 20 | `ClinicReferralCard.razor` ⭐ | كارت QR + ShortCode للإحالة | ❓ **غير مؤكد** |
-
-### 7.2 الصفحات في `Rubikcare.Web`
-
-| # | الصفحة | المسار |
-|---|---|---|
-| 1 | `PSPProgramsList.razor` | `/psp/programs` |
-| 2 | `PSPProgramDetails.razor` | `/psp/programs/{id}` |
-| 3 | `PSPProgramEdit.razor` | `/psp/programs/{id}/edit` |
-| 4 | `PSPStep0_BasicInfo.razor` | خطوة 0 |
-| 5 | `PSPStep1_SpecsMeds.razor` | خطوة 1 |
-| 6 | `PSPStep2_Budget.razor` | خطوة 2 |
-| 7 | `PSPStep2_DispensationPlans.razor` | خطوة 2 (خطط الصرف) |
-| 8 | `PSPStep2b_PointScheme.razor` | خطوة 2ب (نظام النقاط) |
-| 9 | `PSPStep3_RequiredTests.razor` | خطوة 3 (التحاليل) — ⚠️ قد لا يكون موجوداً |
-| 10 | `PSPStep3_Review.razor` | خطوة 3 (مراجعة) |
-| 11 | `PSPStep_Links.razor` | روابط |
-
-### 7.3 الصفحات في `PWA`
-
-| # | الصفحة | المسار |
-|---|---|---|
-| 1 | `PspEntryPage.razor` | `/psp/entry` |
-| 2 | `PspGatewayPage.razor` | `/psp/gateway` |
-| 3 | `PspSearchPage.razor` | `/psp/search` |
-| 4 | `PspDetailPage.razor` | `/psp/{id}` |
-| 5 | `PointsDashboardPage.razor` | `/psp/points` |
-
-### 7.4 الصفحات في `MAUI`
-
-| # | الصفحة | المسار |
-|---|---|---|
-| 1 | `PspEntryPage.xaml` | — |
-| 2 | `PspDetailPage.xaml` | — |
-| 3 | `PointsDashboardPage.xaml` | — |
-
-### 7.5 الـ CSS
-
-انظر `10-UI-STYLE-GUIDE`.
-
-الملفات في `Shared.UI/wwwroot/css/_pages/Organization/PSP/`:
-
-```
-PSP/
-├── psp-detail.css
-├── PSPProgramsList.css
-├── PSPProgramDetails.css
-├── PSPProgramsEdit.css
-├── psp-search.css
-├── PSPEditSteps/
-│   ├── PSPStep0_BasicInfo.css
-│   ├── PSPStep1_SpecsMeds.css
-│   ├── PSPStep2_Budget.css
-│   ├── PSPStep2_DispensationPlans.css
-│   ├── PSPStep2b_PointScheme.css
-│   ├── PSPStep_Links.css
-│   ├── PSPStep3_Review.css
-│   └── PSPRequiredTestsSection.css
-├── program-details.css
-├── invite-patient.css
-├── join.css
-└── Points/
-    ├── point-dashboard.css
-    ├── ppm-program-manage.css
-    └── beneficiary-type-selector.css
+    try
+    {
+        return await apiCall();
+    }
+    catch (HttpRequestException)
+    {
+        await ShowError("خطأ في الاتصال بالخادم");
+        return default;
+    }
+}
 ```
 
-`_pspbundle.css` → `main.css`.
+### 14.5 ⭐ مشكلة: منظمات المستخدم لا تظهر في القائمة الجانبية
+
+**السبب:** `AppShellViewModel.LoadUserDataAsync()` لم تكن تُستدعى من `DashboardPage`.
+
+**الحل:** إضافة استدعاء `appShell.RefreshUserDataAsync()` في `DashboardPage.OnAppearing`.
+
+### 14.6 ⭐ مشكلة: ظهور بيانات المستخدم السابق بعد Logout
+
+**السبب:** الكاش المحلي (`_cachedSession`) لم يكن يُمسح عند Logout.
+
+**الحل:** استدعاء `_cachedSessionService.ClearSessionAsync()` في `AppShellViewModel.LogoutAsync`.
+
+### 14.7 ⭐ مشكلة: `Console.WriteLine` في BlazorWebView → Logcat
+
+**المشكلة:** `Console.WriteLine` في `.razor` (BlazorWebView) يظهر في **Logcat** (تحت وسم `DOTNET`)، وليس في **Output Window** (Visual Studio).
+
+**الحل:**
+- استخدم **Logcat** (Visual Studio: `Tools → Android → Device Log`، أو `adb logcat | findstr "DOTNET"`).
+- `Debug.WriteLine` في `.razor` **قد لا يظهر** (لأنه لا يمر عبر `Debug` في MAUI). استخدم `Console.WriteLine`.
 
 ---
 
-## 📌 الجزء الثامن: مفاتيح الترجمة
-
-### 8.1 Module: `PSP`
-
-انظر `07 v1`:
-
-| البادئة | الوصف |
-|---|---|
-| `PSP.DP.MODAL.TAB_*` | تابين الـ Modal |
-| `PSP.DP.PHASES.*` | قسم المراحل |
-| `PSP.DP.PHASE_MODAL.*` | Modal المرحلة |
-| `PSP.DP.MED_MODAL.*` | Modal الدواء |
-| `PSP.DP.MSG.*` | رسائل |
-| `PSP.DP.UNIT.*` | وحدات |
-
-### 8.2 مفاتيح إضافية (من Tests System)
-
-| المفتاح | القيمة |
-|---|---|
-| `PSP.TESTS.TITLE` | "التحاليل" |
-| `PSP.TESTS.REQUIRED` | "مطلوب" |
-| `PSP.TESTS.OPTIONAL` | "اختياري" |
-| `PSP.TESTS.TIMING.BEFORE` | "قبل البدء" |
-| `PSP.TESTS.TIMING.DURING` | "أثناء الرحلة" |
-| `PSP.TESTS.TIMING.AFTER` | "بعد N أيام" |
-| `PSP.TESTS.TIMING.PERIODIC` | "دوري" |
-| `PSP.TESTS.STATUS.ACTIVE` | "متاح" |
-| `PSP.TESTS.STATUS.LOCKED` | "مقفل" |
-| `PSP.TESTS.STATUS.COMPLETED` | "مكتمل" |
-| `PSP.TESTS.CONSENT.TEXT` | "أوافق على مشاركة..." |
-| `PSP.TESTS.UPLOAD` | "رفع ملف" |
-| `PSP.TESTS.VIEW` | "عرض" |
-
-### 8.3 قاعدة صارمة
-
-انظر `04-TRANSLATION`:
-- `N''` prefix للعربية.
-- `MERGE` بدلاً من `INSERT/UPDATE`.
-- `ResourceKey` + `Module` = مفتاح مركب.
-
 ---
 
-## 📌 الجزء التاسع: الاختبارات + Troubleshooting
+### 14.8 ⭐ مشكلة: "Reload" في BlazorWebView عند تغيير الصفحات
 
-### 9.1 سيناريوهات E2E المطلوبة
+**السبب:** عند تغيير `_currentView` (أو `Navigation.NavigateTo`) داخل `BlazorWebView` (الذي يعمل كـ `ShellContent`)، يفشل `BlazorWebView` في إعادة تهيئة `RootComponent`، فيظهر "Reload" (أو صفحة بيضاء).
 
-انظر `23-TECHNICAL_DEBT` (المُدمج في `00B`):
+**الحل:** 
+1. **لا تغيّر `_currentView`** داخل `BlazorWebView` (إذا كان `ShellContent`).
+2. **استخدم `NavigationBridge`** لفتح صفحة XAML جديدة (`PushAsync` + `RootComponents.Add` + `Parameters`).
+3. **أو** اجعل `BlazorWebView` يعرض **مكوناً واحداً فقط** (الكتالوج، مثلاً)، وكل صفحة أخرى = صفحة XAML جديدة.
 
-| # | السيناريو | الحالة |
+**مثال من جلسة Commerce:**
+- ❌ `CommerceRootPage` (ShellContent) حاول تغيير `_currentView` إلى `product-details` → `Reload`.
+- ✅ الحل: `ICommerceNavigationBridge.OpenProductDetailsAsync` → `PushAsync(CommerceProductDetailsFlow)` → `RootComponents.Add(ProductDetailsPage, Parameters)`.
+
+### 14.9 ⭐ مشكلة: `AppShell.xaml.cs` يشير إلى صفحات غير موجودة
+
+**السبب:** إضافة `Routing.RegisterRoute("commerce/cart", typeof(CommerceCartFlow))` قبل إنشاء `CommerceCartFlow`.
+
+**النتيجة:** `CS0246` (Type or namespace not found).
+
+**الحل:**
+1. أنشئ الصفحة (`CommerceCartFlow.xaml` + `.xaml.cs`).
+2. سجّلها في `AppShell.xaml.cs`.
+3. **لا تسجّل صفحة قبل إنشائها.**
+
+## 📱 الجزء الخامس عشر: إدارة الجلسات والكاش في الموبايل
+---
+### 15.1 نظرة عامة
+
+إدارة الجلسات في الموبايل تعتمد على 3 طبقات:
+
+| الطبقة | المسؤول | الموقع |
 |---|---|---|
-| 1 | Rep → Doctor: إنشاء دعوة → قبول | ✅ |
-| 2 | Rep → Pharmacy: إنشاء دعوة → قبول | ✅ |
-| 3 | Doctor → Patient: إنشاء دعوة → قبول → Token | ⚠️ |
-| 4 | Patient → Dispense: Token → Validate → Confirm | ✅ |
-| 5 | Points: منح النقاط في 5 أحداث | ✅ |
-| 6 | Tests: رفع تحليل → موافقة → عرض للشركة | ⚠️ |
-| 7 | ⭐ **Clinic → Patient: مسح QR إحالة → اشتراك → إدخال بيانات مطلوبة** | ❌ **جديد** |
-| 8 | ⭐ **Doctor → Patient: كتابة eRX متعدد الأدوية → مشاركة → عرض** | ❌ **جديد** |
-| 9 | ⭐ **Doctor → Patient: إضافة DoctorNote → ظهورها** | ❌ **جديد** |
+| الخادم | `UserSessionService` (Application) | Api.Web |
+| محلي | `CachedUserSessionService` | الموبايل |
+| تخزين آمن | `SecureStorage` | الموبايل |
 
-### 9.2 المشاكل المعروفة
 
-انظر `23-TECHNICAL_DEBT`:
+### 15.2 `CachedUserSessionService`
 
-| # | المشكلة | الحالة |
-|---|---|---|
-| 1 | `POST api/psp/entry` — لا يربط الدعوة بالمشاركة | ❌ مفتوح |
-| 2 | `ResultingParticipationParticipationID` — خطأ إملائي | ❌ مفتوح (لكن `InverseProperty` صحيحة في الكيان) |
-| 3 | `programs-temp` + `program-details-temp` — endpoints مؤقتة | ⚠️ |
-| 4 | `Unsubscribe` مكرر (في `Enrollment.cs` + `Unsubscribe.cs`) | ⚠️ |
-| 5 | `PharmaciesCount` Hardcoded في `patientdetails` | ⚠️ |
-| 6 | `PSPStep3_RequiredTests.razor` — قد لا يكون موجوداً | ⚠️ |
-| 7 | `PSPEnrollmentService` يستدعي `IGenericService<T>` (LVL 2) | ⚠️ |
-| 8 | ⭐ **`Join.razor` لا يكمل الاشتراك** | ❌ **جديد** |
-| 9 | ⭐ **`WritePrescriptionPage` غير موجودة** | ❌ **جديد** |
-| 10 | ⭐ **`DoctorNotesTab` غير موجود** | ❌ **جديد** |
-| 11 | ⭐ **`PatientRequiredDataEntryPage` غير موجودة** | ❌ **جديد** |
-| 12 | ⭐ **كيان `PSPPatientDataEntry` غير مؤكد** | ❓ **جديد** |
+**المسار:** `RubikCare.Mobile/Infrastructure/Services/CachedUserSessionService.cs`
 
-### 9.3 Troubleshooting — مشاكل شائعة
+**الوظائف الرئيسية:**
+- `GetSessionAsync()` — جلب الجلسة من الكاش المحلي أو من API.
+- `RefreshSessionAsync()` — تحديث الجلسة من `POST api/user/session-bootstrap`.
+- `ClearSessionAsync()` — ⭐ مسح الكاش المحلي (يجب استدعاؤها عند Logout).
+- `IsSessionValidAsync()` — التحقق من صلاحية الجلسة.
 
-#### مشكلة: "التحليل لا يظهر للمريض"
+### 15.3 `AppShellViewModel`
 
-- **السبب المحتمل**: `ShowToPatient = false`.
-- **الحل**: تحقق من `PSPRequiredTest.ShowToPatient`.
+**المسار:** `RubikCare.Mobile/ViewModels/AppShellViewModel.cs`
 
-#### مشكلة: "النقاط لا تُمنح"
+**الوظائف الرئيسية:**
+- `LoadUserDataAsync()` — تحميل بيانات المستخدم ومنظماته.
+- `LogoutAsync()` — تسجيل الخروج ومسح جميع البيانات.
+- `NavigateToOrganization(org)` — التنقل لمنظمة محددة.
 
-- **السبب المحتمل**: `PSPProgramPointScheme` غير موجود للبرنامج.
-- **الحل**:
-  ```sql
-  SELECT * FROM PSPProgramPointSchemes WHERE SourceEntityID = @ProgramId;
-  ```
+**`AppShellViewModel.LoadUserDataAsync()` يجب أن تُستدعى صراحة من `DashboardPage.OnAppearing`:**
+```csharp
+// في DashboardPage.xaml.cs
+protected override async void OnAppearing()
+{
+    base.OnAppearing();
 
-#### مشكلة: "الصيدلي لا يرى الطلب"
+    // ⭐ تحديث القائمة الجانبية
+    if (Shell.Current is AppShell appShell)
+    {
+        await appShell.RefreshUserDataAsync();
+    }
 
-- **السبب المحتمل**: `Dispensation.TokenUsed = true` أو `Status != "ACTIVE"`.
-- **الحل**: تحقق من `PSPDispensation.Status`.
+    // تحميل بيانات Dashboard
+    if (BindingContext is DashboardPageViewModel vm)
+    {
+        await vm.LoadUserDataAsync();
+    }
+}
+```
 
-#### ⭐ مشكلة: "المريض يمسح QR الإحالة ولا يكمل الاشتراك"
+### 15.4 `AuthService` — المصادقة والخروج
 
-- **السبب المحتمل**: `Join.razor` يعرض الكود فقط، ولا يستدعي `POST api/psp/entry`.
-- **الحل**: تعديل `Join.razor` لاستدعاء الـ endpoint بعد عرض الكود (أو دمجه).
+**المسار:** `RubikCare.Mobile/Infrastructure/Services/AuthService.cs`
 
-#### ⭐ مشكلة: "DoctorNote موجودة في DB لكن لا تظهر في صفحة الطبيب"
+**تسلسل Logout الصحيح:**
+```csharp
+public async Task LogoutAsync()
+{
+    // 1. إعلام الخادم (يمسح كاش UserSessionService)
+    try
+    {
+        await _apiService.PostAsync<object>("api/auth/logout", null);
+    }
+    catch (Exception ex)
+    {
+        Debug.WriteLine($"❌ Logout API error: {ex.Message}");
+    }
 
-- **السبب المحتمل**: لا يوجد `DoctorNotesTab.razor` مربوط بـ `ClinicPatientDetails`.
-- **الحل**: إنشاء المكون + Endpoints (`POST/GET api/clinic/patients/{caseId}/notes`).
+    // 2. مسح التخزين المحلي
+    SecureStorage.Remove("auth_token");
+    SecureStorage.Remove("user_profile");
+    SecureStorage.Remove("userProfileId");
+    Preferences.Remove("user_profile_id");  // ⭐ جديد
+    Preferences.Remove("user_full_name");   // ⭐ جديد
+}
+```
+
+### 15.5 (جديد) `CurrentUserProfileState` — Singleton
+
+**المسار:** `Shared.UI/Services/CurrentUserProfileState.cs`
+
+**الوظيفة:** يحمل `UserProfileId` + `UserFullNameAr` بين MAUI و BlazorWebView (Singleton).
+
+**التسجيل في `MauiProgram.cs`:**
+```csharp
+builder.Services.AddSingleton<CurrentUserProfileState>();
+```
+
+**الاستخدام:**
+- في `DashboardFlowPage.Constructor`: `_userState.SetUserProfile(userId, userName)`.
+- في `DashboardPage.razor`: `@inject CurrentUserProfileState UserState`.
+- في `AppShell.InitializeAsync`: `Preferences.Set("user_profile_id", ...)`.
+
+### 15.6 (جديد) `DashboardNavigationBridge` — Static Actions
+
+**المسار:** `Shared.UI/Components/Dashboard/DashboardNavigationBridge.cs`
+
+**الوظيفة:** جسر للتنقل بين Blazor و MAUI (بدلاً من `EventCallback`).
+
+**البنية:**
+```csharp
+public static class DashboardNavigationBridge
+{
+    public static Action<string>? Navigate { get; set; }
+    public static Action? OpenMenu { get; set; }
+}
+```
+
+**الاستخدام:**
+- في `DashboardFlowPage.Constructor`: `DashboardNavigationBridge.Navigate = async (path) => { ... }`.
+- في `DashboardPage.razor`: `DashboardNavigationBridge.Navigate?.Invoke("/medication-schedule")`.
 
 ---
 
-## 📌 الجزء العاشر: Roadmap + روابط
+## 🎨 الجزء السادس عشر: الأنماط المعمارية في MAUI
 
-### 10.1 Roadmap المُتبقي
+### 16.1 نمط MVVM
 
-| # | المهمة | الأولوية | الحالة |
-|---|---|---|---|
-| 1 | إكمال Patient Mobile (Token) | 🔴 | 🟡 |
-| 2 | حل مشكلة `POST api/psp/entry` (ربط الدعوة/الإحالة) | 🔴 | ❌ |
-| 3 | `MyInvitationsPage` (سجل الدعوات) | 🟠 | ❌ |
-| 4 | تعديل `GetMyDoctors` (USED فقط) | 🟠 | ❌ |
-| 5 | حذف `programs-temp` | 🟠 | ❌ |
-| 6 | حذف `Unsubscribe` المكرر | 🟠 | ❌ |
-| 7 | ربط `PharmaciesCount` | 🟡 | ❌ |
-| 8 | `PSPStep3_RequiredTests.razor` (UI) | 🟠 | ❌ |
-| 9 | ربط `PROGRAM_COMPLETED` | 🟠 | ⏸️ |
-| 10 | ربط `LAB_TEST_UPLOADED` | 🟠 | ⏸️ |
-| 11 | تحسين `PSPEnrollmentService` → UseCase | 🟡 | ❌ |
-| 12 | ⭐ **إصلاح `Join.razor` لإكمال الاشتراك** | 🔴 | ❌ **جديد** |
-| 13 | ⭐ **إنشاء `WritePrescriptionPage`** | 🔴 | ❌ **جديد** |
-| 14 | ⭐ **إنشاء `DoctorNotesTab`** | 🔴 | ❌ **جديد** |
-| 15 | ⭐ **إنشاء `PatientRequiredDataEntryPage`** | 🔴 | ❌ **جديد** |
-| 16 | ⭐ **تأكيد/إنشاء كيان `PSPPatientDataEntry`** | 🔴 | ❓ **جديد** |
-| 17 | ⭐ **إنشاء `ClinicReferralCard`** (إن لم يكن موجوداً) | 🟠 | ❓ **جديد** |
-| 18 | ⭐ **Endpoint `referral-reports`** | 🟡 | ❓ **جديد** |
+*(كما في الإصدار السابق — لم يتغير.)*
 
-### 10.2 الاعتمادات
+### 16.2 `BaseViewModel`
 
-- `POST api/psp/entry` — مستقل.
-- Patient Mobile — يحتاج Token Flow.
-- `PSPStep3_RequiredTests` — يحتاج Tests System (موجود في API).
-- ⭐ `WritePrescriptionPage` — يحتاج `Prescription` + `PSPeRXItem` (منفّذان).
-- ⭐ `DoctorNotesTab` — يحتاج `DoctorNote` (منفّذ) + Endpoints.
-- ⭐ `PatientRequiredDataEntryPage` — يحتاج `PSPRequiredDataEntry` (منفّذ) + `PSPPatientDataEntry` (غير مؤكد).
+*(كما في الإصدار السابق — لم يتغير.)*
 
-### 10.3 روابط ذات صلة
+---
 
-- [00B - Project Backlog](./00B-PROJECT-BACKLOG.md)
-- [01 - Architecture](./01-ARCHITECTURE.md)
-- [06 - Points](./06-POINTS.md)
-- [07 - Reports](./07-REPORTS.md)
-- [09 - API Guide](./09-API-GUIDE.md)
-- [10 - UI Style Guide](./10-UI-STYLE-GUIDE.md)
-- [13 - MAUI](./13-MAUI.md)
-- [23 - Technical Debt](./23-TECHNICAL_DEBT.md)
+## 🔗 الجزء السابع عشر: Bridges (التواصل بين Blazor و MAUI)
 
-### 10.4 سجل التغييرات
+### 17.1 إنشاء Bridge
+
+**في `Shared.UI/Components/Rep/RepNavigationBridge.cs`:**
+```csharp
+public static class RepNavigationBridge
+{
+    public static Action<int>? OnProgramSelected { get; set; }
+    public static Func<string, string, Task>? ShareToken { get; set; }
+}
+```
+
+### 17.2 تسجيل Bridge في XAML.cs
+```csharp
+RepNavigationBridge.ShareToken = async (token, programName) =>
+{
+    var message = $"🎫 كود الدعوة: {token}";
+    await Share.Default.RequestAsync(new ShareTextRequest
+    {
+        Text = message,
+        Title = $"دعوة لبرنامج {programName}"
+    });
+};
+```
+
+### 17.3 استخدام Bridge في Razor
+```csharp
+private async Task ShareToken()
+{
+    if (RepNavigationBridge.ShareToken != null)
+        await RepNavigationBridge.ShareToken(_token, _programName);
+}
+```
+
+### 17.4 ✅ ربط جميع دوال الـ Bridge في `OnAppearing`
+
+**القاعدة الذهبية:** أي دالة في `PspDetailNavigationBridge` (أو أي Bridge آخر) يجب ربطها من الصفحة المضيفة (`.xaml.cs`) **قبل** استخدامها في المكون. ربط بعض الدوال ونسيان البعض الآخر هو سبب شائع لـ "زر لا يعمل".
+
+**Checklist سريعة:**
+- افتح ملف الـ Bridge (`PspDetailNavigationBridge.cs`).
+- لكل `Action` أو `Func` في الـ Bridge، تأكد من وجود سطر ربط مقابل في `OnAppearing` في الصفحة المضيفة.
+- استخدم `Dispatcher.DispatchAsync` أو `MainThread.BeginInvokeOnMainThread` داخل كل `Action` لتجنب `JavaProxyThrowable`.
+- تأكد من أن المسارات (`medication-schedule`, `pharmacy-search`) مسجلة في `AppShell.xaml.cs`.
+
+### 17.5 (جديد) `DashboardNavigationBridge` — مثال حي
+
+**في `DashboardFlowPage.Constructor`:**
+```csharp
+DashboardNavigationBridge.Navigate = async (path) =>
+{
+    await Dispatcher.DispatchAsync(async () =>
+    {
+        try
+        {
+            var mauiRoute = ConvertToMauiRoute(path);
+            if (mauiRoute != null) await Shell.Current.GoToAsync(mauiRoute);
+        }
+        catch (Exception ex) { Debug.WriteLine($"❌ [Navigate] {ex}"); }
+    });
+};
+```
+
+**في `DashboardPage.razor`:**
+```csharp
+private async Task HandleStatsCardClick(string card)
+{
+    switch (card)
+    {
+        case "schedule": DashboardNavigationBridge.Navigate?.Invoke("/medication-schedule"); break;
+        // ...
+    }
+    await Task.CompletedTask;
+}
+```
+
+### 17.6 (جديد) `ConvertToMauiRoute` — تحويل مسارات PWA إلى MAUI
+
+**في `DashboardFlowPage.xaml.cs` (أو أي صفحة host):**
+```csharp
+private string? ConvertToMauiRoute(string path)
+{
+    if (path.StartsWith("/psp-detail/"))
+    {
+        var parts = path.Trim('/').Split('/');
+        if (parts.Length >= 4)
+            return $"PspDetailFlow?patientId={parts[2]}&participationId={parts[3]}&programId={parts[1]}";
+    }
+    if (path == "/psp-entry") return "PspEntryPage";
+    if (path.StartsWith("/medication-schedule")) return "medication-schedule";
+    if (path == "/doctor-search") return "search-doctor";
+    if (path.StartsWith("/pharmacy-search")) return "pharmacy-search";
+    if (path.StartsWith("/patient/points")) return $"patient-points?userProfileId={_userState.UserProfileId}";
+    
+    // ⭐ medicine-guide: استخراج caseId و programId من path
+    if (path.StartsWith("/medicine-guide"))
+    {
+        var queryIndex = path.IndexOf('?');
+        if (queryIndex >= 0)
+        {
+            var query = path[(queryIndex + 1)..];
+            var queryParams = query.Split('&')
+                .Select(p => p.Split('='))
+                .Where(p => p.Length == 2)
+                .ToDictionary(p => p[0], p => p[1]);
+            
+            var caseId = queryParams.TryGetValue("caseId", out var c) ? c : "0";
+            var programId = queryParams.TryGetValue("programId", out var p) ? p : "0";
+            return $"medicine-guide?caseId={caseId}&programId={programId}";
+        }
+        return "medicine-guide";
+    }
+    
+    if (path == "/psp/about") return "PspAboutFlow";
+    if (path == "/notifications") return "notifications";
+    return null;
+}
+```
+
+**⚠️ تحذير:** `ConvertToMauiRoute` يجب أن يمرر `QueryString` كاملاً (مثل `caseId` + `programId`). **نسيان ذلك يسبب `caseId=0`** (كما حدث في 5 نوفمبر).
+
+### 17.7 📊 الخلاصة
+
+| العنصر | الحالة |
+|---|---|
+| صفحة النقاط | ✅ تعمل (بعد حل `InvalidCastException` بتحويل `userId` إلى `string`) |
+| زر جدول الأدوية | ✅ يعمل (بعد ربط `GoToSchedule` في `DashboardFlowPage`) |
+| زر البحث عن صيدلية | ✅ يعمل (بعد ربط `GoToPharmacySearch` في `DashboardFlowPage`) |
+| `DashboardFlowPage` كصفحة رئيسية | ✅ يعمل (النمط 7 — `CurrentUserProfileState` + `<RootComponent>` في XAML). |
+| `DashboardPage.razor` في MAUI | ✅ يعمل (بعد تعديل `DashboardPage.razor` لاستخدام `CurrentUserProfileState`). |
+
+---
+### 17.8 (جديد) ICommerceNavigationBridge — مثال حي (Commerce)
+
+**الغرض:** فتح صفحة تفاصيل المنتج (`ProductDetailsPage`) من `CommerceRootPage` (الذي يعمل في `BlazorWebView`).
+
+**البنية (Shared.UI):**
+```csharp
+// Shared.UI/Services/ICommerceNavigationBridge.cs
+public interface ICommerceNavigationBridge
+{
+    Task OpenProductDetailsAsync(int medicationId, int companyOrgId);
+}
+البنية (Mobile):
+
+csharp
+// Mobile/Services/CommerceNavigationBridge.cs
+public class CommerceNavigationBridge : ICommerceNavigationBridge
+{
+    public async Task OpenProductDetailsAsync(int medicationId, int companyOrgId)
+    {
+        await MainThread.InvokeOnMainThreadAsync(async () =>
+        {
+            if (Shell.Current != null)
+                await Shell.Current.Navigation.PushAsync(
+                    new CommerceProductDetailsFlow(medicationId, companyOrgId));
+        });
+    }
+}
+```
+التسجيل (MauiProgram.cs):
+
+```csharp
+builder.Services.AddSingleton<ICommerceNavigationBridge, CommerceNavigationBridge>();
+الاستخدام (CommerceRootPage.razor):
+
+razor
+@inject ICommerceNavigationBridge NavigationBridge
+
+private async Task GoToMedicationDetails((int MedicationId, int CompanyOrgId) payload)
+{
+    await NavigationBridge.OpenProductDetailsAsync(payload.MedicationId, payload.CompanyOrgId);
+}
+```
+النتيجة: صفحة تفاصيل المنتج تفتح بشكل صحيح، بدون Reload، مع Shell.NavBar و Breadcrumb.
+
+---
+
+## 🚀 الجزء الثامن عشر: النشر (Publishing)
+
+### 18.1 Android (APK/AAB)
+```bash
+# إنشاء APK
+dotnet publish -f net10.0-android -c Release /p:AndroidPackageFormat=apk
+
+# إنشاء AAB (Google Play)
+dotnet publish -f net10.0-android -c Release /p:AndroidPackageFormat=aab
+```
+
+### 18.2 iOS
+```bash
+# إنشاء IPA
+dotnet publish -f net10.0-ios -c Release
+```
+
+---
+
+## ✅ الجزء التاسع عشر: CHECKLIST
+
+### 19.1 عند إضافة صفحة BlazorWebView جديدة
+
+#### MAUI Layer (صفحة الحاوية)
+
+- هل الصفحة رئيسية (`ShellContent`) أم فرعية (`Routing.RegisterRoute`)؟
+- **إذا رئيسية:**
+  - هل تستخدم `BlazorWebView` + `<RootComponent>` في XAML (النمط 2 أو 7)؟
+  - إذا كانت تحتاج `UserProfileId` → هل تستخدم `CurrentUserProfileState` (النمط 7)؟
+  - هل `SetUserProfile` يُستدعى في `Constructor` (قبل `OnInitializedAsync`)؟
+  - هل `Preferences.Set("user_profile_id", ...)` موجود في `AppShell.InitializeAsync`؟
+- **إذا فرعية:**
+  - هل تستخدم `RootComponents.Add` في `OnAppearing` أو `ApplyQueryAttributes` (النمط 3 أو 8)؟
+  - هل `[QueryProperty]` من نوع `string` (وليس `Nullable<T>`)؟
+  - هل `LoadBlazorComponent` في `OnAppearing` (أو `ApplyQueryAttributes`) وليس `Constructor`؟
+- هل `RootComponents.Add` مع `Parameters` (بما فيها `EventCallback` و `Action`)؟
+- هل `Action<T>` مع `async` ملفوف في `MainThread.BeginInvokeOnMainThread` + `try/catch` (أو `SafeAsyncAction`)؟
+
+#### Blazor Component (المكون)
+
+- هل المكون لا يستخدم `@inject HttpClient` أو `@inject ApiService`؟
+- هل كل خدمة MAUI تُستخدم عبر `[Parameter]` وليس `@inject` (ما عدا الترجمة و `NavigationManager` و `Current...State` Singleton)؟
+- هل `OnInitializedAsync` تُستدعى؟ (تأكد من `Console.WriteLine`).
+- هل المكون يعرض Skeleton/Loading أثناء جلب البيانات؟
+- هل توجد `public methods` للتحديث من الحاوية عند الحاجة (النمط 4/5)؟
+- هل الـ `Parameters` من نوع `Action<T>` (وليس `EventCallback`)؟
+- [ ] هل الصفحة `ShellContent` (رئيسية) أم `Routing.RegisterRoute` (فرعية)؟
+- [ ] إذا كانت `ShellContent`: هل تحتاج `Parameters` ديناميكية؟
+  - [ ] نعم → استخدم `XAML محلي` أو `CurrentUserProfileState (Singleton) + <RootComponent> في XAML`.
+  - [ ] لا → يمكن استخدام `BlazorWebView + <RootComponent> في XAML` (النمط 2).
+- [ ] إذا كانت `Routing.RegisterRoute`:
+  - [ ] هل تحتاج `Parameters`؟ → `RootComponents.Add` (في Constructor أو `ApplyQueryAttributes`).
+  - [ ] هل تحتاج `Shell.NavBar`؟ → `PushAsync` (بدلاً من `PushModalAsync`) + `Shell.NavBarIsVisible="True"`.
+  - [ ] هل تحتاج `Shared.UI` للوصول إلى `Mobile`؟ → استخدم **Bridge Pattern** (`ICommerceNavigationBridge`).
+- [ ] هل `AppShell.xaml.cs` يشير إلى صفحة موجودة؟ (لا تسجّل صفحة قبل إنشائها).
+- [ ] هل `OnBack` هو `EventCallback` (وليس `Action`)، لتجنب `JavaProxyThrowable`؟
+
+### 19.2 عند إضافة صفحة MAUI جديدة
+
+- هل أنشأت مجلداً في `Features/{Domain}/Views/`؟
+- هل أنشأت ViewModel مطابقاً في `Features/{Domain}/ViewModels/`؟
+- هل ورثت من `BaseViewModel`؟
+- هل استخدمت `SafeApiCallAsync` لاستدعاءات API؟
+- هل تعاملت مع حالة عدم الاتصال بالإنترنت؟
+- هل اختبرت على Android و iOS؟
+- هل تعاملت مع UI Thread بشكل صحيح؟
+
+### 19.3 عند التعامل مع الجلسات والكاش
+
+- هل `AppShellViewModel.LoadUserDataAsync()` تُستدعى من `DashboardPage.OnAppearing`؟
+- هل `LogoutAsync` يمسح `_cachedSession` + `SecureStorage` + `Preferences` + يستدعي `api/auth/logout`؟
+- هل `HasClinic`/`HasPharmacy` تستخدمان `Memberships` وليس `Clinics`/`Pharmacies`؟
+
+### 19.4 (جديد) عند استخدام `CurrentUserProfileState`
+
+- هل `CurrentUserProfileState` مسجل في `MauiProgram.cs` كـ `AddSingleton`؟
+- هل `SetUserProfile` يُستدعى في `Constructor` (قبل `OnInitializedAsync`)؟
+- هل `Preferences.Set("user_profile_id", ...)` موجود في `AppShell.InitializeAsync`؟
+- هل `DashboardPage.razor` يستخدم `@inject CurrentUserProfileState UserState`؟
+- هل `OnUserStateChanged` يستدعي `LoadAllDataAsync` (إذا كانت `UserProfileId` موجودة)؟
+
+---
+
+## الجزء 20 — دروس مستفادة (Lessons Learned)
+
+### 20.1 🎯 قاعدة ذهبية: `JavaProxyThrowable` ليس الخطأ — إنه الغلاف
+
+`JavaProxyThrowable` هو غلاف يلف أي Exception يحدث داخل الكود المُدار (C#) عند عبوره إلى بيئة Android. الخطأ الحقيقي موجود في Output Window (Visual Studio) — في السطور التي تسبق `JavaProxyThrowable` مباشرة.
+
+**⚠️ لكن في BlazorWebView:** `Console.WriteLine` في `.razor` يظهر في **Logcat** (تحت وسم `DOTNET`)، وليس في Output Window.
+
+**القاعدة:** قبل أي تخمين، افتح Logcat (وليس Output Window) وابحث عن أول Exception (وليس `JavaProxyThrowable`). هذا هو السبب الحقيقي.
+
+### 20.2 ⚠️ فخ `[QueryProperty]` — التحويل يجب أن يكون من الطرفين
+
+*(كما في الإصدار السابق — لم يتغير.)*
+
+### 20.3 ⚠️ `GoToAsync` — يجب أن يكون داخل `Dispatcher.DispatchAsync`
+
+*(كما في الإصدار السابق — لم يتغير.)*
+
+### 20.4 ⚠️ Bridge — يجب ربط كل الدوال في `OnAppearing` (وليس بعضها)
+
+*(كما في الإصدار السابق — لم يتغير.)*
+
+### 20.5 📋 Checklist "زر لا يعمل في MAUI"
+
+*(كما في الإصدار السابق — لم يتغير.)*
+
+### 20.6 🆕 جدول: الفرق بين "زر لا يعمل" و "زر لا يفتح"
+
+*(كما في الإصدار السابق — لم يتغير.)*
+
+### 20.7 ✅ Checklist "قبل تشغيل التطبيق" (لأي صفحة MAUI جديدة)
+
+*(كما في الإصدار السابق — لم يتغير.)*
+
+### 20.8 ⚠️ `patientId=0` — CaseID مفقود في DispensationScheduleDto
+
+*(كما في الإصدار السابق — لم يتغير.)*
+
+### 20.9 ⚠️ `PspDetailFlow` — تحويل PatientIdRaw (string) + OnAppearing
+
+*(كما في الإصدار السابق — لم يتغير.)*
+
+### 20.10 ⚠️ `MedicationScheduleFlow` — ربط OnNavigateToPsp مع Dispatcher + CaseID
+
+*(كما في الإصدار السابق — لم يتغير.)*
+
+### 20.11 ⚠️ `PatientPointsFlow` (MAUI) — Wrapper + PspDetailNavigationBridge
+
+*(كما في الإصدار السابق — لم يتغير. لكن `PatientPointsFlow` الآن يعمل — بعد تمرير `userProfileId` في `ConvertToMauiRoute`.)*
+
+### 20.12 ⚠️ `ScanTokenPage.razor` (القديم) — حذفه واستخدام `PharmacyScanTokenPage`
+
+*(كما في الإصدار السابق — لم يتغير.)*
+
+### 20.13 ⚠️ `PspSchedulePageFlow` — تمرير PatientId
+
+*(كما في الإصدار السابق — لم يتغير.)*
+
+### 20.14 🆕 ⚠️ `CurrentUserProfileState` (Singleton) — نسختان (MAUI + BlazorWebView) — **لكن يعمل في `DashboardFlowPage`**
+
+**المشكلة (في المحاولات السابقة):** `CurrentUserProfileState` مسجل في `MauiProgram.cs` كـ `AddSingleton`. `DashboardPage.xaml.cs` (MAUI) يحقن نسخة من حاوية MAUI، بينما `DashboardPage.razor` (BlazorWebView) يحقن نسخة من حاوية Blazor. `SetUserProfile(15, ...)` في MAUI لا يؤثر على `DashboardPage.razor`.
+
+**الحل (الناجح — 4-5 نوفمبر 2026):** `DashboardFlowPage.xaml` — `<RootComponent>` في XAML (بدون `Parameters`). `DashboardFlowPage.xaml.cs` — `SetUserProfile` في `Constructor` (من `Preferences`). **`BlazorWebView` في `DashboardFlowPage` يحقن `CurrentUserProfileState` من حاوية MAUI** (لأن `RootComponent` في XAML — وليس `RootComponents.Add`). **لذا، `SetUserProfile` في MAUI يعدل نفس النسخة التي يقرأها `DashboardPage.razor`.**
+
+**⚠️ القاعدة:** `CurrentUserProfileState` (Singleton) **يعمل فقط** إذا كان `RootComponent` في XAML (وليس `RootComponents.Add`). **مع `RootComponents.Add`، نسختان.**
+
+### 20.15 🆕 ⚠️ `OnAfterRender` في `DashboardPage.razor` لا يُستدعى عندما لا يُحمَّل المكون
+
+**المشكلة:** `OnAfterRender(firstRender)` (الذي يستدعي `OnComponentReady`) **لم يُستدعى** في Logcat — لأن `DashboardPage.razor` لم يكمل دورة حياته (بسبب `RootComponents.Add` بعد بدء `BlazorWebView`).
+
+**الإجراء الوقائي:**
+- **للصفحات الفرعية:** `OnAfterRender` يعمل (لأن `RootComponents.Add` يبدأ المكون قبل `OnAfterRender`).
+- **للصفحات الرئيسية:** لا تعتمد على `OnAfterRender` (المكون قد لا يكتمل تحميله).
+
+**المرجع:** `13-MAUI` § 6.5.
+
+### 20.16 🆕 ⚠️ `Console.WriteLine` في `BlazorWebView` يظهر في Logcat (وليس Output Window)
+
+**المشكلة:** `Console.WriteLine` في `DashboardPage.razor` (BlazorWebView) ظهر في **Logcat** (تحت وسم `DOTNET`)، وليس في **Output Window** (Visual Studio). هذا جعل التشخيص صعباً.
+
+**الإجراء الوقائي:**
+- **لتصحيح `BlazorWebView`:** استخدم **Logcat** (Visual Studio: `Tools → Android → Device Log`، أو `adb logcat | findstr "DOTNET"`).
+- **`Debug.WriteLine`** في BlazorWebView **قد لا يظهر** (لأنه لا يمر عبر `Debug` في MAUI). استخدم `Console.WriteLine`.
+
+### 20.17 🆕 ⚠️ `Route` في `ShellContent` — تحقق من الاسم بدقة
+
+**المشكلة (5 نوفمبر 2026):** `GoToAsync("//DashboardFlowPage")` — لكن `Route="DashboardFlow"` (وليس `DashboardFlowPage`). **`Shell` لا يعرف مساراً باسم `DashboardFlowPage`.** النتيجة: `unable to figure out route for: //DashboardFlowPage`.
+
+**الإجراء الوقائي:**
+- تحقق من اسم `Route` في `AppShell.xaml` قبل استخدام `GoToAsync("//...")`.
+- استخدم `nameof(Page)` إذا كان `Route` = `nameof(Page)`.
+
+---
+
+## 🔗 الجزء الحادي والعشرون: روابط ذات صلة
+
+- [00 — MASTER-INDEX](./00-MASTER-INDEX.md)
+- [00B — PROJECT-BACKLOG](./00B-PROJECT-BACKLOG.md)
+- [01 — ARCHITECTURE](./01-ARCHITECTURE.md)
+- [04 — TRANSLATION](./04-TRANSLATION.md)
+- [10 — UI-STYLE-GUIDE](./10-UI-STYLE-GUIDE.md)
+- [11 — PAGE-CREATION](./11-PAGE-CREATION.md)
+- [12 — CACHING](./12-CACHING.md)
+- [14 — PWA](./14-PWA.md)
+- [16 — TROUBLESHOOTING](./16-TROUBLESHOOTING.md)
+
+---
+## 📝 الجزء الثاني والعشرون: سجل التغييرات
 
 | الإصدار | التاريخ | التغييرات |
 |---|---|---|
-| 1.0 | 18 يوليو 2026 | الإصدار الأولي — `07-psp-system.md` |
-| 1.0 | أكتوبر 2026 | الإصدار الأولي — `USERS STEP FLOW` |
-| 2.0 | 17 أكتوبر 2026 | `05-PSP v2.0` — دمج 07 + User Flow + Tests System + Phase System + Points Integration |
-| **2.1** | **24 نوفمبر 2026** | **توحيد `CaseID` (حذف `PatientProfileID` كاسم حقل)؛ إضافة `ClinicProgramReferral`, `PSPeRXItem`, `Prescription`, `PrescriptionItem` إلى §0.2 و§1.1؛ تصحيح `RequiredTiming` إلى 5 قيم (بما فيها `OnEvent`)؛ تصحيح `PspController` إلى 60 endpoint؛ تصحيح Test Status إلى 4 حالات؛ إضافة R6/R7؛ إضافة §4.2 خطوة 13 و§4.4 خطوة 13؛ إضافة فجوات معروفة في §v2؛ إضافة مكونات UI جديدة في §7.1 مع حالتها؛ إضافة مشاكل 8–12 في §9.2؛ إضافة مهام 12–18 في §10.1؛ إضافة Troubleshooting لـ QR وDoctorNote؛ إصلاح عناوين مقطوعة (`2.3.1`, `3.9`, `7.1`)؛ إكمال جداول مقطوعة.** |
-
+| 1.0 | 24 مايو 2026 | الإصدار الأولي — `10-maui-development-guide.md` |
+| 1.0 | 8 يوليو 2026 | الإصدار الأولي — `11-blazor-webview-guide.md` v1.0 |
+| 2.0 | 8 أكتوبر 2026 | `[QueryProperty]` + Nullable + `Action<T>` + async + قصة نجاح `PointsDashboardPage` |
+| 3.0 | 10 أكتوبر 2026 | `SafeAsyncAction` Helper + جدول مقارنة `[QueryProperty]` vs `IQueryAttributable` |
+| 2.0 | 17 أكتوبر 2026 | 13-MAUI v2.0 — دمج 10 + 11 + قاعدة تسجيل الصفحات + Bridges + إشارات |
+| 3.1 | 23 أكتوبر 2026 | الجزء 20 — إضافة 7 أقسام (20.1 → 20.7): `JavaProxyThrowable` + `[QueryProperty]` من الطرفين + `Dispatcher.DispatchAsync` + ربط Bridge الشامل + Checklist "زر لا يعمل" + جدول "زر لا يعمل vs زر لا يفتح" + Checklist "قبل التشغيل" |
+| 3.2 | 25 أكتوبر 2026 | الجزء 20 — إضافة 6 أقسام (20.8 → 20.13): `patientId=0` (CaseID مفقود) + `PspDetailFlow` (QueryProperty + OnAppearing) + `MedicationScheduleFlow` (Dispatcher + CaseID) + `PatientPointsFlow` (Wrapper + Bridge بدلاً من EventCallback) + `ScanTokenPage` (حذف + استخدام PharmacyScanTokenPage) + `PspSchedulePageFlow` (تمرير PatientId) |
+| **4.0** | **5 نوفمبر 2026** | **إعادة كتابة شاملة (Proven Patterns Edition). إضافة الجزء الأول (النمط الناجح — 5 أنماط ناجحة + 4 أنماط فاشلة + جدول القرار السريع). إعادة تنظيم § 6 (الأنماط الخمسة الفعلية) + § 6.6 (النمط 6: `CurrentUserProfileState` + `<RootComponent>` في XAML + النمط 7: `RootComponents.Add` في `ApplyQueryAttributes`). تحديث § 10 (`CustomBlazorWebView` — للصفحات الفرعية فقط). تحديث § 11 (تشخيص الصفحة الفارغة — 7 خطوات). تحديث § 12 (Route — تحقق من الاسم). تحديث § 13ب (قصة نجاح `DashboardFlowPage`). تحديث § 17 (Bridges — `ConvertToMauiRoute` + `DashboardNavigationBridge`). تحديث § 19 (Checklist — إضافة 19.4). إضافة § 20.14-20.17 (4 دروس جديدة).** |
+| **5.0** | **28 نوفمبر 2026** | **إعادة صياغة شاملة للجزء السادس (MAUI + BlazorWebView — Golden Pattern). الهدف: إبراز النمط الذهبي ومنع "الصفحة البيضاء" من الأساس. التغييرات الرئيسية: (1) إضافة § 6.0 (لماذا هذا القسم موجود — شرح المشكلة والتكلفة). (2) إضافة § 6.1 (القاعدة الذهبية — 4 نقاط تحل 90% من المشاكل). (3) إضافة § 6.2 (خريطة القرار — Decision Map — شجرة قرار لاختيار النمط المناسب). (4) إعادة تنظيم § 6.3 (النمط الذهبي — Pattern #3: `IQueryAttributable` + `RootComponents.Add`) بمثال كامل Do. (5) إضافة § 6.4 (Anti-Pattern — 3 أخطاء شائعة + جدول "لماذا يفشل كل منها"). (6) نقل الأنماط 1, 2, 4, 5 إلى § 6.5 (كمرجع — مع تحذير "لا تستخدمها إلا في حالات محددة"). (7) إضافة § 6.6 (Checklist — 10 نقاط قبل كتابة أي صفحة جديدة). (8) إضافة § 6.7 (Troubleshooting — 7 أسباب للصفحة البيضاء + ترتيب الاحتمالية). (9) إضافة § 6.8 (جدول مرجعي سريع — Quick Reference Table — 7 أنماط × 3 أعمدة). (10) إضافة § 6.9 (أمثلة مرجعية — 6 صفحات نموذجية).** |
 ---
 
-© 2026 RubikCare — للاستخدام الداخلي
+**© 2026 RubikCare — للاستخدام الداخلي**
 
-**نهاية الوثيقة** ✅
-```
-
----
+**نهاية الوثيقة ✅**
