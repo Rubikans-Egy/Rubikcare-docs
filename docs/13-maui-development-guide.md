@@ -1,7 +1,7 @@
 
 # 13 — MAUI (تطوير MAUI + BlazorWebView)
 
-**الإصدار:** 4.0 (Proven Patterns Edition)
+**الإصدار:** 5.0 (Proven Patterns Edition)
 **آخر تحديث:** 28 نوفمبر 2026
 **الحالة:** ✅ محدّث بالأنماط الناجحة (بعد جلسة 28 نوفمبر)
 **الجمهور:** فريق التطوير + AI Assistants
